@@ -258,8 +258,9 @@ module.exports = function Weaver (
         let processed = await Promise.all(args.map(argProcessor) );
         tracker('ready to run directive', tracking, name, processed);
         scope.weaver = weaver;
-        await dire.apply(scope, processed);
-        tracker('directive done', tracking, name, processed);
+        let ret = await dire.apply(scope, processed);
+        tracker('directive done', tracking, name, processed, ret);
+        return ret;
     };
     weaver.addPieces = async function processWeb (web) {
         const names = Object.keys(web);
