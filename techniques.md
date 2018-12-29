@@ -46,12 +46,3 @@ in a loop or something
 
 Need some collecting code for promises here. 
 
-
-## Stamps
-
-[Stamps](https://stampit.js.org) are object construction factories which allow
-for easy composition to make a variety of factories from tiny stamp
-functionalities. 
-
-We use them in the construction of the pieces. Each 
-

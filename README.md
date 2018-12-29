@@ -43,28 +43,51 @@ Each piece consists of:
   proper way is to take that value and then do something else to it in a
   different piece. 
 
-These pieces are created with stamps, allowing for easy swapping in and out of
-functionality. In particular, we can have a debug feature that will can track
-all the commands' intermediate values, etc. The intermediate values for
-debugging can be a `debugPieces` which has the value at each intermediate
-stage. Each command should always return a distinct object, that is, they are
-functional in nature. 
-
 ## Using Core
 
-The core loading process gives a stamp (factory) that produces an object that
-will hold the data, under `names`. Each entry in names is a promise that, when
-fulfilled, leads to an immutable piece (the value property should be created
-by `defineProperty` to ensure it is not writeable). There is also an `errors` object which
-contains the names of any pieces that errored out in its construction. We also
-have a `wait`ing object with the names of pieces that have neither resolved nor
-rejected. Each time a name is added to names, there is a task attached to the
-promise to remove the name after it is done (finally). 
+The core object expects a JSON object consisting of pieces and directives.
+Pieces get processed in a functionally pure way (at least that is the intent),
+being a sequence of input and output functions with no side effects. Each
+piece is labeled with its full name and must have a pieces an array, even if
+just empty. The value attribute should not be defined but will get defined, in
+general. Other information, such as the raw text, position, file, tags,
+narrative flows, whatever, can be added, but is generally ignored by most
+commands. 
 
-In addition to the data we have a collection of stamps that live under a scope
-arrangement. Each name is matched against the scopes and the first (longest)
-match is used to provide the stamp. We start with a base stamp under the `''`
-key, and then create new ones based on any needs. These are generally dealt
-with in directives and with parsing. 
+The commands and their arguments should have no side effects and the only
+external information available should be from `getting` other value pieces. It
+can produce any kind of output, but that is all it should do. Values are
+definitely immutable. 
+
+If the pieces consist of just one entry and it is not a string after command
+execution, then that thing is what is the value. Otherwise, we convert
+everything to strings and join them. 
+
+Arguments are either strings or commands, maybe simple commands that convert a
+string into a number, say.  Whatever the argument's command sequence create
+will be what is passed in. 
+
+Directives are the stuff that has side effects. They come in as an array and
+are computed in order. The parser is responsible for filling in any
+file-context needs (shortname references in a file, for example). It should be
+the case that their actual placement or ordering is of no consequence.
+
+Everything is presumed to be asynchronous. Directives can create new pieces,
+storing information, etc. 
+
+
+## Parsers
+
+The hope is to disentangle the dependency on the parsers. We should be able
+to feed in a large number of different formats and sources and it all swirls
+into one harmonious whole. There is a basic parser that ships with this, doing
+the markdown parsing that the literate-programming I wrote before did. It is
+mostly backwards compatible, but some differences will no doubt be present. In
+particular, having headings that allow for piping of the contents into
+commands could be nice to have. 
+
+
+
+
 
 

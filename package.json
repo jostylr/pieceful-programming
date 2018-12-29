@@ -1,0 +1,27 @@
+{
+  "name": "pieceful-programming",
+  "version": "1.0.0",
+  "description": "A web of programming pieces woven together",
+  "main": "index.js",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "eslint": "^5.11.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jostylr/pieceful-programming.git"
+  },
+  "keywords": [
+    "literate-programming"
+  ],
+  "author": "James Taylor",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jostylr/pieceful-programming/issues"
+  },
+  "homepage": "https://github.com/jostylr/pieceful-programming#readme"
+}
