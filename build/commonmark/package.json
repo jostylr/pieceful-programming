@@ -1,0 +1,15 @@
+{
+  "name": "pieceful-commonmark",
+  "version": "1.0.0",
+  "description": "commonmark processing",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "commonmark": "^0.28.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "James Taylor",
+  "license": "ISC"
+}
