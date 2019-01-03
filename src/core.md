@@ -128,7 +128,7 @@ the promise and that allows for some error tracking here.
             _":promise the pieces"
             _":transform the value"
             prr.resolve(node.value);
-            tracker('node ' + name + ' value is computed', node.value);
+            tracker('node ' + name + ' value is computed', {name, value: node.value});
             return node.value;
         });
 
@@ -143,6 +143,7 @@ see what pieces became what.
             ret[name] = vals[idx];
         });
 
+        tracker('a web of nodes is done', {web});
         return ret;
 
     }
@@ -157,7 +158,9 @@ check if it already exists. If so, we use it. If not, we set it up.
 
     let prr;
     if (wvWeb.hasOwnProperty(name) ) {
-        tracker("node in web already exists", name, node, wvWeb[name]);
+        tracker("node in web already exists", {
+            name, newNode : node , existingNode : wvWeb[name]
+        });
         throw new Error("redundant node name " + name);
     } else {
         wvWeb[name] = node;
@@ -165,6 +168,7 @@ check if it already exists. If so, we use it. If not, we set it up.
         if (!prr) {
             prr = prWeb[name] = makePromise();
         }
+        tracker("storing node", {name, node, prr});
     }
 
 
@@ -176,7 +180,10 @@ Here we setup and execute the promising of the pieces.
         let pieceProms = node.pieces.map( 
             async function singlePieceProcess (piece, idx) {
                 if (Array.isArray(piece) ) { //commands are given as arrays
-                    let scope = makeScope('creating piece ' + idx + ' of node ' + name);
+                    let scope = makeScope({
+                        tracking : 'creating piece ' + idx + ' of node ' + name, 
+                        context : web[name]}
+                    );
                     return await runCommand.call(scope, 'pipe', piece);
                 } else {
                     return piece;
@@ -196,7 +203,10 @@ pipe and given the array of vals.
 
     if (node.transform) {
         let com = [['array', vals], ...(node.transform) ];
-        let scope = makeScope('transforming value of ' + name);
+        let scope = makeScope({
+            tracking : 'transforming value of ' + name,
+            context : web[name]}
+        );
         node.value = await runCommand.call(scope, 'pipe', com);
     } else {
 
@@ -229,17 +239,22 @@ able to see the weaver. This is intentional. Commands are intended to be pure
 functions while directives are the messy state-messing procedures. 
 
 
-    async function runDirective (name, args, tracking = '') {
-        tracker('directive called', tracking, name, args);
+    async function runDirective (name, data) {
+        let {
+            tracking=`directive ${name} from ${data.scope.fullname}`,
+            args = [],
+            target = '',
+            src = ''
+        } = data;
+        tracker('directive queued', {tracking, name});
         _"wait for function | sub VNAME, dire, TYPE, directives"
-        let scope = makeScope(tracking);
+        let scope = makeScope({tracking, context : data});
         let argProcessor = makeArgProcessor(scope);
-        tracker('process directive arguments', tracking, name, args);
+        tracker('processing directive arguments', {tracking, name, args, scope});
         let processed = await Promise.all(args.map(argProcessor) );
-        tracker('ready to run directive', tracking, name, processed);
-        scope.weaver = weaver;
-        let ret = await dire.apply(scope, processed);
-        tracker('directive done', tracking, name, processed, ret);
+        tracker('run directive', {tracking, name, processed, scope});
+        let ret = await dire.call({weaver, scope}, {src, target, args:processed});
+        tracker('directive done', {tracking, name, result:ret});
         return ret;
     }
 
@@ -255,8 +270,7 @@ This is a generic bit of code that works for both the directives and commands.
         if (!prr) {
             prr = makePromise();
             weaver.p.TYPE[name] = prr;
-        }
-        VNAME = await prr.prom;
+        } VNAME = await prr.prom;
     }
 
 
@@ -294,9 +308,9 @@ instead do it sequentially. Get will get a value from another piece.
 
     async function runCommand (name, args) {
         let scope = this;
-        let tracking = scope.tracking || '';
+        let {tracking = ''} = scope;
         let ret;
-        tracker('command called', tracking, name, args, scope);
+        tracker('command called', {tracking, name});
         if (name === 'pipe') {
             _":pipe"
         } else if (name === 'get') {
@@ -305,13 +319,13 @@ instead do it sequentially. Get will get a value from another piece.
             _":compose"
         } else {
             _"wait for function | sub VNAME, comm, TYPE, commands"
-            tracker('process command arguments', tracking, name, args, scope);
+            tracker('process command arguments', {tracking, name, args, scope});
             let argProcessor = makeArgProcessor(scope);
             let processed = await Promise.all(args.map(argProcessor) );
-            tracker('ready to run command', tracking, name, processed, scope);
+            tracker('ready to run command', {tracking, name, args:processed, scope});
             ret = await comm.apply(scope, processed); 
         }
-        tracker('command finished', tracking, name, ret, args, scope);
+        tracker('command finished', {tracking, name, ret, scope});
         return ret;
     }
 
@@ -320,9 +334,11 @@ instead do it sequentially. Get will get a value from another piece.
 
 The arguments should all be commands and pipe one to another. The first
 argument is what gets the input unless the input is undefined. Thus, there is
-no input into the first command. 
+no input into the first command. For the standard underscore setup, the first
+bit before the pipe is transformed into a get and that is what the pipe sees. 
 
     let input;
+    tracker('pipe started', {tracking, args, scope});
     for (let i = 0; i < args.length; i += 1) {
         let actualArgs = args[i].slice(1);
         let nextName = args[i][0];
@@ -357,8 +373,15 @@ If the input is undefined from a function (also initial), then we use the
 given arguments. Generally, this is the first one. This is ignored if any
 argument has the special syntax above. 
 
+    tracker('composing', {tracking, args, scope});
     let funs = args.slice(0);
     ret = async function composed (...newArgs) {
+
+ If inline, same scope, but if not, this uses scope of caller
+
+        let scope = this;
+        tracker('composed command called', {tracking, functions: funs, args:newArgs, scope});
+
         let input;
         for (let i = 0; i < funs.length; i += 1) {
             let actualArgs = funs[i].slice(1);
@@ -490,7 +513,7 @@ zip up the two arrays into an object.
 [get promise for piece]()
 
     if (typeof nodeName !== 'string') {
-        tracker('get command provided with non-name', scope.tracking, nodeName);
+        tracker('command get called without name', {tracking : scope.tracking, name : nodeName});
         return;
     }
     let prr = weaver.p.web[nodeName];
@@ -536,6 +559,7 @@ We assign the directive whether it is new or not. We store the original
 function's string because binding will create an unhelpful string of native
 code. 
 
+            tracker('adding new directive', {name});
             let f = weDirectives[name] = dire;
 
 We then resolve the promise that waits for the directive definition, if any.
@@ -568,10 +592,13 @@ requests to an object predates even the notion of its existence.
 
 This is a trivial function that makes a scope object. 
 
-It contains a tracking statement by default.
+It contains a tracking statement and a context object that is either a webNode
+or a directive data bit.
 
-    function (tracking='') {
-        return {tracking};
+    function (obj = {}) {
+        obj.tracking = obj.tracking || '';
+        obj.context = obj.context || {};
+        return obj;
     }
 
 ## Sample
@@ -600,18 +627,16 @@ This is a sample bare minimum program to show this works.
             }
         }
     );
-    weaver.runDirective('out', ['awesome', ['get', 'start'], 
+    weaver.runDirective('out', { args: ['awesome', ['get', 'start'], 
         ['pipe', ['get', 'nxt'], ['flip', 'y'] ]
-    ], 'out test');
+    ], scope: {fullname: 'here'}}, 'out test');
     weaver.addDirectives({
-        out : async function (name, text, again) {
+        out : async function (data) {
+            let [name, text, again] = data.args;
+            let {context} = this;
             console.log(`${name}: ${text} -- ${again}`);
             return 'done';
         }
     });
 
 [sample/weaver.js](# "save:")
-
-
-
-

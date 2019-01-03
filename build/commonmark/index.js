@@ -1,5 +1,36 @@
 let commonmark = require('commonmark');
-
+let commonParsingDirectives = {
+    eval : function ({webNode}) {
+        let originalCode = webNode.code; //eslint-disable-line no-unused-vars
+        let code = webNode.code.reduce( (acc, next) => {
+            return acc + next[0];
+        }, '');
+        webNode.code = [];
+        tracker("local directive evaling code", {webNode, code});
+        eval(code);
+    },
+    scope : function ({target, scope}) {
+        let ind = target.indexOf('=');
+        if (ind === -1) {
+            delete scope[target.trim()];
+        } else {
+            let vname = target.slice(0,ind).trim();
+            let val = target.slice(ind+1);
+            scope[vname] = val;
+        }
+    },
+    report : function ({label:taget, scope, webNode}) {
+        tracker("commonmark parsing directive report", {label, scope,
+            webNode}); 
+    },
+    prefix : function ({target, scope}) {
+        if (target) {
+            prefix = scope.prefix = target;
+        } else {
+            prefix = scope.prefix = originalPrefix;
+        }
+    }
+};
 
 module.exports = function cmparse (text, {
     prefix = '',
@@ -35,38 +66,7 @@ module.exports = function cmparse (text, {
     let webNode, sourcepos;
 
     let event;
-    let commonParsingDirectives = {
-        eval : function () {
-            let originalCode = webNode.code; //eslint-disable-line no-unused-vars
-            let code = webNode.code.reduce( (acc, next) => {
-                return acc + next[0];
-            }, '');
-            webNode.code = [];
-            tracker("local directive evaling code", {webNode, code});
-            eval(code);
-        },
-        scope : function (target) {
-            let ind = target.indexOf('=');
-            if (ind === -1) {
-                delete scope[target.trim()];
-            } else {
-                let vname = target.slice(0,ind).trim();
-                let val = target.slice(ind+1);
-                scope[vname] = val;
-            }
-        },
-        report : function (label) {
-            tracker("commonmark parsing directive report", {label, scope,
-                webNode}); 
-        },
-        prefix : function (target) {
-            if (target) {
-                prefix = scope.prefix = target;
-            } else {
-                prefix = scope.prefix = originalPrefix;
-            }
-        }
-    };
+
     parsingDirectives = Object.assign({}, commonParsingDirectives,
         parsingDirectives);
 
@@ -219,10 +219,10 @@ module.exports = function cmparse (text, {
                         toLowerCase();
                     let args = title;
                     let target = ltext;
-                    tracker("calling parse directive", {directive, args, target, scope,
-                        webNode});
-                    parsingDirectives[directive](target, args);
-                    tracker("done with parse directive", {directive, scope, webNode});
+                    let data = {args, target, scope, context:webNode};
+                    tracker("calling parse directive", {directive, data});
+                    parsingDirectives[directive](data );
+                    tracker("done with parse directive", {directive, scope, context : webNode});
                 } else if ( (ind = title.indexOf(":")) !== -1) { //compile directive
                     let data = {
                         directive : title.slice(0, ind).

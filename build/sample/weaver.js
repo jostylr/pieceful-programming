@@ -20,11 +20,13 @@ weaver.addCommands({
         }
     }
 );
-weaver.runDirective('out', ['awesome', ['get', 'start'], 
+weaver.runDirective('out', { args: ['awesome', ['get', 'start'], 
     ['pipe', ['get', 'nxt'], ['flip', 'y'] ]
-], 'out test');
+], scope: {fullname: 'here'}}, 'out test');
 weaver.addDirectives({
-    out : async function (name, text, again) {
+    out : async function (data) {
+        let [name, text, again] = data.args;
+        let {context} = this;
         console.log(`${name}: ${text} -- ${again}`);
         return 'done';
     }

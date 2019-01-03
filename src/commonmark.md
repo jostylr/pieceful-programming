@@ -17,6 +17,10 @@ major field associated with them if they are not independent blocks.
 
     let commonmark = require('commonmark');
 
+The parsing directives get passed in the scope and current webNode as well as
+the link text and title text. They cannot see or affect anything else.
+
+    let commonParsingDirectives = _"common parsing directives";
 
     module.exports = function cmparse (text, {
         prefix = '',
@@ -26,6 +30,9 @@ major field associated with them if they are not independent blocks.
     {
         tracker('commonmark parsing about to begin', {prefix, text});
         
+        parsingDirectives = Object.assign({}, commonParsingDirectives,
+            parsingDirectives);
+
         const originalPrefix = prefix;
         let scope = { prefix, origin};
 
@@ -45,12 +52,8 @@ The current state
 
         let event;
 
-The common parsing directives are for local access to the parsing state. Hence
-it is placed here. 
+        let localContext = {tracker, lineNumbering, web, parsingDirectives, event, directives};
 
-        let commonParsingDirectives = _"common parsing directives";
-        parsingDirectives = Object.assign({}, commonParsingDirectives,
-            parsingDirectives);
 
         let reader = new commonmark.Parser();
         let parsed = reader.parse(text);
@@ -427,17 +430,19 @@ The store command uses the prefix
 These are directives identified by the href having an `!` as the first
 character. Seems harmless and we don't need a ref because these are always
 syncronous, mainly modifying either the current webnode or scope 
-objects. 
+objects. They can do more by tapping in to the localContext but hopefully that
+is kept to a minimum. 
 
     let directive = href.slice(1).
         trim().
         toLowerCase();
     let args = title;
     let target = ltext;
-    tracker("calling parse directive", {directive, args, target, scope,
-        webNode});
-    parsingDirectives[directive](target, args);
-    tracker("done with parse directive", {directive, scope, webNode});
+    let data = {args, target, scope, context:webNode};
+    tracker("calling parse directive", {directive, data});
+    parsingDirectives[directive].call(localContext, data);
+    tracker("done with parse directive", {directive, scope, context : webNode});
+
 
 [compile directive]()
 
@@ -485,7 +490,9 @@ into elsewhere.
 This is a simple eval execution. No async. It grabs the code from the current
 node and that's it. It then removes the code from the node from the web being generated. 
 
-    function () {
+    function (data) {
+        let webNode = data.webNode;
+        let localContext = this;
         let originalCode = webNode.code; //eslint-disable-line no-unused-vars
         let code = webNode.code.reduce( (acc, next) => {
             return acc + next[0];
@@ -499,7 +506,7 @@ node and that's it. It then removes the code from the node from the web being ge
 
 This sets a local variable of the scope. 
 
-    function (target) {
+    function ({target, scope}) {
         let ind = target.indexOf('=');
         if (ind === -1) {
             delete scope[target.trim()];
@@ -528,7 +535,7 @@ This sets (or unsets) the prefix. It makes the most sense to do this just
 before a new header. Minors will not use a new prefix until a new header, but
 their scope will report it if done before. 
 
-    function (target) {
+    function ({target, scope}) {
         if (target) {
             prefix = scope.prefix = target;
         } else {
@@ -541,7 +548,7 @@ their scope will report it if done before.
 
 This reports current state of parsing. 
 
-    function (label) {
+    function ({label:taget, scope, webNode}) {
         tracker("commonmark parsing directive report", {label, scope,
             webNode}); 
     }

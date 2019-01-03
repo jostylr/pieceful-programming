@@ -47,11 +47,12 @@ module.exports = function Weaver (
     };
     const runCommand = async function runCommand (name, args) {
         let scope = this;
-        let tracking = scope.tracking || '';
+        let {tracking = ''} = scope;
         let ret;
-        tracker('command called', tracking, name, args, scope);
+        tracker('command called', {tracking, name});
         if (name === 'pipe') {
             let input;
+            tracker('pipe started', {tracking, args, scope});
             for (let i = 0; i < args.length; i += 1) {
                 let actualArgs = args[i].slice(1);
                 let nextName = args[i][0];
@@ -68,7 +69,7 @@ module.exports = function Weaver (
                 if (Array.isArray(arg)) {
                     arg.forEach( (nodeName) => {
                         if (typeof nodeName !== 'string') {
-                            tracker('get command provided with non-name', scope.tracking, nodeName);
+                            tracker('command get called without name', {tracking : scope.tracking, name : nodeName});
                             return;
                         }
                         let prr = weaver.p.web[nodeName];
@@ -82,7 +83,7 @@ module.exports = function Weaver (
                 } else {
                     const nodeName = arg;
                     if (typeof nodeName !== 'string') {
-                        tracker('get command provided with non-name', scope.tracking, nodeName);
+                        tracker('command get called without name', {tracking : scope.tracking, name : nodeName});
                         return;
                     }
                     let prr = weaver.p.web[nodeName];
@@ -109,8 +110,12 @@ module.exports = function Weaver (
                 }
             }
         } else if (name === 'compose') {
+            tracker('composing', {tracking, args, scope});
             let funs = args.slice(0);
             ret = async function composed (...newArgs) {
+                let scope = this;
+                tracker('composed command called', {tracking, functions: funs, args:newArgs, scope});
+            
                 let input;
                 for (let i = 0; i < funs.length; i += 1) {
                     let actualArgs = funs[i].slice(1);
@@ -185,17 +190,19 @@ module.exports = function Weaver (
                 }
                 comm = await prr.prom;
             }
-            tracker('process command arguments', tracking, name, args, scope);
+            tracker('process command arguments', {tracking, name, args, scope});
             let argProcessor = makeArgProcessor(scope);
             let processed = await Promise.all(args.map(argProcessor) );
-            tracker('ready to run command', tracking, name, processed, scope);
+            tracker('ready to run command', {tracking, name, args:processed, scope});
             ret = await comm.apply(scope, processed); 
         }
-        tracker('command finished', tracking, name, ret, args, scope);
+        tracker('command finished', {tracking, name, ret, scope});
         return ret;
     };
-    const makeScope = function (tracking='') {
-        return {tracking};
+    const makeScope = function (obj = {}) {
+        obj.tracking = obj.tracking || '';
+        obj.context = obj.context || {};
+        return obj;
     };
 
     //external api, probably should make read only
@@ -212,6 +219,7 @@ module.exports = function Weaver (
                 });
                 throw new Error('Reassigning command ' + name );
             }
+            tracker('adding new command', {name});
             let f = weCommands[name] = comm;
             let prom = weWait[name];
             if (prom) {
@@ -233,6 +241,7 @@ module.exports = function Weaver (
                 });
                 throw new Error('Reassigning directive ' + name );
             }
+            tracker('adding new directive', {name});
             let f = weDirectives[name] = dire;
             let prom = weWait[name];
             if (prom) {
@@ -241,8 +250,14 @@ module.exports = function Weaver (
         });
     
     }   ;
-    weaver.runDirective = async function runDirective (name, args, tracking = '') {
-        tracker('directive called', tracking, name, args);
+    weaver.runDirective = async function runDirective (name, data) {
+        let {
+            tracking=`directive ${name} from ${data.scope.fullname}`,
+            args = [],
+            target = '',
+            src = ''
+        } = data;
+        tracker('directive queued', {tracking, name});
         let dire = weaver.v.directives[name]; 
         if (!dire) {
             let prr = weaver.p.directives[name];
@@ -252,14 +267,14 @@ module.exports = function Weaver (
             }
             dire = await prr.prom;
         }
-        let scope = makeScope(tracking);
+        let scope = makeScope({tracking, context : data});
         let argProcessor = makeArgProcessor(scope);
-        tracker('process directive arguments', tracking, name, args);
+        tracker('processing directive arguments', {tracking, name, args, scope});
         let processed = await Promise.all(args.map(argProcessor) );
-        tracker('ready to run directive', tracking, name, processed);
+        tracker('run directive', {tracking, name, processed, scope});
         scope.weaver = weaver;
-        let ret = await dire.apply(scope, processed);
-        tracker('directive done', tracking, name, processed, ret);
+        let ret = await dire.call(scope, {src, target, args:processed});
+        tracker('directive done', {tracking, name, result:ret});
         return ret;
     };
     weaver.addPieces = async function processWeb (web) {
@@ -271,7 +286,9 @@ module.exports = function Weaver (
             let vals; // local to piece values
             let prr;
             if (wvWeb.hasOwnProperty(name) ) {
-                tracker("node in web already exists", name, node, wvWeb[name]);
+                tracker("node in web already exists", {
+                    name, newNode : node , existingNode : wvWeb[name]
+                });
                 throw new Error("redundant node name " + name);
             } else {
                 wvWeb[name] = node;
@@ -279,12 +296,16 @@ module.exports = function Weaver (
                 if (!prr) {
                     prr = prWeb[name] = makePromise();
                 }
+                tracker("storing node", {name, node, prr});
             }
             if (node.pieces) {
                 let pieceProms = node.pieces.map( 
                     async function singlePieceProcess (piece, idx) {
                         if (Array.isArray(piece) ) { //commands are given as arrays
-                            let scope = makeScope('creating piece ' + idx + ' of node ' + name);
+                            let scope = makeScope({
+                                tracking : 'creating piece ' + idx + ' of node ' + name, 
+                                context : web[name]}
+                            );
                             return await runCommand.call(scope, 'pipe', piece);
                         } else {
                             return piece;
@@ -297,7 +318,10 @@ module.exports = function Weaver (
             }
             if (node.transform) {
                 let com = [['array', vals], ...(node.transform) ];
-                let scope = makeScope('transforming value of ' + name);
+                let scope = makeScope({
+                    tracking : 'transforming value of ' + name,
+                    context : web[name]}
+                );
                 node.value = await runCommand.call(scope, 'pipe', com);
             } else {
                 if (vals.length === 1) {
@@ -307,7 +331,7 @@ module.exports = function Weaver (
                 }
             }
             prr.resolve(node.value);
-            tracker('node ' + name + ' value is computed', node.value);
+            tracker('node ' + name + ' value is computed', {name, value: node.value});
             return node.value;
         });
         let vals = await Promise.all(proms);
@@ -316,6 +340,7 @@ module.exports = function Weaver (
             ret[name] = vals[idx];
         });
     
+        tracker('a web of nodes is done', {web});
         return ret;
     
     };
