@@ -33,68 +33,88 @@ module.exports = function Weaver (
     };
     const makeArgProcessor = function makeArgProcessor(state) {
         return async function argProcessor (arg) {
-            if (Array.isArray(arg) ) {
-                let [name, ...args] = arg;
-                if (name === 'array') {
-                    return args[0];
-                } else {
-                    return await runCommand.call(state, name, args);
-                }
+            console.log('AP', arg);
+            if (!arg) {
+                return arg;
+            }
+            if (arg.hasOwnProperty('value') ) {
+                return arg.value;
+            } else if (arg.cmd) {
+                return await runCommand.call(state, arg);
             } else {
                 return arg;
             }
         };
     };
-    const runCommand = async function runCommand (name, args) {
+    const runCommand = async function runCommand (piece = {}) {
         let scope = this;
+        if (piece.hasOwnProperty('value') ) { return piece;}
+        if (!piece.cmd) { 
+            tracker('run command called but no command to execute',
+                {piece,scope});
+            throw new Error('no command to execute: ' + scope.tracking);
+        }
+        let {cmd, args=[]} = piece;
+        if (piece.hasOwnProperty('input') ) { 
+            args.unshift(piece.input);
+        }
         let {tracking = ''} = scope;
         let ret;
-        tracker('command called', {tracking, name});
-        if (name === 'pipe') {
+        tracker('command called', {tracking, cmd, piece});
+        if (cmd === 'pipe') {
             let input;
-            tracker('pipe started', {tracking, args, scope});
-            for (let i = 0; i < args.length; i += 1) {
-                let actualArgs = args[i].slice(1);
-                let nextName = args[i][0];
-                if (typeof input !== 'undefined') {
-                    actualArgs.unshift(input);
+            let pipes = args;
+            tracker('pipe started', {tracking, pipes, scope});
+            let pipeVals = [];
+            for (let i = 0; i < pipes.length; i += 1) {
+                let nxtPiece = pipes[i];
+                if (nxtPiece.value) {
+                    input = nxtPiece;
+                } else if (nxtPiece.cmd) {
+                    if (typeof input !== 'undefined') {
+                        nxtPiece.input = input;
+                    }
+                    console.log('next pipe', nxtPiece);
+                    input = await runCommand.call(scope, nxtPiece);
+                } else {
+                    tracker('failed cmd in pipe', {piece, pipe:nxtPiece, i, scope});
+                    throw new Error('failed cmd in pipe:' + scope.tracking 
+                        + ':pipe ' + i);
                 }
-                input = await runCommand.call(scope, nextName, actualArgs);
             }
-            ret = input;
-        } else if (name === 'get') {
+            ret = input.value;
+        } else if (cmd === 'get') {
             ret = [];
             let names = [];
-            args.forEach( (arg) => {
-                if (Array.isArray(arg)) {
-                    arg.forEach( (nodeName) => {
-                        if (typeof nodeName !== 'string') {
-                            tracker('command get called without name', {tracking : scope.tracking, name : nodeName});
-                            return;
-                        }
-                        let prr = weaver.p.web[nodeName];
-                        if (!prr) {
-                            prr = makePromise();
-                            weaver.p.web[nodeName] = prr;
-                        }
-                        names.push(nodeName);
-                        ret.push(prr.prom);
-                    });
-                } else {
-                    const nodeName = arg;
-                    if (typeof nodeName !== 'string') {
-                        tracker('command get called without name', {tracking : scope.tracking, name : nodeName});
-                        return;
-                    }
-                    let prr = weaver.p.web[nodeName];
-                    if (!prr) {
-                        prr = makePromise();
-                        weaver.p.web[nodeName] = prr;
-                    }
-                    names.push(nodeName);
-                    ret.push(prr.prom);
+            let arg = args[0];
+            if (!arg) {
+                return '';
+            }
+            if (typeof arg !== 'string') {
+                 if (arg.value) {
+                    arg = arg.value;
+                } else if (arg.cmd) {
+                    arg = (await runCommand.call(scope, arg)).value;
+                } 
+                if (typeof arg !== 'string') {
+                    tracker('unrecognized argument for get', arg, piece);
+                    return '';
                 }
-            });
+            }
+            if (arg[0] === '/') {
+                // nothing yet
+            } else {
+                let nodeName = arg;
+                console.log('G1', nodeName);
+                // TODO
+                let prr = weaver.p.web[nodeName];
+                if (!prr) {
+                    prr = makePromise();
+                    weaver.p.web[nodeName] = prr;
+                }
+                names.push(nodeName);
+                ret.push(prr.prom);
+            }
             if (ret.length === 0) {
                 ret = '';
             } else {
@@ -109,7 +129,7 @@ module.exports = function Weaver (
                     ret = obj;
                 }
             }
-        } else if (name === 'compose') {
+        } else if (cmd === 'compose') {
             tracker('composing', {tracking, args, scope});
             let funs = args.slice(0);
             ret = async function composed (...newArgs) {
@@ -181,23 +201,24 @@ module.exports = function Weaver (
                 return input;
             };
         } else {
-            let comm = weaver.v.commands[name]; 
+            let comm = weaver.v.commands[cmd]; 
             if (!comm) {
-                let prr = weaver.p.commands[name];
+                let prr = weaver.p.commands[cmd];
                 if (!prr) {
                     prr = makePromise();
-                    weaver.p.commands[name] = prr;
-                }
-                comm = await prr.prom;
+                    weaver.p.commands[cmd] = prr;
+                } comm = await prr.prom;
             }
-            tracker('process command arguments', {tracking, name, args, scope});
+            tracker('process command arguments', {tracking, cmd, args, scope});
             let argProcessor = makeArgProcessor(scope);
             let processed = await Promise.all(args.map(argProcessor) );
-            tracker('ready to run command', {tracking, name, args:processed, scope});
+            piece.actualArgs = processed;
+            tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
             ret = await comm.apply(scope, processed); 
         }
-        tracker('command finished', {tracking, name, ret, scope});
-        return ret;
+        piece.value = ret;
+        tracker('command finished', {tracking, cmd, ret, scope});
+        return piece;
     };
     const makeScope = function (obj = {}) {
         obj.tracking = obj.tracking || '';
@@ -264,18 +285,19 @@ module.exports = function Weaver (
             if (!prr) {
                 prr = makePromise();
                 weaver.p.directives[name] = prr;
-            }
-            dire = await prr.prom;
+            } dire = await prr.prom;
         }
         let scope = makeScope({tracking, context : data});
         let argProcessor = makeArgProcessor(scope);
         tracker('processing directive arguments', {tracking, name, args, scope});
-        let processed = await Promise.all(args.map(argProcessor) );
-        tracker('run directive', {tracking, name, processed, scope});
-        scope.weaver = weaver;
-        let ret = await dire.call(scope, {src, target, args:processed});
+        await Promise.all(args.map(argProcessor) );
+        let actualArgs = data.actualArgs = args.map( (el) => el.value); 
+        tracker('run directive', {tracking, name, actualArgs, scope});
+        console.log('RD', name, actualArgs, '\nARGS', args);
+        let ret = await dire.call({weaver, scope}, {src, target, args:actualArgs});
+        data.value = ret;
         tracker('directive done', {tracking, name, result:ret});
-        return ret;
+        return data;
     };
     weaver.addPieces = async function processWeb (web) {
         const names = Object.keys(web);
@@ -301,34 +323,37 @@ module.exports = function Weaver (
             if (node.pieces) {
                 let pieceProms = node.pieces.map( 
                     async function singlePieceProcess (piece, idx) {
-                        if (Array.isArray(piece) ) { //commands are given as arrays
+                        if ( (piece.cmd) && !(piece.hasOwnProperty('value') ) ) {
                             let scope = makeScope({
                                 tracking : 'creating piece ' + idx + ' of node ' + name, 
                                 context : web[name]}
                             );
-                            return await runCommand.call(scope, 'pipe', piece);
-                        } else {
-                            return piece;
+                            await runCommand.call(scope, piece);
+                            if (piece.indent) {
+                                piece.value = piece.value.replace(/\n/g, '\n'+piece.indent );
+                            }
                         }
+                        return piece;
                     }
                 );
                 vals = await Promise.all(pieceProms);
-            } else {
-                vals = [''];
+            } 
+            vals = vals ||  [];
+            console.log('V1', vals);
+            if (vals.every( (el) => (typeof el === 'object') && (typeof el.value === 'string') ) ){
+                vals = vals.map(el => el.value).join('');
             }
+            console.log('V2', vals);
             if (node.transform) {
-                let com = [['array', vals], ...(node.transform) ];
+                let pt = node.transform;
+                pt.input = vals;
                 let scope = makeScope({
                     tracking : 'transforming value of ' + name,
                     context : web[name]}
                 );
-                node.value = await runCommand.call(scope, 'pipe', com);
+                node.value = (await runCommand.call(scope, pt )).value;
             } else {
-                if (vals.length === 1) {
-                    node.value = vals[0];
-                } else {
-                    node.value = vals.join('');
-                }
+                node.value = vals;
             }
             prr.resolve(node.value);
             tracker('node ' + name + ' value is computed', {name, value: node.value});
