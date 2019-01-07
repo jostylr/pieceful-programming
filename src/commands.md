@@ -26,6 +26,16 @@ array helper commands
         all, string, functional 
     };
 
+## TODO
+
+`/(some comment)` command that produces a comment at the end of the
+first line of the code block. 2nd arg could be comment style (css=js-long for wrapping `/* */` for example, html for their comment block, js single line is the default, but the default could include replacing newlines in the comment with a newline //, javadoc, bash, ...).  
+
+`indent` which takes in a number and adjusts the hanging indent computation
+appropriately. Pass in 'none' to do none. There could also be a directive
+scope environmental variable to do it, particularly for the none. Could allow
+edge cases. 
+
 
 ## Incompatible commands
 
