@@ -37,6 +37,28 @@ scope environmental variable to do it, particularly for the none. Could allow
 edge cases. 
 
 
+### switch*
+
+This is a prototype command for dealing with arguments in a sequential
+fashion. The command looks for a boolean every other argument, searching until
+it finds something true. Then it processes the following argument. If it runs
+out of arguments, then the last one should be the default. 
+
+    async function switch (seq) {
+        let ind = 0;
+        let len = seq.args.length;
+        while ( ind < len ) {
+            if ( await seq(ind) ) {
+                ind += 1;
+                break;
+            } else {
+                ind += 2;
+            }
+        }
+        return await seq(ind);
+    }
+
+
 ## Incompatible commands
 
 These are commands that don't make sense in this version: 

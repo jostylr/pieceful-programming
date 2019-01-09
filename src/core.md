@@ -319,7 +319,8 @@ instead do it sequentially. Get will get a value from another piece.
 This modifies the piece and returns it in a way that it has a value. 
 
 If it has an input property, then that becomes the first argument. Pipe is
-generally the input property maker. 
+generally the input property maker. But if a piece has the bind property,
+then the insertion happens 
 
     async function runCommand (piece = {}) {
         let scope = this;
@@ -330,9 +331,7 @@ generally the input property maker.
             throw new Error('no command to execute: ' + scope.tracking);
         }
         let {cmd, args=[]} = piece;
-        if (piece.hasOwnProperty('input') ) { 
-            args.unshift(piece.input);
-        }
+        _":deal with pipe inputs"
         let {tracking = ''} = scope;
         let ret;
         tracker('command called', {tracking, cmd, piece});
@@ -342,11 +341,14 @@ generally the input property maker.
             _":get"
         } else if (cmd === 'compose') {
             _":compose"
+        } else if ( (cmd.length > 1) && (cmd[cmd.length-1] === '*') ) {
+            _":sequence"
         } else {
             _"wait for function | sub VNAME, comm, TYPE, commands, name, cmd"
             tracker('process command arguments', {tracking, cmd, args, scope});
             let argProcessor = makeArgProcessor(scope);
-            let processed = await Promise.all(args.map(argProcessor) );
+            let processed = (await Promise.all(args.map(argProcessor))).
+                filter( (el => el) ); //filter removes undefined elements
             piece.actualArgs = processed;
             tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
             ret = await comm.apply(scope, processed); 
@@ -376,18 +378,93 @@ As this sequential piping, we use a for loop along with the sync.
         if (nxtPiece.value) {
             input = nxtPiece;
         } else if (nxtPiece.cmd) {
-            if (typeof input !== 'undefined') {
-                nxtPiece.input = input;
-            }
-            console.log('next pipe', nxtPiece);
+            nxtPiece.inputs = pipeVals.slice();
             input = await runCommand.call(scope, nxtPiece);
         } else {
             tracker('failed cmd in pipe', {piece, pipe:nxtPiece, i, scope});
             throw new Error('failed cmd in pipe:' + scope.tracking 
                 + ':pipe ' + i);
         }
+        pipeVals.unshift(input);
     }
     ret = input.value;
+
+
+[deal with pipe inputs]()
+
+So pipe generates an inputs array for each piece in a pipe, which can be
+accessed with the command pipeInputs. 
+
+    if (piece.hasOwnProperty('inputs') ) {
+        let input = inputs[0];
+
+We first check for arguments who has the command 'pipeInput'. This is only for
+the current level of args; no lower levels can access this. For that, one
+should use named scope variables.  
+
+        let skip = false;
+        let splice;
+        let pipeInputs = args.forEach(el, idx) => {
+            if (el.cmd && (el.cmd === 'pipeInput') ) {
+                if (el.args && el.args.length) {
+                    if (el.args.length === 1) {
+                        if (el.args[0] === '!') {
+
+`@!` will deny the input from being used. It does this by giving a value of
+undefined for the args. This means that it will get skipped in the feeding of
+the arguments. 
+
+                            args[idx].value = undefined;
+                            skip = true;
+                        } else {
+                            args[idx].value = inputs[el.args[0]].value;
+                        }
+                    } else {
+                        args[idx].value = el.args.map( (arg => input[arg] ));
+                    }
+                } else {
+                    skip = true;
+                    args[idx].value = input.value;
+                }
+            }
+        });
+        if (!skip) && (input && (typeof input.value !== 'undefined') ) {
+            if (piece.hasOwnProperty('bind') ) {
+            
+Bind being true means we ignore the input. Note that this is ignored by the
+pipeInput command. This is only meant to prevent the automatic insertion of
+piping into commands that don't want it.             
+
+                if (piece.bind !== true) {
+                    args.splice(piece.bind, 0, piece.input);
+                } 
+            } else {
+                args.unshift(piece.input);
+            }
+        }
+    }
+
+
+[sequence]() 
+
+This allows for commands to process the args selectively. 
+This gets triggered by a command name ending in `*`, similar to the
+generator syntax for js functions (that star is on the reserved word function,
+but similar enough). Such commands should expect a single argument, the
+sequencer function. 
+
+With more thought, this might be able to replace pipe and compose. 
+
+    let f = async function (ind) {
+        let arg = args[ind];
+        if (arg) {
+            return await runCommand.call(scope, arg); 
+        } else {
+            return;
+        }
+    };
+    f.args = args;
+
 
 
 [compose]()
