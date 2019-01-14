@@ -129,10 +129,11 @@ trackers.
 This is where we create an initial webnode. It has the key of the prefix by
 itself. 
 
-    scope.lv1 = scope.prefix + '';
+    scope.lv1 = scope.prefix + '^';
     scope.fullname = scope.majorname = scope.lv1; 
-    webNode = web[prefix] = {
-        name : '', heading:'', 
+    scope.lv1only = '^';
+    webNode = web[scope.fullname] = {
+        name : '^', heading:'^', 
         rawTransform : [],
         raw : [ [scope.sourcepos[0]] ],
         code : [],
@@ -228,6 +229,7 @@ And now the code...
         delete scope.lv3;
         delete scope.lv2;
         scope.lv1 = scope.prefix + name;
+        scope.lv1only = name;
         scope.majorname = scope.lv1; 
     }
     scope.fullname = fullname = scope.majorname;

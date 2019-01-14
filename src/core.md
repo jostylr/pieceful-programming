@@ -36,9 +36,10 @@ These are inlined into run command and are just placeholders here.
                 get : ()=> {}, 
                 array : () => {}, 
                 pipe : () => {},
-                compose : () => {}
+                compose : () => {}, 
+                nodekeys : _"nodekeys"
             },
-            directives : {}
+            directives : {},
         };
         //the promises 
         weaver.p = {
@@ -51,7 +52,11 @@ These are inlined into run command and are just placeholders here.
         const makeArgProcessor = _"arg processor";
         const runCommand = _"run command";
         const makeScope = _"make scope";
-
+        weaver.syntax = {
+            descentSpecial : _"compose:descent special",
+            getFullNodeName : _"get full node name",
+        };
+        
         //external api, probably should make read only
         weaver.addCommands = _"add commands";
         weaver.addDirectives =  _"add directives";
@@ -302,7 +307,7 @@ async way.
             if (arg.hasOwnProperty('value') ) {
                 return arg.value;
             } else if (arg.cmd) {
-                return await runCommand.call(state, arg);
+                return (await runCommand.call(state, arg)).value;
             } else {
                 return arg;
             }
@@ -331,19 +336,23 @@ then the insertion happens
             throw new Error('no command to execute: ' + scope.tracking);
         }
         let {cmd, args=[]} = piece;
+        let override;
         _":deal with pipe inputs"
         let {tracking = ''} = scope;
         let ret;
         tracker('command called', {tracking, cmd, piece});
         if (cmd === 'pipe') {
-            _":pipe"
+            _"pipe"
         } else if (cmd === 'get') {
-            _":get"
+            _"get"
+        } ese if (cmd === 'nodeKeys') {
+            _"array of nodekeys"
         } else if (cmd === 'compose') {
-            _":compose"
-        } else if ( (cmd.length > 1) && (cmd[cmd.length-1] === '*') ) {
-            _":sequence"
-        } else {
+            _"compose"
+        } else { 
+            if ( (cmd.length > 1) && (cmd[cmd.length-1] === '*') ) {
+                _"sequence"
+            } 
             _"wait for function | sub VNAME, comm, TYPE, commands, name, cmd"
             tracker('process command arguments', {tracking, cmd, args, scope});
             let argProcessor = makeArgProcessor(scope);
@@ -353,13 +362,19 @@ then the insertion happens
             tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
             ret = await comm.apply(scope, processed); 
         }
-        piece.value = ret;
         tracker('command finished', {tracking, cmd, ret, scope});
+        if (override) {
+            ret = override;
+            tracker('overriding result, using previous pipe input', {tracking,
+                cmd, ret});
+        } 
+        piece.value = ret;
         return piece;
     }
 
 
-[pipe]()
+
+### Pipe
 
 The arguments should all be commands and pipe one to another. The first
 argument is what gets the input unless the input is undefined. Thus, there is
@@ -416,6 +431,14 @@ the arguments.
 
                             args[idx].value = undefined;
                             skip = true;
+                        } else if (el.args[0][0] === '^') {
+                        
+This is to allow the previous input to get passed on instead of this one. 
+
+                            if (input) {
+                                override = input;
+                                args[idx].value = undefined;
+                            } 
                         } else {
                             args[idx].value = inputs[el.args[0]].value;
                         }
@@ -436,16 +459,16 @@ pipeInput command. This is only meant to prevent the automatic insertion of
 piping into commands that don't want it.             
 
                 if (piece.bind !== true) {
-                    args.splice(piece.bind, 0, piece.input);
+                    args.splice(piece.bind, 0, input);
                 } 
             } else {
-                args.unshift(piece.input);
+                args.unshift(input);
             }
         }
     }
 
 
-[sequence]() 
+### Sequence
 
 This allows for commands to process the args selectively. 
 This gets triggered by a command name ending in `*`, similar to the
@@ -453,235 +476,431 @@ generator syntax for js functions (that star is on the reserved word function,
 but similar enough). Such commands should expect a single argument, the
 sequencer function. 
 
-With more thought, this might be able to replace pipe and compose. 
-
-    let f = async function (ind) {
-        let arg = args[ind];
+    let f = async function seq (ind) {
+        let arg = seq.args[ind];
         if (arg) {
-            return await runCommand.call(scope, arg); 
+            if (arg.hasOwnProperty('value') ) {
+                return arg.value;
+            } else {
+                return (await runCommand.call(scope, arg)).value; 
+            }
         } else {
             return;
         }
     };
     f.args = args;
+    args = [{value : f}];
 
 
 
-[compose]()
+### Compose
 
 This is a special command that creates a command out of other commands and
 arguments. It can be used in functions acting on lists, such as map, created
 inline or the command directive can create a stand-alone function. 
 
 This can also do partial application, if only one function is passed in. One
-can leave slots open with a special syntax, namely strings of the form `$#`
-will place the incoming argument at slot `#` into that place. The `#` can also
-be a range, such as `1..3` or `1..` for a slice from 1 to whatever or `..3`
-which is a slice up to 3. In either case, they are subbed in as is, not as a
-new array. We can also use negative indices.  `$&` will direct
-the previous input into that argument. By default (no specials), the first argument gets the
-previous input, shifting everything else. If the output is undefined, no
-shifting is done. 
+can leave slots open (anywhere in the explict args chain) with a special
+syntax, namely strings of the form `$#` will place the incoming argument at
+slot `#` into that place. 
+
+If the dollar sign has text, then we use that to get something from the old
+scope. This is one way; we don't allow for modification of the old scope from
+the composition.
+
+The composition is fed into a pipes command. This means that one can do the
+scope and input stuff as usual and it should just work as if pipe was called
+instead. 
+
+If the composed command is called by a pipe, then it is on the caller as to
+where pipe arguments go. So we can just use the passed in arguments. 
 
 To escape, leading dollar signs will be reduced by 1 if more than 1 and no
-other action is taken. 
+other action is taken. Note these are considered as text objects. If passing
+in text that consists of a leading dollar sign, use multiple ones. 
 
 If the input is undefined from a function (also initial), then we use the
 given arguments. Generally, this is the first one. This is ignored if any
 argument has the special syntax above. 
 
     tracker('composing', {tracking, args, scope});
-    let funs = args.slice(0);
+    let funs = args;
+    let oldScope = scope;
     ret = async function composed (...newArgs) {
 
-TODO: Redo this with the new argument convention of it being an object
-
- If inline, same scope, but if not, this uses scope of caller
+ If inline, same scope, but if not, `this` will be the scope of caller.
 
         let scope = this;
-        tracker('composed command called', {tracking, functions: funs, args:newArgs, scope});
+        
+We need to copy the entire args chain as our run command modifies it. 
 
-        let input;
-        for (let i = 0; i < funs.length; i += 1) {
-            let actualArgs = funs[i].slice(1);
-            let nextName = funs[i][0];
-            let noSpecial = true;
-            let inputNotUsed = true;
-            let tempArgs = [];
-            actualArgs.forEach( (arg) => {
-                _":check for special"
-            });
+        funs = JSON.parse(JSON.stringify(funs) );
+        tracker('composed command called', {tracking, functions: funs, args:newArgs, scope, oldScope});
 
-If the input was used, then we don't use it again. If it was not used, we see
-if the input is undefined. If undefined, we don't use it and we will shift the
-arguments into it unless there is a special involved. This gets complicated,
-unfortunately. 
+Next we run through all levels of the args, looking for the special syntax. If
+so, then we slot in the newArgs or, if an oldScope object, that value for it. 
 
-            if (inputNotUsed) {
-                if (typeof input !== 'undefined') {
-                    actualArgs.unshift(input);
-                    inputNotUsed === false;
-                } 
-            }
-            if (noSpecial && inputNotUsed) {
-                actualArgs = [...newArgs, ...actualArgs];
-            }
-            input = await runCommand.call(scope, nextName, actualArgs);
-        }
-        return input;
-    };
+The newArgs have not been evaluated at this point except, potentially, for
+inputs. They will be replacing arguments in the chain and they will be called
+as usual under execution of the pipes command. We use the descentSpecials
+command to do the special work. For oldScope, these are actual values, so we
+will need to wrap them up in a value argument.
 
-[check for special]()
 
-A special is a string with a dollar sign in front.
 
-    if (typeof arg === 'string') {
-        if (arg[0] === '$') {
-            if (arg[1] === '$') {
-            // escaping
-                tempArgs.push(arg.slice(1));
-            } else if (arg[1] === '&') {
-            // input
-                tempArgs.push(input);
-                inputNotUsed = false;
-            } else if (
+        funs = weaver.syntax.descentSpecial(funs, newArgs, oldScope);
+        let pipes = {
+            cmd : 'pipes',
+            args : funs,
+            tracking : oldScope.tracking + ' composed into ' + scope.tracking
+        };
+        return await runCommand.call(scope, pipes);   
 
-This is where the complicated range semantics occur. If it is a single number,
-then it gets matched with the first one and that is what is added. Otherwise,
-it should be a range and the right, being part of slice, should have an extra
-1. 
+    } 
 
-We are totally abusing the boolean check here and the replace function. We
-return an empty string which becomes false in boolean check if there is no
-actual match. If there is a match it returns a 'done' string which becomes
-true. This is because the replace function always returns a string. 
 
-                arg.slice(1).replace(/^(-?\d+)?(\.\.)?(-?\d+)?/, 
-                    function rep (match, p1, p2, p3) {
-                        if (!p1 && !p2 && !p3) { return '';}
-                        let left, right;
-                        if (p1) {
-                            left = parseInt(p1, 10);
-                            if (left < 0) left = newArgs.length+left; //subtracts
-                        } else {
-                            left = 0;
+#### Descent Special
+
+So this is a recursive descent function that goes down all the argument chains
+and replaces any composition special values with the appropriate value from the arguments or scope. For arguments, we need to extract the values. 
+
+We return an array. This facilitates having a different number of arguments
+then we expect. 
+
+This is all synchronous as we are not doing any evaluations or waiting for
+anything; that should be done before or after, depending. 
+
+    function descentSpecial (arr, args, scope) {
+        return arr.reduce( (ret, piece) => {
+            if (piece.hasOwnProperty('value') ) { //base case
+                let val = piece.value;
+
+We only do anything if there is a leading dollar sign. 
+
+                if ( (typeof val === 'string') && (val[0] === '$') ) {
+                    piece.special = val;
+                    val = val.slice(1);
+
+The `..` is the only version that does not blindly push the piece onto the
+array. So we check that here, and if it happens, we return. Otherwise, we do
+that pushing at the end.   
+
+                    if (val.match(/\.\./) ) { //splicing
+                        _":splice"
+                        return ret;
+                    } 
+
+                    if (val[0] === '$') { //escape
+                        piece.value = val; //dropped one dollar sign
+                    } else else if (val.match(/[1-9][0-9]*/) ) {
+                        let arg =  args[val];
+                        if (arg) {
+                            piece = arg;
+                            piece.special = val;
+                        } else {    
+                            piece.value = null;
+                            piece.special = 'no such arg given:' + val;
                         }
-                        if (p2) {
-                            if (p3) {
-                                right = parseInt(p3, 10);
-                                if (right < 0) right = newArgs.length+right;
-                                right += 1;
-                            } else {
-                                right = newArgs.length;
-                            }
-                            tempArgs.push.call(tempArgs, 
-                                newArgs.slice(left, right));
-                        } else {
-                            tempArgs.push(newArgs[left]);
-                        }
-                        return 'done';
-                    })
-            ) { 
-                noSpecial = false;
-            } else { //not a special
-                tempArgs.push(arg);
-            }
-        }
+                    } else {
+                        piece.value = property(scope, val);
+                    }
+                }
+            } else if (piece.hasOwnProperty('args') ) { //descend
+                piece.args = descentSpecial(piece.args, args, scope);
+                ret.push(piece);
+            } 
+            ret.push(piece);
+            return ret;
+        }, []);
     }
 
+[splice]()
 
-[get]()
+This handles having a range of values. We split on the dots and then push all
+of the arguments so named. 
+
+    let splice = val.split('..').map((el) => parseInt(el, 10) );
+    let start = splice[0] || 0;
+    let end = splice[1] || args.length;
+    args.slice(start, end).forEach( (el, idx) => {
+        el.special = val + ':' + (start + idx);
+        ret.push(el) 
+    });
+
+
+
+
+### Get
 
 This could be a separate command function, but it requires special access.
 
-We have two possibilities: simple name or a regx (possibly multiple) that
-should scan the current webnames and grab what is needed. 
+We assume this command is given names of sections, typically a single one, but
+possibly an array. 
 
-    ret = [];
-    let names = [];
     let arg = args[0];
-    _":deal with arg not being a string"
-    if (arg[0] === '/') {
-        _":get via regex match"
+    if (Array.isArray(arg) ) { // list of sections
+        let names = [];
+        let proms = _":loop through the names"
+        let vals = (await Promise.all(proms)).map(el => el.value);
+        ret = {};
+        _":zip names vals"
     } else {
-        let nodeName = arg;
-        console.log('G1', nodeName);
-        _":modify name"
-        _":get promise for piece"
-    }
-    if (ret.length === 0) {
-        ret = '';
-    } else {
-        ret = await Promise.all(ret);
-
-We have the return values. If there is only one, we return that, otherwise we
-zip up the two arrays into an object. 
-
-        if (ret.length === 1) {
-            ret = ret[0];
-        } else {
-            let obj = {};
-            names.forEach( (name, idx) => {
-                obj[name] = ret[idx];
-            });
-            ret = obj;
-        }
+        _":promise node value"
+        ret = (await prr).value;
     }
 
-[get promise for piece]()
+[promise node value]()
 
-
+    let nodeName = weaver.syntax.getFullNodeName(arg, scope.context);
     let prr = weaver.p.web[nodeName];
     if (!prr) {
         prr = makePromise();
         weaver.p.web[nodeName] = prr;
     }
-    names.push(nodeName);
-    ret.push(prr.prom);
 
-[modify name]()
+[loop trough the names]()
 
-The get command might be provided with an incomplete name. We need to fill out
-the details here. It should be available in the scope variable. 
+    arg.map( (el) => {
+        _":promise node value"
+        names.push(nodeName);
+        return prr;
+    });
 
-    // TODO
+[zip names vals]()
 
-
-[get via regex match]()
-
-This is intended to allow for retrieving an object whose keys are node names
-matching the passed in regex semantics; each time a `/` is encountered it
-creates a new regex context. The level name can be obtained via `=1` (or 2, 3,
-4). The fullname is `==`, majorname is `=_` and just the minor name is `=:`.
-A backslashed regex will escape it from being regex separator and is used in
-the level descent of the h5/6 headings:  `\/`.  These substitutions are made
-and then it is run through a regex and filters out the keys on the available
-web.  
-
-TODO: actually implement this. 
-
-    // nothing yet
-
-
-[deal with arg not being a string]()
-
-Most likely, arg is passed in as an object with a value in it. But we check
-here anyway. 
-
-    if (!arg) {
-        return '';
+    vals.forEach( (el, idx) => {
+        ret[names[idx]] = el;
     }
-    if (typeof arg !== 'string') {
-         if (arg.value) {
-            arg = arg.value;
-        } else if (arg.cmd) {
-            arg = (await runCommand.call(scope, arg)).value;
-        } 
-        if (typeof arg !== 'string') {
-            tracker('unrecognized argument for get', arg, piece);
-            return '';
+
+
+
+#### Get Full Node Name
+
+This is where the fun is. The scope variable has a context property which is
+the current node being processed. This has the various bits of information we
+need. 
+
+So the bits of information are prefix, majorname, lv1, lv2, lv3, lv4,
+fullname.
+
+We have various shorthands:
+
+* A single `::` means we use the current prefix with a `^` which represents
+  the initial node if there is no name. 
+* A single `:` means we use the majorname. 
+* Exactly `#` means we use the lvl1 name. 
+* Exactly `#:` then we use the fullname 
+* A leading `:` means we prepend the majorname. 
+* A `#:` followed by stuff is a level1 and then the frag.
+* The `../` means we switch from lv3 to lv2 or from lv2 to lv1. Two of these
+  means we switch to lv1. We can then descend using more slashes to get to lv2
+  or lv3. 
+* No `::` means we should append the current prefix. 
+  
+
+End list
+
+    function getFullNodeName (frag, curNode) {
+        if (frag === '::') {
+            return curNode.prefix + '^';
         }
+        if (frag === ':') {
+            return curNode.majorname;
+        }
+        if (frag === '#') {
+            return curNode.lv1;
+        }
+        if (frag === '#:') {
+            return curNode.fullname;
+        }
+        if (frag[0] === ':') {
+            return curNode.majorname + frag;
+        }
+        if (frag.slice(0,2) === '#:') {
+            return curNode.lv1 + frag.slice(1);
+        }
+        if (frag.slice(0,3) === '../') {
+            if (frag.slice(3,6) === '../') {
+                return curNode.lv1 + frag.slice(6);
+            } else if (curNode.lv3) {
+                return curNode.lv2 + frag.slice(3);
+            } else {
+                return curNode.lv1 + frag.slice(3);
+            }
+        }
+        if (frag.indexOf('::') === -1) {
+            return curNode.prefix+frag;
+        }
+        return frag; //fits a full name. 
     }
+
+
+
+### NodeKeys
+
+This is an idea to extract the current list of node keys that match a given
+regular expression. This will return an array of full names. 
+
+The idea is the string should be of the form `?::?/?/?:?` at its fullest with
+regex stuff in there though `#` means use current. One should use `*` for any
+kind of match. Empty is just that. So `*::*/*/*:*` returns all names. We also
+look for various matches without various pieces:
+
+* `*::*/*/*:*` Should be able to specify anything with this syntax. 
+* No double prefix implies use current prefix. 
+* Something with no slashes or colons means just lv1 name
+* Something with a leading colon means match on the lv4 name, fixing prefix to
+  be current
+* With a leading slash, one means lv2 names, current prefix. 
+
+This could get a little into the weeds, but I think this is sufficient for
+what I have wanted in the past. 
+
+Multiple arguments will lead to an `and` effect. 
+
+    function nodeKeys (...args) {
+        let context = this.context;
+        return args.reduce( (list, filter) => {
+            let f = _":make comparator";
+            return list.filter( (name) => {
+                return f(name);
+            });
+        }, Object.keys(weaver.v.web) );
+    }
+
+[make comparator]()
+
+So this is the core bit. We try to return a directed function that knows how
+to do the comparing. 
+
+    (function (filter) {
+
+Prefix is either specified as a regexish or we assume it is the same as the
+current node (one would assume pretty typical because it is hard to know
+whether other prefixes have been loaded). 
+
+        let prefix, lv1, lv2, lv3, lv4;
+
+        _":prefix"
+        _":lv4"
+        _":lv2 and lv3"
+        _":lv1"
+
+        return function (name) {
+            let c = weaver.v.web[name].scope;
+            return (prefix(c) && lv4(c) && lv3(c) && lv2(c) && lv1(c));
+        };
+
+
+[prefix]()
+
+        let ind = filter.indexOf('::');
+        if ( (ind !== -1) && (filter[0] !== '#') ) {
+            let preReg = new RegExp(filter.slice(0, ind));
+            prefix = function (c) {
+                return preReg.test(c.prefix);
+            };
+            filter = filter.slice(ind+2);
+        } else { 
+            let preStr = context.prefix;
+            prefix = function (c) {
+                return (c.prefix.indexOf(preStr) !== -1)'
+            };
+        }
+      
+[lv4]()
+
+Next up is the minor part, lv4. This is also not too bad. Slice from the end,
+assume none if nothing given. Keep in mind a hash mark indicates using the
+context name. 
+        
+        ind = filter.indexOf(':');
+        if (ind !== -1) {
+            let lv4Reg = filter.slice(ind+1);
+            filter = filter.slice(0,ind);
+            _":lvreg"
+        } else {
+            _":none| sub #,4"
+        }
+
+
+[lv2 and lv3]()
+
+Next up is slicing off any potential slashes. We assume the presence of one
+slice indicates lv2 while the presence of two gives us lv2 and lv3. If no
+slashes, then we will ignore anything with lv2 or lv3.
+
+        ind = filter.indexOf('/');
+        if (ind !== -1) {
+            let scndInd = filter.indexOf('/', ind+1);
+            if (scndInd !== -1) {
+
+We have two slashes so we deal with lv2 and lv3. 
+
+                let lv2Reg = filter.slice(ind+1, scndInd);
+                let lv3Reg = filter.slice(scndInd+1);
+                filter = filter.slice(0,ind);
+                _":lvreg | 4, 2"
+                _":lvreg | 4, 3"
+            } else {
+                
+Just one slash so lv2 is being conditioned on and lv3 should be empty. 
+
+                let lv2Reg = filter.slice(ind+1);
+                filter = filter.slice(0,ind);
+                _":lvreg | 4, 2"
+                _":none|sub #,3"
+            }
+        } else {
+            _":none| sub #,3"
+            _":none| sub #,2"
+        }
+
+[lv1]()
+
+And now we handle the main part. This is lv1only. There may be nothing at this
+point, in which case we allow a permissive filter
+
+        if (filter) {
+            if (filter === '#') {
+                let lv1Str = context.lv1only;
+                lv1 = return function (c) {
+                    return (c.lv1only.indexOf(lv1Str) !== -1);
+                };
+        } else {
+            lv1 = function () {
+                return true;
+            };
+        }
+
+
+
+
+        
+[none]()
+
+This looks for no property at a certain level. 
+
+    lv# = function (c) {
+        return !(c.hasOwnProperty('lv#'));
+    };
+
+
+[lvreg]()
+
+This creates the matching functions for the lv2-4;
+
+    if (lv4Reg === '#') {
+        lv4Reg = context.lv4;
+        lv4 = function (c) {
+            return (c.lv4.indexOf(lv4Reg) !== -1);
+        };
+    } else {
+        lv4Reg = new RegExp(lv4Reg);
+        lv4 = function (c) {
+            return lv4Reg.test(c.lv4);
+        };
+
 
 
 ## Add commands

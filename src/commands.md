@@ -49,13 +49,12 @@ out of arguments, then the last one should be the default.
         let len = seq.args.length;
         while ( ind < len ) {
             if ( await seq(ind) ) {
-                ind += 1;
-                break;
+                return await seq(ind+1);
             } else {
                 ind += 2;
             }
         }
-        return await seq(ind);
+        return await seq(ind-1);
     }
 
 

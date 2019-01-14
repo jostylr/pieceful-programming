@@ -47,7 +47,7 @@ syntax matching.
     let defTypeFirst = _"type first"
     const toTerminator = _"to terminator"
     const normalizeString = _"normalize string"
-
+    const lineNumberFactory = _"line numbering"
 
 The start is used in defining the line numbering, specifically, going from a
 position in the text to reporting to a line number/col in the larger file.
@@ -60,22 +60,28 @@ in which is generally a segment of that larger file.
         tracker = (note, data) => {console.log("UP/" + note, data)}, 
         start = [1,1,0],
         ind = 0,
-        u: '\u005f',
-        q : '\'"`',
-        typeFirst : {}, 
-        norm : normalizeString
+        u = '\u005f',
+        q = /'"`/,
+        typeFirst = {}, 
+        f = {} 
     }) {
     
 We setup the parsing object and include in it the line numbering function
 which allows for conversion from line/col to text position. 
 
-        let ln = (_"line numbering")(text, start);
         _"load type first"
 
 For code slicing, we use begin to know where to slice the prior code parts. 
 
-        let p = {text, tracker, ind, begin : ind, q, u, 
-            f : {typeFirst, checkParen, toTerminator, ln, norm}};
+        let p = {text, tracker, ind, q, u, 
+            begin : ind,
+            f : {typeFirst, checkParen, toTerminator, 
+                norm:normalizeString}
+        };
+        Object.assign(p.f,f); // a way to override most of the parsing stuff 
+        if (!p.f.hasOwnProperty('ln') ) {
+            p.f.ln = lineNumberingFactory(text, start);
+        }
         let parsed, ret;
         if (type === 'code') {
             _"code"
@@ -168,7 +174,7 @@ This involves backtracking.
     let escape = false;
     while (backind >= 0) {
         let char = text[backind];
-        if (char === '\') {
+        if (char === '\u005c') { //backslash
             escape = true; 
             break;
         } else if (char.match(/\d/)) {
@@ -213,9 +219,9 @@ number or 0, then we have no prefix.
 We look for the next underscore. If not followed by a quote, we continue with
 the loop. If there is no underscore, then we are done. 
 
-    ind = text.indexOf('\u005', ind);
+    ind = text.indexOf(p.u, ind);
     if (ind === -1) { break; }
-    if (p.q.indexOf(text[ind+1]) === -1) {ind += 1; continue;}
+    if (p.q.test(text[ind+1])) {ind += 1; continue;}
     quote = text[ind+1];
 
 
@@ -245,7 +251,7 @@ for args is a full array.
     let args = [];
     while (p.ind < len) {
         let piece = toTerminator(p, 'args', ',');
-        if (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') {
+        if (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) {
             args.push(piece);
         }
     }
@@ -279,7 +285,7 @@ the text so no trimming.
 
 Now we are at the first non-whitespace character.
 
-        let p.ind = reg.lastIndex;
+        p.ind = reg.lastIndex;
         let first = p.text[p.ind];
 
 If nothing, then we terminate. We have already advanced the index and no
@@ -310,7 +316,7 @@ parenthesis
             if (paren[0] === par ) {
                 piece =  typeFirst['!'](p, terminator);
             } else {
-                piece = typeFirst[plainText[mode]])(p, terminator);
+                piece = typeFirst[plainText[mode]](p, terminator);
             }
         }
 
@@ -336,7 +342,7 @@ Then we go into pipe mode, returning the pipe piece with all the pipes as args i
                    if (further.cmd || further.values) {args.push(further);}
                 }
                 piece.start = ln(start);
-                piece.end : ln(p.ind-1);
+                piece.end = ln(p.ind-1);
                 piece.terminate = true;
             } 
 If we are already in pipe descent, then we don't need to do anything other
@@ -350,27 +356,7 @@ If it is not a pipe, then it should be a terminator.
         return piece;
     }
 
-### Find first
 
-This is a generic function which takes in the parsing object and whatever
-single characters one wants to stop on. It returns the character found and
-sets the index on the parsing object. 
-
-    function findFirst (p, chars) {
-        let ind = p.ind;
-        let len = p.text.length;
-        while (ind < len) {
-            if (chars.indexOf(p.text[ind]) !== -1) {
-                return [p.text[ind], ind];
-            } else {
-                ind += 1;
-            }
-        }
-
-Not found. 
-
-        return [null, ind];
-    }
 
 
 ## Load Type First
@@ -409,44 +395,21 @@ input after a certain spot, name the spot (so to put it after the first, say
         '\u005f' : _"get",
         '!' : _"cmd",
         '~' : _"eval",
-        '#' : _"number",
+        '#' : _"math",
         '?' : _"boolean",
+        '=' : _"operator",
         '[' : _"array", //]
         '{' : _"object", //}
         '-' : _"dash", 
         '.' : _"dot",
-        '/', : _"comment",
-        '@', : _"get scope",
-        '=' : _'store scope"
+        '/' : _"comment",
+        '@' : _"get scope",
+        '^' : _"store scope"
     }
 
 ### Type First Functions
 
 We use a variety of helper functions and snippets for the type first commands. 
-
-#### Position
-
-This is a helper block that does a common start and end. Replace S and E with
-whatever experession gives the current start and end. 
-
-        start: p.f.ln(S),
-        end: p.f.ln(E)
-
-#### Make Get
-
-This makes a get cmd. 
-
-    function makeGet (name, start, end, p) {
-        let f = this;
-        return {
-            start: f.ln(start),
-            end: f.ln(end)
-            cmd : 'get',
-            bind : true,
-            args : [ {value : f.norm(name)}]
-        };
-    }
-
 
 ### Raw quote
 
@@ -454,24 +417,17 @@ This is a raw quote meaning nothing is escaped. Whatever is between the quotes
 is what it is. 
 
     function rawQuote (p, terminator) {
+        let value;
+        let start = p.ind;
         let end = p.text.indexOf("'", p.ind);
         if (end === -1) {
-            let ret = {
-                _"position | sub S, p.ind, E, text.length)",
-                value: p.text.slice(p.ind)
-            };
-
-            p.tracker('unterminated quote', ret );
-            throw new Error('unterminated quote', ret);
+            end = text.length-1;
+            value =  p.text.slice(p.ind);
+            _"unterminated quote"
         }
-        let quote = text.slice(p.ind, end);
-        cmd = [first, quote];
-        ret = {
-            _"position | sub S, p.ind, E, end)",
-            value : p.text.slice(p.ind, end) //end is on quote
-        };
+        value = text.slice(p.ind, end);
         p.ind = end+1;
-        return ret;
+        _"return piece:value";
     }
 
 ### Parse Backslashes
@@ -481,14 +437,10 @@ do bad hack of evaling the quote, placed in double quotes to basically do all
 the escaping we would want. The tricky bit is simply any backslashed double
 quotes need to have the backslashes counted.
 
-    _':common | sub Q, \", TXT, _":eval" '
-
-[common]()
-
     function parseBackSlash (p, terminator) {
-        let ret;
-        let ln = p.f.ln;
-        let reg = /[\\]*Q/g;
+        let start = p.ind;
+        let end, value; 
+        let reg = /[\\]*"/g;
         reg.lastIndex = p.ind;
         let len = p.text.length;
         while (reg.lastIndex < len) {
@@ -497,47 +449,54 @@ quotes need to have the backslashes counted.
                 if ( (match[0].length % 2) === 0 ) { //escaped
                     continue;
                 } else { // quote found
-                    ret = {
-                        _"position | sub S, p.ind, E, reg.lastIndex-1)",
-                        TXT
-                    };
+                    end = reg.lastIndex-1;
+                    value = eval('"' + p.text.slice(p.ind,reg.lastIndex) + '"');
                     p.ind = reg.lastIndex;
-                    return ret;
+                    _"return piece:value";
                 }
-            } else {
-                ret = {
-                    _"position | sub S, p.ind, E, end)",
-                    value: p.text.slice(p.ind)
-                };
-                p.tracker('unterminated quote', ret );
-                throw new Error('unterminated quote: ' + ln(p.ind));
+            } else { //no matching quote
+                end = len;
+                value = p.text.slice(p.ind);
+                _"unterminated quote"
             }
         }
         throw new Error('internal error at parseBackSlash; unreachable point reached');
     }
 
-[eval]()
-
-We can eval it here since nothing is going to be different later. 
-
-    value : eval('"' + text.slice(p.ind,reg.lastIndex) + '"')
 
 ### Template String
 
 This is back ticking. This will also get eval'd, but it depends on the context
 so it becomes reported as a command. 
 
-    _'parse backslashes:common | sub Q, \`, TXT, _":cmd", 
-        parseBackSlash, parseBackTick '
+    function parseBackTick (p, terminator) {
+        let start = p.ind;
+        let end, args;
+        let cmd = 'backtick';
+        let bind = 1;
+        let reg = /[\\]*`/g;
+        reg.lastIndex = p.ind;
+        let len = p.text.length;
+        while (reg.lastIndex < len) {
+            let match = reg.exec(p.text);
+            if (match) {
+                if ( (match[0].length % 2) === 0 ) { //escaped
+                    continue;
+                } else { // quote found
+                    end = reg.lastIndex-1;
+                    args = [p.text.slice(p.ind, reg.lastIndex-1)];
+                    p.ind = reg.lastIndex;
+                    _"return piece:bind";
+                }
+            } else { //no matching quote
+                end = len;
+                value = p.text.slice(p.ind);
+                _"unterminated quote"
+            }
+        }
+        throw new Error('internal error at parseBackSlash; unreachable point reached');
+    }
 
-[cmd]()
-
-Templating requires compiling with the scope so we make this a command to be
-seen later. 
-
-    cmd: 'backtick', 
-    bind : 1,
-    args: [p.text.slice(p.ind, reg.lastIndex-1)]
 
 
 ### Get
@@ -545,7 +504,7 @@ seen later.
 This is an underscore. Just continue until terminator, pipe.  
 
     function parseGet (p, terminator) {
-        let end = p.f.findFirst(p, '|' + terminator);
+        let end = p.f.findFirst(p, '|' + terminator)[1];
         let name = p.text.slice(p.ind,end);
         let piece = p.f.makeGet(name, p.ind, end-1);
         p.ind = end;
@@ -569,7 +528,8 @@ comma, generating an array of pieces.
         let args = [];
         while (p.ind < len) {
             let piece = toTerminator(p, 'args', term);
-            if (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') {
+            if  (piece && 
+                (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) ) {
                 args.push(piece);
             }
             if (p.text[p.ind] === close) {
@@ -588,92 +548,82 @@ arguments and we use the command `call` which assumes the first argument is a
 command to call with the rest of the arguments being what to put into the
 command. 
 
-    function parseGet (p, terminator) {
-        let args = [];
-        let par = ')';
-        if (p.text[p.ind] === '(') {
-            _":call"
-            return piece;
-        } 
-        let end = p.f.findFirst(p, '(' + '|' + terminator);
-        let cmd = p.f.norm(p.text.slice(p.ind, end));
+    function parseCmd (p, terminator) {
+        let cmd, bind;
         let start = p.ind;
-        p.ind = end;
-        if (p.text[p.ind] === '(') {
-            p.ind = p.ind +1;
-            _"parse args"
+        let args = p.f.textArgs(p, terminator);
+        let cmdName = args.shift();
+        if (!cmdName) {
+
+There was no text so we assume the command name is the first argument. We use
+the command `call` for that purpose. For this form, if it is in a pipe setup,
+the incoming pipe input will be the command name. Use the underscore form for
+the pipe to be the first argument of the eventually called command. 
+
+
+            cmd = 'call';
+        } else if (cmdName.hasOwnProperty('value') ) {
+
+The actual expected notion of calling a command name
+
+            cmd = cmdName.value;
+        } else {
+
+The first argument does not have a value, so should be an underscore which we
+shift into the first arguments and use call, binding as well so that a pipe
+goes into the first slot of the command. 
+
+            cmd = 'call';
+            args.unshift(cmdName);
+            bind = 1;
         }
-        let piece = {
-            _"position | sub S, start, E, p.ind-1)",
-            cmd,
-            args
-        };
-        return piece;
-    }
 
-
-
-[call]()
-
-This is using the command with a created function. The first argument is going
-to be fed into the call command and either eval'd into a function or it could
-be a function. That's for the run-time to decide. 
-
-    p.ind = p.ind +1;
-    _"parse args"
-    let piece = {
-        _"position | sub S, start, E, end-1)",
-        cmd : 'call',
-        args,
-
-The bind ensures that the input if in a pipe goes into the function being created
-here instead of as.
-
-        bind: 1
-    };
-
+        if (bind) {
+            _"return piece:bind";
+        } else {
+            _"return piece";
+        }
+    }        
 
 ### Eval
 
-This will do an eval. Plain text is assumed to be a section name. If it is
-quoted, then that will be what becomes eval'd. If there is no text before the
+This will do an eval. Plain text is assumed to be an eval, in line with
+textArgs. If it is
+quoted, then that will be what becomes eval'd. An underscore will be eval'd as
+well. For these forms, binding of the first is assumed. If there is no text before the
 parenthesis, then we assume the usual eval command. 
 
-    function parseEval (p, terminator) {
-        let start = p.ind;
-        let first = p.f.quoteExtract(p);
-        if (!first) {
-            let name = p.f.toParenExtract(p, par, terminator);
-            if (name) {
-                first = p.f.makeGet(name, start, p.ind-1); 
-            }
-                 
-        }
-        let args = [];
-        if (first) {args.push(first);}
-        if (p.text[p.ind] === par ) {
-            args.concat(p.f.parseArgs(p, cpar) ); 
-        }
-        let piece = {
-            _"position | sub S, start, E, p.ind-1",
-            cmd : 'eval',
-            args
-        };
-        return piece; 
-    }
 
+    function parseEval (p, terminator) {
+        let bind;
+        let start = p.ind;
+        let cmd = 'eval';
+        let args = p.f.textArgs(p, terminator);
+        if (args[0]) {
+            bind = 1;
+        } else {
+            args.shift();
+        }
+
+        if (bind) {
+            _"return piece:bind";
+        } else {
+            _"return piece";
+        }
+    }    
+         
 ### Math
 
-A leading hash will convert the remainder of the text into a number. This is
-accomplished by an eval. The arguments, if any, are arguments available in the
-scope of the eval. 
+A leading hash will convert the remainder of the text into a number, probably,
+or some other mathy thing, hopefully. This is
+accomplished by an eval in the default case. The arguments, if any, are arguments available in the arguments of the called function.
 
-If there is a second has present, then the text in between
-allows for something of the form `input:output1 output2` which, if there are
-multiple outputs, will yield an object with keys for those outputs. If just
-one, then it outputs that output. The default is equivalent to `js:eval`. The
-eval knows that it can just plug in js and go to town. If it was `latex:eval`
-then there needs to be a converter, for example. 
+If there is a second hash present, then the text in between allows for
+something of the form `input format:outputformat1 outputformat2` which, if
+there are multiple outputs, will yield an object with keys for those outputs.
+If just one, then it outputs that output. The default is equivalent to
+`js:eval`. The eval knows that it can just plug in js and go to town. If it
+was `latex:eval` then there needs to be a converter, for example. 
 
 It is possible to quote the math expression as well, using the first type
 rules. 
@@ -682,6 +632,7 @@ The command, Math, takes two mandatory arguments: the expression to process and 
 
     function parseNumber (p, terminator) {
         const start = p.ind;
+        const cmd = 'math';
  
 First we look to see if there is a second hash mark.
 
@@ -693,74 +644,94 @@ First we look to see if there is a second hash mark.
             first = 'js:eval';
         }
         
-We now process the math text. We take plain text to be the raw input, but we
-also allow for quotes or an underscore. It could also be a parenthetical which
-uses the first argument for this initial purpose, something which becomes the
-second argument. There could also be nothing in case it is a pipe that is
-taking in the next argument. 
-       
-        let args = [first];
+        let args = p.f.textArgs(p, terminator);
         let bind;
-        let term = p.f.spaceAdvance(p, terminator);
-        if (term) {
-            bind = 1;
-        }
-
-This means there is nothing further to process. 
-
-        let nxtChr = p.text[p.ind];
-
-        if (nxtChr === par) {
-
-There are parentheses, but no text. This means we should bind to the first
-argument, 
-
-            args = args.concat(p.f.parseArgs(p, cpar));
-            bind = 1;
-        }
-        
-If we have not done a bind yet, then we must have useful text after the hash. 
-
-        if (!bind) { 
-            let end = p.f.findFirst(p, par+terminator);
-            let txt = p.text.slice(p.ind, end[1]);
-            args.push(txt); 
-            let p.ind = end[1];
+        if (!args[0]) {
+            bind = 1; // no explicit math text so from pipe
+            args.shift();
+        } else {
             bind = 2;
-            if (end[0]  === par) {
-                args = args.concat(p.f.parseArgs(p,cpar) );
-            }
         }
-        return {
-            _"position | sub S, start, E, p.ind-1",
-            cmd : 'math',
-            args,
-            bind
-        };
+        let end = p.ind-1;
+        _"return piece:bind";
     }
 
 
-Examples: `#1+4^3` and `#latex:float,floatLatex,latex#1+\frac{4}{5}^3` which
+
+
+Examples: `#1+4^3` which will yield the javacript number 65.  
+`#latex:float,floatLatex,latex#1+\frac{4}{5}^3` which
 says the input is in latex, and it should be parsed into a float, that float
 should also be presented in latex form, and the raw input should be presented
-as latex. 
+as latex all stored as an object since there are multiple outputs.
 
 ### Boolean
 
 A leading question mark indicates that a boolean is desired. The text to the
-terminator is the comparison operator and it is the first argument. 
+terminator is the comparison operator and it is the first argument. The second
+argument is bound to for incoming. Return value is boolean.
 
     function parseBoolean (p, terminator) {
-
+        let start = p.ind-1;
+        let cmd = 'bool';
+        let args = p.f.textArgs(p, terminator);
+        let bind = 2;
+        let end = p.ind-1;
+        _"return piece:bind";
     }
 
+### Operator
+
+A leading `=` indicates a mathematical operator or function is here to process
+something. Similar to boolean and math. Examples `=+=3` or `=sin=` or `=sin`. This is pretty
+heavy syntax. 
+
+    function parseOperator (p, terminator) {
+        let start = p.ind-1;
+        let cmd = 'op';
+        let first = p.f.firstFind(p, '=' + terminator);
+        let op, bind, args;
+        if (first[0] === '=') {
+
+Operator is between equals sign. The stuff after the second equals should be
+the first argument so we skip over it with incoming input. 
+
+            op = p.text.slice(p.ind, first[1]).trim();
+            p.ind = first[1];
+            bind = 2;
+            args = p.f.textArgs(p, terminator);
+            if (!args[0]) {
+                args.shift(); 
+                bind = 1; // nothing after equals after all
+            }
+            args.unshift(op);
+        } else { 
+
+No second equals sign. So the operator is the bit before the parentheses or
+terminator. It is automatically placed correctly with textArgs. If no such
+argument exists, we hope the first one is. 
+
+            args = p.f.textArgs(p, terminator);
+            bind = 1;
+            if (!args[0]) {
+                args.shift();
+                bind = 0; //maybe operator is incoming
+            }
+        }
+        let end = p.ind-1;
+        _"return piece:bind";
+    }
 ### Array
 
 This is denoted by square braces. It is assumed to have args separated by
 commas. 
 
     function parseArray (p, terminator) {
-        
+        let start = p.ind-1;
+        let cmd = 'arr';
+        let args = p.f.parseArgs(p, csqu);
+        let end = p.ind-1;
+        _"return piece";
     }
 
 
@@ -770,20 +741,29 @@ This is denoted by curly braces. It is assumed to be in `key,value` form,
 separated by commas. It returns the object.
 
     function parseObject (p, terminator) {
-
+        let start = p.ind-1;
+        let cmd = 'obj';
+        let args = p.f.parseArgs(p, cbra);
+        let end = p.ind-1;
+        _"return piece";
     }
 
 ### Dash
 
 Dash is for calling commands from required libraries. This loads the required
 one, thus avoiding the overhead of loading if not actually required. It should
-be of the form `-libraryNickname-method(arg1, arg2)`.  So `-ld-pluck(arr, 1)`
+be of the form `-libraryNickname.method(arg1, arg2)`.  So `-ld.pluck(arr, 1)`
 for using pluck from lodash. If the nickname points to a function directly,
 one can call that. Nicknames are defined elsewhere and can lead to commonly
 used functions, commands, setups, whatever. 
 
     function parseDash (p, terminator) {
-
+        let start = p.ind-1;
+        let cmd = 'dash';
+        let bind = 1;
+        let args = p.f.textArgs(p, terminator);
+        let end = p.ind-1;
+        _"return piece:bind";
     }
 
 
@@ -798,21 +778,53 @@ after the first being a property name subsequentially.
 `.(obj, prop1, prop2, prop3)` equivalent to `obj.prop1.prop2.prop3` while
 `.join(obj, arg1, arg2)` is equivalent to `obj.join(arg1, arg2)`. 
 
-    function parseDot (p,terminator) {
+The method command expects the method name first, then the object, and then
+the arguments. This is so that we can bind the pipe input into the second slot
+and then we can accommodate this whether it is in a pipe or not. 
 
+    function parseDot (p,terminator) {
+        let start = p.ind-1;
+        let args = p.f.textArgs(p, terminator);
+        let end = p.ind-1;
+        let cmd, bind;
+        if (args[0]) {
+            cmd = 'methodCall';
+            bind = 1;
+            _"return piece:bind";
+        } else {
+            args.shift();
+            cmd = 'propertyAccess';
+            _"return piece";
+        }
     }
 
 ### Comment
 
 This creates a comment. It expects two slashes with the bit in between the
 slashes being the type(s) of comments (if just one, then that is the output,
-otherwise it is a doc with the keys of types). After the slash and until the
+otherwise it is a doc with the keys of types; the command handles figuring
+that out). After the slash and until the
 terminator, that is the comment. A starting quote is allowed and is processed
-as the type. 
+as the type. Arguments could be places to insert variables for e.g. javadoc
 
 
     function parseComment (p, terminator) {
-
+        const start = p.ind-1;
+        const cmd = 'comment';
+        let slash = p.f.findFirst(p, '/'); //there must be a second slash
+        let type = p.text.slice(p.ind, slash[1]);
+        if (!type) { type = 'js-inline'; }
+        p.ind = slash[1]+1;
+        let args = p.f.textArgs(p, terminator);
+        let bind;
+        if (!args[0]) { 
+            args.shift(); 
+            bind = 1; // no text after slashes so assume incoming
+        } else {
+            bind = 2; //there is text; incoming can go in extra arguments if needed
+        }
+        args.unshift(type);
+        _"return piece:bind";
     }
 
 
@@ -821,7 +833,7 @@ as the type.
 A leading `@` sign signifies wanting to grab from the scope using the variable
 number and possibly dots for a name or, if it is
 followed by a number, from inside of a pipe command, accessing that number of
-previous pipes. The latter is a pipeInput command and is specially accessed 
+previous pipes. The latter is a pipeInput command and is specially accessed.
 
 But an `@` symbol by itself is reserved for the input variable
 of the pipe and satisfies that argument. It is, in effect, setting the bind
@@ -829,28 +841,80 @@ variable of the piece, overriding it. In that case, it issues the command
 `pipeInput` with no arguments in the arg listing. It can appear multiple
 times. If it appears outside of a pipe, then undefined is returned. 
 
+To ignore the incoming input entirely, have `@!` somewhere. It will get
+ignored (so either at the beginning or end is fine). We can also use `@^text
+or number` to indicate that the output of this should be something that
+follows the get scope or previous input rules. Nothing after the caret leads
+to the previous input while an `!` will lead to nothing being passed on
+(something like a log command might need `^`). 
+
 Note `@0` is the current input, but it does not trigger a skipping of the
 usual argument shifting behavior. Only `@` by itself does that. 
 
-One can also have something like `@1/2/3` indicating to put those pipe output
-values in as an array into the argument. `..` syntax indicating a range is
-also allowed. 
+    function atParse (p, terminator) {
+        let start = p.ind;
+        let end = p.f.findFirst(p, terminator)[1]-1;
+        let text = p.text.slice(start, end).trim();
+        p.ind = end+1;
+        let cmd, args;
+        if (!text) {
+            cmd = 'pipeInput';
+            args = [];
+        } else if (text[0].search(/^[!0-9^]/) !== -1 ) {
+            cmd = 'pipeInput';
+            args = [text];
+        } else {
+            cmd = 'getScope';
+            args = [text];
+        }
+        _"return piece";
+    }
+
 
 ### Store scope
 
-A leading `=` is an instruction to store the incoming pipe into a scope
+A leading `^` is an instruction to store the incoming pipe into a scope
 variable, possibly with depth of dots. If it ends in `!` then it returns
 undefined otherwise it passes along the variable. For more complicated stuff,
 saying pushing onto an array or whatever, another command should be used,
 probably an eval.
 
+    function eqParse (p, terminator) {
+        let start = p.ind-1;
+        let args = p.f.textArgs(p, terminator);
+        let end = p.ind-1;
+        let cmd = 'storeScope';
+        let bind = 1; // input is the second argument
+        _"return piece:bind";
+    }
 
 
 ## Utilities
 
+### Find first
+
+This is a generic function which takes in the parsing object and whatever
+single characters one wants to stop on. It returns the character found and
+sets the index on the parsing object. 
+
+    function findFirst (p, chars, ind) {
+        ind = ind || p.ind;
+        let len = p.text.length;
+        while (ind < len) {
+            if (chars.indexOf(p.text[ind]) !== -1) {
+                return [p.text[ind], ind];
+            } else {
+                ind += 1;
+            }
+        }
+
+Not found. 
+
+        return [null, ind];
+    }
 ### Line Numbering
 
-This is a small ife that returns a function that either gives a line/column
+This is a small factory that returns a function that either gives a line/column
 position given a text position or gives a text position given a line/column. 
 
 The start parameter is where to base line/columns off of. 
@@ -869,11 +933,20 @@ The start parameter is where to base line/columns off of.
         }
        
         return function genLineNumber (data) { 
+
 If it is an array, then it should be line/column
 
-            if (Array.isArray(data) {
+
+TODO: Figure out proper positioning here. First line involves also column
+shift. 
+
+            if (Array.isArray(data)) {
                 let [line, col] = data;
-                return lines[line-ls] + col - (linecs;
+                if (line === ls) {
+                    return lines[0] +cs + col;
+                } else {
+                    return lines[line-ls] + col;
+                }
 
 If data is a number, then it is the position in the given text. 
 
@@ -914,10 +987,139 @@ applied to section names and command names.
         return str.trim().toLowerCase();
     }
 
+### Return Piece
+
+This defines the standard returning of a piece. It assumes that start, end,
+cmd, and args are defined. 
+
+    return {
+        start: p.f.ln(start),
+        end: p.f.ln(end),
+        cmd, args
+    }
+
+[bind]()
+
+Adds in bind. 
+
+    return {
+        start: p.f.ln(start),
+        end: p.f.ln(end),
+        cmd, bind, args
+    }
+
+[value]()
+
+    return {
+        start: p.f.ln(start),
+        end: p.f.ln(end),
+        value 
+    }
 
 
+### Unterminated Quote
+
+This is where we handle unterminated quotes. There should be a start, end, and
+value variable defined. 
+
+    let info = {start: p.f.ln(start), end : p.f.ln(end), value};
+    p.f.tracker('unterminated quote', info);
+    throw new Error('unterminated quoted:' + info.start + ':' +
+        value +'\n---\n' + p.text);
 
 
+### Make Get
+
+This makes a get cmd. 
+
+    function makeGet (name, start, end, p) {
+        let args = [ {value : p.f.norm(name)}]; 
+        let cmd = 'get';
+        let bind = true; //ignore pipe inputs
+        _"return piece:bind";
+    }
+
+
+### TextArgs
+
+This is a little utility for extracting text up to a parentheses or terminator
+and then processing the arguments if a parentheses. It returns an array with
+the first bit followed by the parenthetical arguments. The first bit is either
+raw text, quoted text (any of them all no backslashing), underscore followed
+by raw text for getting a section. 
+
+We now process the math text. We take plain text to be the raw input, but we
+also allow for quotes or an underscore. It could also be a parenthetical which
+uses the first argument for this initial purpose, something which becomes the
+second argument. There could also be nothing in case it is a pipe that is
+taking in the next argument. 
+      
+    function textArgs (p, terminator) {
+        let args, firstArg;
+        let start = p.ind;
+        while (/\s/.test(p.text[p.ind]) ) {
+            p.ind += 1;
+        }
+
+        let first = p.text[p.ind];
+        
+Quote 
+
+        if (p.q.test(first) ) {
+            let qEnd = p.text.indexOf(first, p.ind+1);
+            if (qEnd) {
+                firstArg = {value: p.text.slice(p.ind, qEnd)};
+                p.ind = p.f.findFirst(p, par+terminator, qEnd)[1];
+            } else {
+                let end = p.text.length;
+                let value = p.text.slice(start);
+                _"unterminated quote"
+            }
+
+Underscore
+
+        } else if (first === p.u) {
+            if (p.q.test(p.text[p.ind+1])) {
+                firstArg = p.f.toTerminator(p, 'code', p.text[p.ind]); 
+            } else {
+                let uEnd = p.f.findFirst(p, par + terminator)[1];
+                firstArg = {cmd: 'get', args : [
+                    p.f.norm(p.text.slice(p.ind, uEnd))};
+                p.ind = uEnd; //on parentheses or terminator
+            }
+
+Plain text, possibly no text. 
+
+        } else {
+            let tEnd = p.f.findFirst(p, par + terminator)[1];
+            if (tEnd === p.ind) {  // no text
+                firstArg = null;
+            } else {
+                firstArg = {value : p.text.slice(p.ind, tEnd).trim()};
+            }
+        }
+
+        if (firstArg) {
+            firstArg.start = start;
+            firstArg.end = p.ind-1;
+        }
+
+We should now be past the text, etc. with p.ind pointing to either a
+parenthetical or a terminator. 
+
+        if (p.text[p.ind] === par) {
+            p.ind += 1;
+            args = p.f.parseArgs(p, cpar);
+            args.unshift(firstArg);
+        } else {
+            args = [firstArg];
+        }
+
+        return args;
+        
+
+    }
+     
 
 ```ignore
 
