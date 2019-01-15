@@ -1,21 +1,22 @@
+/* eslint-disable no-console */
 let par = '('; let cpar = ')';
-let bra = '{'; let cbra = '}';
-let squ = '['; let csqu = ']';
+let bra = '{'; let cbra = '}'; //eslint-disable-line no-unused-vars
+let squ = '['; let csqu = ']'; //eslint-disable-line no-unused-vars
 
 let defTypeFirst = {
-    "'" : function rawQuote (p, terminator) {
+    "'" : function rawQuote (p) {
         let value;
         let start = p.ind;
         let end = p.text.indexOf("'", p.ind);
         if (end === -1) {
-            end = text.length-1;
+            end = p.text.length-1;
             value =  p.text.slice(p.ind);
             let info = {start: p.f.ln(start), end : p.f.ln(end), value};
             p.f.tracker('unterminated quote', info);
             throw new Error('unterminated quoted:' + info.start + ':' +
                 value +'\n---\n' + p.text);
         }
-        value = text.slice(p.ind, end);
+        value = p.text.slice(p.ind, end);
         p.ind = end+1;
         return {
             start: p.f.ln(start),
@@ -23,7 +24,7 @@ let defTypeFirst = {
             value 
         };
     },
-    '"' : function parseBackSlash (p, terminator) {
+    '"' : function parseBackSlash (p) {
         let start = p.ind;
         let end, value; 
         let reg = /[\\]*"/g;
@@ -55,7 +56,7 @@ let defTypeFirst = {
         }
         throw new Error('internal error at parseBackSlash; unreachable point reached');
     },
-    '`' : function parseBackTick (p, terminator) {
+    '`' : function parseBackTick (p) {
         let start = p.ind;
         let end, args;
         let cmd = 'backtick';
@@ -70,7 +71,7 @@ let defTypeFirst = {
                     continue;
                 } else { // quote found
                     end = reg.lastIndex-1;
-                    args = [p.text.slice(p.ind, reg.lastIndex-1)];
+                    args = [{value:p.text.slice(p.ind, reg.lastIndex-1)}];
                     p.ind = reg.lastIndex;
                     return {
                         start: p.f.ln(start),
@@ -80,7 +81,7 @@ let defTypeFirst = {
                 }
             } else { //no matching quote
                 end = len;
-                value = p.text.slice(p.ind);
+                let value = p.text.slice(p.ind);
                 let info = {start: p.f.ln(start), end : p.f.ln(end), value};
                 p.f.tracker('unterminated quote', info);
                 throw new Error('unterminated quoted:' + info.start + ':' +
@@ -90,11 +91,17 @@ let defTypeFirst = {
         throw new Error('internal error at parseBackSlash; unreachable point reached');
     },
     '\u005f' : function parseGet (p, terminator) {
-        let end = p.f.findFirst(p, '|' + terminator)[1];
-        let name = p.text.slice(p.ind,end);
-        let piece = p.f.makeGet(name, p.ind, end-1);
-        p.ind = end;
-        return piece;
+        let start = p.ind;
+        p.ind = p.f.findFirst(p, '|' + terminator)[1];
+        let args = [{value: p.f.norm(p.text.slice(start, p.ind))}];
+        let cmd = 'get';
+        let bind = true;
+        let end = p.ind-1;
+        return {
+            start: p.f.ln(start),
+            end: p.f.ln(end),
+            cmd, bind, args
+        };
     },
     '!' : function parseCmd (p, terminator) {
         let cmd, bind;
@@ -111,6 +118,7 @@ let defTypeFirst = {
             bind = 1;
         }
     
+        let end = p.ind-1;
         if (bind) {
             return {
                 start: p.f.ln(start),
@@ -135,7 +143,8 @@ let defTypeFirst = {
         } else {
             args.shift();
         }
-    
+        
+        let end = p.ind-1;
         if (bind) {
             return {
                 start: p.f.ln(start),
@@ -218,7 +227,7 @@ let defTypeFirst = {
             cmd, bind, args
         };
     },
-    '[' : function parseArray (p, terminator) {
+    '[' : function parseArray (p) {
         let start = p.ind-1;
         let cmd = 'arr';
         let args = p.f.parseArgs(p, csqu);
@@ -229,7 +238,7 @@ let defTypeFirst = {
             cmd, args
         };
     }, //]
-    '{' : function parseObject (p, terminator) {
+    '{' : function parseObject (p) {
         let start = p.ind-1;
         let cmd = 'obj';
         let args = p.f.parseArgs(p, cbra);
@@ -284,6 +293,7 @@ let defTypeFirst = {
         p.ind = slash[1]+1;
         let args = p.f.textArgs(p, terminator);
         let bind;
+        let end = p.ind-1;
         if (!args[0]) { 
             args.shift(); 
             bind = 1; // no text after slashes so assume incoming
@@ -300,10 +310,10 @@ let defTypeFirst = {
     '@' : function atParse (p, terminator) {
         let start = p.ind;
         let end = p.f.findFirst(p, terminator)[1]-1;
-        let text = p.text.slice(start, end).trim();
+        let text = {value:p.f.norm(p.text.slice(start, end))};
         p.ind = end+1;
         let cmd, args;
-        if (!text) {
+        if (!text.value) {
             cmd = 'pipeInput';
             args = [];
         } else if (text[0].search(/^[!0-9^]/) !== -1 ) {
@@ -331,59 +341,62 @@ let defTypeFirst = {
             cmd, bind, args
         };
     }
-}
+};
 const toTerminator = function toTerminator (p, mode, terminator) {
+    let typeFirst = p.f.typeFirst;
     let len = p.text.length;
     if (p.ind >= len) {
         return {terminate:true};
     }
-    let origInd = p.ind;
     let ln = p.f.ln;
     let reg = /\s*/g;
     reg.lastIndex = p.ind;
-    let match = reg.exec(text);
+    reg.exec(p.text); //just advances past whitespace
     p.ind = reg.lastIndex;
     let first = p.text[p.ind];
     if (terminator.indexOf(first) !== -1) {
         return { terminate : true };
     }
-    let typed, piece, start = p.ind;
+    let piece, start = p.ind;
     if (typeFirst.hasOwnProperty(first) ) {
-        p.ind = p.ind+1;
+        p.ind += 1;
         piece = typeFirst[first](p, terminator);
     } else {
-        let paren = findFirst(p, par + terminator);
+        let paren = p.f.findFirst(p, par + terminator);
         if (paren[0] === par ) {
             piece =  typeFirst['!'](p, terminator);
         } else {
-            piece = typeFirst[plainText[mode]](p, terminator);
+            piece = typeFirst[p.f.plainText[mode]](p, terminator);
         }
     }
-    let nxt = findFirst(p, '|', terminator);
-    p.ind = nxt[1];
+    let nxt = p.f.findFirst(p, '|'+terminator);
+    p.ind = nxt[1]+1;
     if (nxt[0] === '|') {
         if (mode !== 'pipe') {
             let args = [piece];
             piece = {cmd: 'pipe', args};
             let go = true;
             while (go) {
-               let further = toTerminator(p, 'pipe', terminator);
-               if (further.terminate) { go = false;}
-               if (p.ind >= len) { go = false;}
-               if (further.cmd || further.values) {args.push(further);}
+                let further = toTerminator(p, 'pipe', terminator);
+                if (further.terminate) { 
+                    go = false;
+                    delete further.terminate; //not generally needed
+                }
+                if (p.ind >= len) { go = false;}
+                if (further.cmd || further.values) {args.push(further);}
             }
             piece.start = ln(start);
             piece.end = ln(p.ind-1);
             piece.terminate = true;
         } 
     } else {
-       piece.terminate = true;
+        piece.terminate = true;
     }
     return piece;
-}
+};
 const normalizeString = function normalizeString (str) {
     return str.trim().toLowerCase();
-}
+};
 const lineNumberFactory = function (text,[ls, cs, ps]) {
     let lines = [0];
     let len = text.length;
@@ -401,17 +414,17 @@ const lineNumberFactory = function (text,[ls, cs, ps]) {
         if (Array.isArray(data)) {
             let [line, col] = data;
             if (line === ls) {
-                return linees[0] +cs + col;
+                return lines[0] +cs + col;
             } else {
                 return lines[line-ls] + col;
             }
-        } else if (typeof target === 'number') { 
+        } else if (typeof data === 'number') { 
             let target = data;
             let min = 0;
             let max = lines.length;
-            let guess = (min + max);
-            guess = (guess + (guess % 2) )/2
             while ( (max - min) > 1 ) {
+                let guess = (min + max);
+                guess = (guess + (guess % 2) )/2;
                 if (lines[guess] === target) {
                     min = guess;
                     break;
@@ -427,11 +440,86 @@ const lineNumberFactory = function (text,[ls, cs, ps]) {
             return [line, col, ps + data];
         }
     };
-}
+};
+const textArgs = function textArgs (p, terminator) {
+    let args, firstArg;
+    let start = p.ind;
+    while (/\s/.test(p.text[p.ind]) ) {
+        p.ind += 1;
+    }
+
+    let first = p.text[p.ind];
+    if (p.q.test(first) ) {
+        let qEnd = p.text.indexOf(first, p.ind+1);
+        if (qEnd) {
+            firstArg = {value: p.text.slice(p.ind, qEnd)};
+            p.ind = p.f.findFirst(p, par+terminator, qEnd)[1];
+        } else {
+            let end = p.text.length;
+            let value = p.text.slice(start);
+            let info = {start: p.f.ln(start), end : p.f.ln(end), value};
+            p.f.tracker('unterminated quote', info);
+            throw new Error('unterminated quoted:' + info.start + ':' +
+                value +'\n---\n' + p.text);
+        }
+    } else if (first === p.u) {
+        if (p.q.test(p.text[p.ind+1])) {
+            firstArg = p.f.toTerminator(p, 'code', p.text[p.ind]); 
+        } else {
+            let uEnd = p.f.findFirst(p, par + terminator)[1];
+            firstArg = {
+                cmd: 'get', 
+                args : [ {value: p.f.norm(p.text.slice(p.ind, uEnd))}]
+            };
+            p.ind = uEnd; //on parentheses or terminator
+        }
+    } else {
+        let tEnd = p.f.findFirst(p, par + terminator)[1];
+        if (tEnd === p.ind) {  // no text
+            firstArg = null;
+        } else {
+            firstArg = {value : p.text.slice(p.ind, tEnd).trim()};
+        }
+    }
+
+    if (firstArg) {
+        firstArg.start = start;
+        firstArg.end = p.ind-1;
+    }
+    if (p.text[p.ind] === par) {
+        p.ind += 1;
+        args = p.f.parseArgs(p, cpar);
+        args.unshift(firstArg);
+    } else {
+        args = [firstArg];
+    }
+
+    return args;
+    
+
+};
+const plainText = {
+    'code' : "\u005f",
+    'args' : "'",
+    'pipe' : "!"
+};
+const findFirst = function findFirst (p, chars, ind) {
+    ind = ind || p.ind;
+    let len = p.text.length;
+    while (ind < len) {
+        if (chars.indexOf(p.text[ind]) !== -1) {
+            return [p.text[ind], ind];
+        } else {
+            ind += 1;
+        }
+    }
+    return [null, ind];
+};
 module.exports = function cta ({
     type = 'code',
     text = '', 
-    tracker = (note, data) => {console.log("UP/" + note, data)}, 
+    //eslint-disable-next-line no-console
+    tracker = (note, data) => {console.log("UP/" + note, data);}, 
     start = [1,1,0],
     ind = 0,
     u = '\u005f',
@@ -448,27 +536,30 @@ module.exports = function cta ({
             typeFirst[key] = defTypeFirst[key];
         }
     });
-    let p = {text, tracker, ind, q, u, 
+    let p = {text, ind, q, u, 
         begin : ind,
-        f : {typeFirst, checkParen, toTerminator, 
-            norm:normalizeString}
+        f : {typeFirst, toTerminator, findFirst, tracker, 
+            norm:normalizeString, textArgs, plainText}
     };
     Object.assign(p.f,f); // a way to override most of the parsing stuff 
     if (!p.f.hasOwnProperty('ln') ) {
-        p.f.ln = lineNumberingFactory(text, start);
+        p.f.ln = lineNumberFactory(text, start);
     }
     let parsed, ret;
     if (type === 'code') {
         tracker("parsing code block", {text, start});
         let len = text.length;
         let pieces = [];
+        let begin = ind;
         while (ind < text.length) {
             let quote;
             ind = text.indexOf(p.u, ind);
+            console.log(ind);
             if (ind === -1) { break; }
             if (p.q.test(text[ind+1])) {ind += 1; continue;}
             quote = text[ind+1];
             {
+                console.log('escaping');
                 let backind = ind-1;
                 let num = '';
                 let escape = false;
@@ -496,38 +587,42 @@ module.exports = function cta ({
                     } else {
                         prefix = '';
                     }
-                    let txt = text.slice(begin,backind) + prefix + p.u + quote;
+                    let txt = p.text.slice(begin,backind) + prefix + p.u + quote;
                     ind +=2;
                     pieces.push({
-                        start : ln(begin),
-                        end : ln(ind-1),
+                        start : p.f.ln(begin),
+                        end : p.f.ln(ind-1),
                         value : txt
                     });
                     continue;
                 }
             }
-            let prevText = text.slice(begin, ind)
+            let prevText = p.text.slice(begin, ind);
             if (prevText) {
                 pieces.push( {
-                    start : ln(begin),
-                    end : ln(ind-1),
+                    start : p.f.ln(begin),
+                    end : p.f.ln(ind-1),
                     value : prevText
                 });
             }
             p.ind = ind + 2;
-            
+            console.log(p.ind, quote);
             let further = toTerminator(p, 'code', quote);
+            delete further.terminate;
             pieces.push(further);
             begin = ind = p.ind;
+            console.log(begin, ind, p.ind);
         }
         ind = len;
-        let prevText = text.slice(begin, ind)
-        if (prevText) {
-            pieces.push( {
-                start : ln(begin),
-                end : ln(ind-1),
-                value : prevText
-            });
+        if (begin < text.length) {  
+            let prevText = p.text.slice(begin, ind);
+            if (prevText) {
+                pieces.push( {
+                    start : p.f.ln(begin),
+                    end : p.f.ln(ind-1),
+                    value : prevText
+                });
+            }
         }
         ret = pieces;
         tracker("code block parsed", ret);
@@ -536,7 +631,7 @@ module.exports = function cta ({
         parsed = toTerminator(p, 'pipe', '');
         ret = {
             start,
-            end: ln(p.ind-1),
+            end: p.f.ln(p.ind-1),
             cmd : ['pipe'],
             args : parsed.cmds
         };
