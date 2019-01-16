@@ -92,6 +92,12 @@ let defTypeFirst = {
     },
     '\u005f' : function parseGet (p, terminator) {
         let start = p.ind;
+        if (p.q.test(p.text[p.ind])) {
+            let quote = p.text[p.ind];
+            p.ind += 1 ;
+            let piece = p.f.toTerminator(p, 'code', quote); 
+            return piece;
+        }
         p.ind = p.f.findFirst(p, '|' + terminator)[1];
         let args = [{value: p.f.norm(p.text.slice(start, p.ind))}];
         let cmd = 'get';
@@ -362,11 +368,21 @@ const toTerminator = function toTerminator (p, mode, terminator) {
         p.ind += 1;
         piece = typeFirst[first](p, terminator);
     } else {
-        let paren = p.f.findFirst(p, par + terminator);
+        let paren = p.f.findFirst(p, par + '|' + terminator);
         if (paren[0] === par ) {
             piece =  typeFirst['!'](p, terminator);
         } else {
-            piece = typeFirst[p.f.plainText[mode]](p, terminator);
+            if (mode === 'args') {  
+                let start = p.ind;
+                p.ind = p.f.findFirst(p, terminator)[1];
+                piece = {
+                    start : p.f.ln(start),
+                    end : p.f.ln(p.ind-1),
+                    value : p.text.slice(start, p.ind).trim(),
+                };
+            } else {
+                piece = typeFirst[p.f.plainText[mode]](p, terminator);
+            }
         }
     }
     let nxt = p.f.findFirst(p, '|'+terminator);
@@ -390,7 +406,7 @@ const toTerminator = function toTerminator (p, mode, terminator) {
             piece.terminate = true;
         } 
     } else {
-        piece.terminate = true;
+        piece.terminate = nxt[0];
     }
     return piece;
 };
@@ -441,7 +457,31 @@ const lineNumberFactory = function (text,[ls, cs, ps]) {
         }
     };
 };
+const parseArgs = function (p, close) {
+    const len = p.text.length;
+    const term = ',' + close;
+    let args = [];
+    while (p.ind < len) {
+        let piece = toTerminator(p, 'args', term);
+        if  (piece) {
+            if  (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) {
+                args.push(piece);
+            }
+            let terminate = piece.terminate;
+            delete piece.terminate;
+            if (terminate === close) {
+                break;
+            }
+        } else {
+            //should never happen
+            throw new Error('undefined piece:' + p.text.slice(p.ind) +
+                p.ind);
+        }
+    }
+    return args;
+};
 const textArgs = function textArgs (p, terminator) {
+    terminator = terminator + '|';
     let args, firstArg;
     let start = p.ind;
     while (/\s/.test(p.text[p.ind]) ) {
@@ -480,6 +520,7 @@ const textArgs = function textArgs (p, terminator) {
         } else {
             firstArg = {value : p.text.slice(p.ind, tEnd).trim()};
         }
+        p.ind = tEnd;
     }
 
     if (firstArg) {
@@ -494,13 +535,13 @@ const textArgs = function textArgs (p, terminator) {
         args = [firstArg];
     }
 
+
     return args;
     
 
 };
 const plainText = {
     'code' : "\u005f",
-    'args' : "'",
     'pipe' : "!"
 };
 const findFirst = function findFirst (p, chars, ind) {
@@ -523,7 +564,7 @@ module.exports = function cta ({
     start = [1,1,0],
     ind = 0,
     u = '\u005f',
-    q = /'"`/,
+    q = /['"`]/,
     typeFirst = {}, 
     f = {} 
 }) {
@@ -538,7 +579,7 @@ module.exports = function cta ({
     });
     let p = {text, ind, q, u, 
         begin : ind,
-        f : {typeFirst, toTerminator, findFirst, tracker, 
+        f : {typeFirst, toTerminator, findFirst, tracker, parseArgs, 
             norm:normalizeString, textArgs, plainText}
     };
     Object.assign(p.f,f); // a way to override most of the parsing stuff 
@@ -554,12 +595,10 @@ module.exports = function cta ({
         while (ind < text.length) {
             let quote;
             ind = text.indexOf(p.u, ind);
-            console.log(ind);
             if (ind === -1) { break; }
-            if (p.q.test(text[ind+1])) {ind += 1; continue;}
+            if (!p.q.test(text[ind+1])) {ind += 1; continue;}
             quote = text[ind+1];
             {
-                console.log('escaping');
                 let backind = ind-1;
                 let num = '';
                 let escape = false;
@@ -606,12 +645,10 @@ module.exports = function cta ({
                 });
             }
             p.ind = ind + 2;
-            console.log(p.ind, quote);
             let further = toTerminator(p, 'code', quote);
             delete further.terminate;
             pieces.push(further);
             begin = ind = p.ind;
-            console.log(begin, ind, p.ind);
         }
         ind = len;
         if (begin < text.length) {  

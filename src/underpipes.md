@@ -49,10 +49,10 @@ syntax matching.
     const toTerminator = _"to terminator";
     const normalizeString = _"normalize string";
     const lineNumberFactory = _"line numbering";
+    const parseArgs = _"parse args";
     const textArgs = _"textArgs";
     const plainText = {
         'code' : "\u005f",
-        'args' : "'",
         'pipe' : "!"
     };
     const findFirst = _"find first";
@@ -70,7 +70,7 @@ in which is generally a segment of that larger file.
         start = [1,1,0],
         ind = 0,
         u = '\u005f',
-        q = /'"`/,
+        q = /['"`]/,
         typeFirst = {}, 
         f = {} 
     }) {
@@ -84,7 +84,7 @@ For code slicing, we use begin to know where to slice the prior code parts.
 
         let p = {text, ind, q, u, 
             begin : ind,
-            f : {typeFirst, toTerminator, findFirst, tracker, 
+            f : {typeFirst, toTerminator, findFirst, tracker, parseArgs, 
                 norm:normalizeString, textArgs, plainText}
         };
         Object.assign(p.f,f); // a way to override most of the parsing stuff 
@@ -153,7 +153,6 @@ At this point, `ind` is pointing to the underscore. So we add two and set `p.ind
 to that for the next processing.
 
     p.ind = ind + 2;
-    console.log(p.ind, quote);
     let further = toTerminator(p, 'code', quote);
     delete further.terminate;
     pieces.push(further);
@@ -161,7 +160,6 @@ to that for the next processing.
 At this point `p.ind` should point to after the last index. 
 
     begin = ind = p.ind;
-    console.log(begin, ind, p.ind);
 
     
 [previous text]()
@@ -184,7 +182,6 @@ and the underscore.
 
 This involves backtracking. 
 
-    console.log('escaping');
     let backind = ind-1;
     let num = '';
     let escape = false;
@@ -236,9 +233,8 @@ We look for the next underscore. If not followed by a quote, we continue with
 the loop. If there is no underscore, then we are done. 
 
     ind = text.indexOf(p.u, ind);
-    console.log(ind);
     if (ind === -1) { break; }
-    if (p.q.test(text[ind+1])) {ind += 1; continue;}
+    if (!p.q.test(text[ind+1])) {ind += 1; continue;}
     quote = text[ind+1];
 
 
@@ -327,13 +323,29 @@ already have the information we need from it.
             
 No leading character. We assume plain text. We need to check for a
 parenthesis. If there is one, then we assume it is a command. If it is not a
-parenthesis
+parenthesis, then it depends on the mode: underscore, command, quote,
+depending on, respectively, code, pipe, args
 
-            let paren = p.f.findFirst(p, par + terminator);
+            let paren = p.f.findFirst(p, par + '|' + terminator);
             if (paren[0] === par ) {
                 piece =  typeFirst['!'](p, terminator);
             } else {
-                piece = typeFirst[p.f.plainText[mode]](p, terminator);
+                if (mode === 'args') {  
+
+For args, we want the plain text mode to be a quote. However, a quote requires
+a matching quote and so we can't call that. Instead, we simply do the work
+here. 
+
+                    let start = p.ind;
+                    p.ind = p.f.findFirst(p, terminator)[1];
+                    piece = {
+                        start : p.f.ln(start),
+                        end : p.f.ln(p.ind-1),
+                        value : p.text.slice(start, p.ind).trim(),
+                    };
+                } else {
+                    piece = typeFirst[p.f.plainText[mode]](p, terminator);
+                }
             }
         }
 
@@ -370,7 +382,7 @@ than return the piece.
 If it is not a pipe, then it should be a terminator. 
 
         } else {
-            piece.terminate = true;
+            piece.terminate = nxt[0];
         }
         return piece;
     }
@@ -524,6 +536,12 @@ This is an underscore. Just continue until terminator, pipe.
 
     function parseGet (p, terminator) {
         let start = p.ind;
+        if (p.q.test(p.text[p.ind])) {
+            let quote = p.text[p.ind];
+            p.ind += 1 ;
+            let piece = p.f.toTerminator(p, 'code', quote); 
+            return piece;
+        }
         p.ind = p.f.findFirst(p, '|' + terminator)[1];
         let args = [{value: p.f.norm(p.text.slice(start, p.ind))}];
         let cmd = 'get';
@@ -549,15 +567,22 @@ comma, generating an array of pieces.
         let args = [];
         while (p.ind < len) {
             let piece = toTerminator(p, 'args', term);
-            if  (piece && 
-                (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) ) {
-                args.push(piece);
+            if  (piece) {
+                if  (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) {
+                    args.push(piece);
+                }
+                let terminate = piece.terminate;
+                delete piece.terminate;
+                if (terminate === close) {
+                    break;
+                }
+            } else {
+                //should never happen
+                throw new Error('undefined piece:' + p.text.slice(p.ind) +
+                    p.ind);
             }
-            if (p.text[p.ind] === close) {
-                break;
-            }
-         }
-         return args;
+        }
+        return args;
     }
 
 
@@ -1061,7 +1086,7 @@ This is a little utility for extracting text up to a parentheses or terminator
 and then processing the arguments if a parentheses. It returns an array with
 the first bit followed by the parenthetical arguments. The first bit is either
 raw text, quoted text (any of them all no backslashing), underscore followed
-by raw text for getting a section. 
+by raw text forgetting a section. 
 
 We now process the math text. We take plain text to be the raw input, but we
 also allow for quotes or an underscore. It could also be a parenthetical which
@@ -1070,6 +1095,7 @@ second argument. There could also be nothing in case it is a pipe that is
 taking in the next argument. 
       
     function textArgs (p, terminator) {
+        terminator = terminator + '|';
         let args, firstArg;
         let start = p.ind;
         while (/\s/.test(p.text[p.ind]) ) {
@@ -1114,6 +1140,7 @@ Plain text, possibly no text.
             } else {
                 firstArg = {value : p.text.slice(p.ind, tEnd).trim()};
             }
+            p.ind = tEnd;
         }
 
         if (firstArg) {
@@ -1132,6 +1159,7 @@ parenthetical or a terminator.
             args = [firstArg];
         }
 
+
         return args;
         
 
@@ -1147,7 +1175,7 @@ This is where we do a sample run of all of this.
     let up = require('../underpipes');
     let result = up({text : `_":sample"`, 
         tracker : (note, data) => {
-            console.log(note, util.inspect(data, {colors:true, depth:5}));
+            console.log(note, util.inspect(data, {colors:true, depth:15}));
         }
     });
 
@@ -1160,7 +1188,7 @@ This is where we do a sample run of all of this.
 
     This is \_"some code" and more
 
-    Another \_':block| dude' 
+    Another \_':block| dude | _write | what(arg1, !dude, _near, \_"far")' 
 
 
 
