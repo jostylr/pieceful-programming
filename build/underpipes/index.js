@@ -37,7 +37,7 @@ let defTypeFirst = {
                     continue;
                 } else { // quote found
                     end = reg.lastIndex-1;
-                    value = eval('"' + p.text.slice(p.ind,reg.lastIndex) + '"');
+                    value = eval('"' + p.text.slice(p.ind,reg.lastIndex));
                     p.ind = reg.lastIndex;
                     return {
                         start: p.f.ln(start),
@@ -171,19 +171,20 @@ let defTypeFirst = {
         let first = p.f.findFirst(p, '#' + terminator);
         if (first[0] === '#') {
             p.ind = first[1] + 1; // past the hash
-            first = p.f.norm(p.text.slice(start, first[1]));
+            first = {value : p.f.norm(p.text.slice(start, first[1]))};
         } else {
-            first = 'js:eval';
+            first = {value: 'js:eval'};
         }
         
         let args = p.f.textArgs(p, terminator);
         let bind;
         if (!args[0]) {
             bind = 1; // no explicit math text so from pipe
-            args.shift();
+            args.shift(); // get rid of null
         } else {
             bind = 2;
         }
+        args.unshift(first); //add the type
         let end = p.ind-1;
         return {
             start: p.f.ln(start),
@@ -247,7 +248,27 @@ let defTypeFirst = {
     '{' : function parseObject (p) {
         let start = p.ind-1;
         let cmd = 'obj';
-        let args = p.f.parseArgs(p, cbra);
+        let key;
+        const pre = function (p) {
+            key = p.f.toTerminator(p, 'args', ':,' + cbra);
+            if (key.terminate !== ':') {
+                p.ind -= 1;                 
+            } 
+            delete key.terminate;
+        };
+        const post = function(val) {
+            let term = val.terminate;
+            delete val.terminate;
+            let ret = {
+                cmd : 'kv',
+                args : [ key, val ]
+            };
+            if (term) {
+                ret.terminate = term;
+            }
+            return ret;
+        };
+        let args = p.f.parseArgs(p, cbra, pre, post);
         let end = p.ind-1;
         return {
             start: p.f.ln(start),
@@ -361,7 +382,8 @@ const toTerminator = function toTerminator (p, mode, terminator) {
     p.ind = reg.lastIndex;
     let first = p.text[p.ind];
     if (terminator.indexOf(first) !== -1) {
-        return { terminate : true };
+        p.ind += 1;
+        return { terminate : (first || true) };
     }
     let piece, start = p.ind;
     if (typeFirst.hasOwnProperty(first) ) {
@@ -391,11 +413,13 @@ const toTerminator = function toTerminator (p, mode, terminator) {
         if (mode !== 'pipe') {
             let args = [piece];
             piece = {cmd: 'pipe', args};
+            piece.terminate = true; //likely to be replaced if proper
             let go = true;
             while (go) {
                 let further = toTerminator(p, 'pipe', terminator);
                 if (further.terminate) { 
                     go = false;
+                    piece.terminate = further.terminate;
                     delete further.terminate; //not generally needed
                 }
                 if (p.ind >= len) { go = false;}
@@ -403,10 +427,9 @@ const toTerminator = function toTerminator (p, mode, terminator) {
             }
             piece.start = ln(start);
             piece.end = ln(p.ind-1);
-            piece.terminate = true;
         } 
     } else {
-        piece.terminate = nxt[0];
+        piece.terminate = nxt[0] || true;
     }
     return piece;
 };
@@ -457,13 +480,15 @@ const lineNumberFactory = function (text,[ls, cs, ps]) {
         }
     };
 };
-const parseArgs = function (p, close) {
+const parseArgs = function (p, close, pre, post) {
     const len = p.text.length;
     const term = ',' + close;
     let args = [];
     while (p.ind < len) {
+        if (pre) {pre(p);}
         let piece = toTerminator(p, 'args', term);
         if  (piece) {
+            if (post) { piece = post(piece);}
             if  (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) {
                 args.push(piece);
             }
@@ -503,8 +528,10 @@ const textArgs = function textArgs (p, terminator) {
                 value +'\n---\n' + p.text);
         }
     } else if (first === p.u) {
-        if (p.q.test(p.text[p.ind+1])) {
-            firstArg = p.f.toTerminator(p, 'code', p.text[p.ind]); 
+        let quote = p.text[p.ind+1];
+        if (p.q.test(quote)) {
+            p.ind +=2;
+            firstArg = p.f.toTerminator(p, 'code', quote); 
         } else {
             let uEnd = p.f.findFirst(p, par + terminator)[1];
             firstArg = {
@@ -523,9 +550,10 @@ const textArgs = function textArgs (p, terminator) {
         p.ind = tEnd;
     }
 
+
     if (firstArg) {
-        firstArg.start = start;
-        firstArg.end = p.ind-1;
+        firstArg.start = p.f.ln(start);
+        firstArg.end = p.f.ln(p.ind-1);
     }
     if (p.text[p.ind] === par) {
         p.ind += 1;

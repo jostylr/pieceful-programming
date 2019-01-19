@@ -1,0 +1,47 @@
+{
+  "name": "Math",
+  "txt": "_'(#1+4^3, #latex:eval#sin(x),#, #a#_\"math expression | dude\" | cool)'",
+  "result": [
+    {
+      "cmd": "call",
+      "args": [
+        {
+          "cmd": "math",
+          "bind": 2,
+          "args": [{"value": "js:eval"}, {"value": "1+4^3"}]
+        },
+        {
+          "cmd": "math",
+          "bind": 2,
+          "args": [{"value": "latex:eval"}, {"value": "sin"}, {"value": "x"}]
+        },
+        {"cmd": "math", "bind": 1, "args": [{"value": "js:eval"}]},
+        {
+          "cmd": "pipe",
+          "args": [
+            {
+              "cmd": "math",
+              "bind": 2,
+              "args": [
+                {"value": "a"},
+                {
+                  "cmd": "pipe",
+                  "args": [
+                    {
+                      "cmd": "get",
+                      "bind": true,
+                      "args": [{"value": "math expression"}]
+                    },
+                    {"cmd": "dude", "args": []}
+                  ],
+                  "terminate": "\""
+                }
+              ]
+            },
+            {"cmd": "cool", "args": []}
+          ]
+        }
+      ]
+    }
+  ]
+}

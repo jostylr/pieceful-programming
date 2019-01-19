@@ -1,0 +1,9 @@
+{
+  "name": "MostBasic",
+  "txt": "This is _\"some code\" and more",
+  "result": [
+    {"value": "This is "},
+    {"cmd": "get", "bind": true, "args": [{"value": "some code"}]},
+    {"value": " and more"}
+  ]
+}

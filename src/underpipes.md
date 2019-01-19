@@ -304,10 +304,12 @@ Now we are at the first non-whitespace character.
 If nothing, then we terminate. We have already advanced the index and no
 command gets returned. As this comes first, if a terminating character is a
 quote, using that quote does terminate instead of initiating a quote (good
-thing). `p.ind` should point to the terminator.   
+thing). p.ind should point after the terminator and the terminating character
+is transmitted under the terminate, which should be removed. 
 
         if (terminator.indexOf(first) !== -1) {
-            return { terminate : true };
+            p.ind += 1;
+            return { terminate : (first || true) };
         }
 
 Not terminating. We then check for a special first character. We increment
@@ -362,11 +364,13 @@ Then we go into pipe mode, returning the pipe piece with all the pipes as args i
 
                 let args = [piece];
                 piece = {cmd: 'pipe', args};
+                piece.terminate = true; //likely to be replaced if proper
                 let go = true;
                 while (go) {
                     let further = toTerminator(p, 'pipe', terminator);
                     if (further.terminate) { 
                         go = false;
+                        piece.terminate = further.terminate;
                         delete further.terminate; //not generally needed
                     }
                     if (p.ind >= len) { go = false;}
@@ -374,7 +378,6 @@ Then we go into pipe mode, returning the pipe piece with all the pipes as args i
                 }
                 piece.start = ln(start);
                 piece.end = ln(p.ind-1);
-                piece.terminate = true;
             } 
 If we are already in pipe descent, then we don't need to do anything other
 than return the piece. 
@@ -382,7 +385,7 @@ than return the piece.
 If it is not a pipe, then it should be a terminator. 
 
         } else {
-            piece.terminate = nxt[0];
+            piece.terminate = nxt[0] || true;
         }
         return piece;
     }
@@ -481,7 +484,7 @@ quotes need to have the backslashes counted.
                     continue;
                 } else { // quote found
                     end = reg.lastIndex-1;
-                    value = eval('"' + p.text.slice(p.ind,reg.lastIndex) + '"');
+                    value = eval('"' + p.text.slice(p.ind,reg.lastIndex));
                     p.ind = reg.lastIndex;
                     _"return piece:value";
                 }
@@ -561,13 +564,15 @@ terminator. There should also be an array called args to push onto.
 Basically, we access the terminator, looking for the closed parentheses or a
 comma, generating an array of pieces. 
 
-    function (p, close) {
+    function (p, close, pre, post) {
         const len = p.text.length;
         const term = ',' + close;
         let args = [];
         while (p.ind < len) {
+            if (pre) {pre(p);}
             let piece = toTerminator(p, 'args', term);
             if  (piece) {
+                if (post) { piece = post(piece);}
                 if  (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) {
                     args.push(piece);
                 }
@@ -687,19 +692,20 @@ First we look to see if there is a second hash mark.
         let first = p.f.findFirst(p, '#' + terminator);
         if (first[0] === '#') {
             p.ind = first[1] + 1; // past the hash
-            first = p.f.norm(p.text.slice(start, first[1]));
+            first = {value : p.f.norm(p.text.slice(start, first[1]))};
         } else {
-            first = 'js:eval';
+            first = {value: 'js:eval'};
         }
         
         let args = p.f.textArgs(p, terminator);
         let bind;
         if (!args[0]) {
             bind = 1; // no explicit math text so from pipe
-            args.shift();
+            args.shift(); // get rid of null
         } else {
             bind = 2;
         }
+        args.unshift(first); //add the type
         let end = p.ind-1;
         _"return piece:bind";
     }
@@ -712,6 +718,8 @@ Examples: `#1+4^3` which will yield the javacript number 65.
 says the input is in latex, and it should be parsed into a float, that float
 should also be presented in latex form, and the raw input should be presented
 as latex all stored as an object since there are multiple outputs.
+
+
 
 ### Boolean
 
@@ -788,10 +796,44 @@ commas.
 This is denoted by curly braces. It is assumed to be in `key,value` form,
 separated by commas. It returns the object.
 
+
+TODO: do to terminator for key using colon argument. grab start from key, end
+from value. put term dance in parseargs. 
+
     function parseObject (p) {
         let start = p.ind-1;
         let cmd = 'obj';
-        let args = p.f.parseArgs(p, cbra);
+        let key;
+        const pre = function (p) {
+
+We allow for the full range of ways to get a key, such as underscores, quotes,
+commands, etc. The default plain text should be as a quoted value so we use
+mode args. 
+
+            key = p.f.toTerminator(p, 'args', ':,' + cbra);
+            if (key.terminate !== ':') {
+
+If no colon, then we assume the given is a key pointing an undefined value. We
+could also throw an error, but maybe there is some use for this? Ugh. Anyway,
+we need to move the p.ind back 1 so we get, essentially an undefined. 
+
+                p.ind -= 1;                 
+            } 
+            delete key.terminate;
+        };
+        const post = function(val) {
+            let term = val.terminate;
+            delete val.terminate;
+            let ret = {
+                cmd : 'kv',
+                args : [ key, val ]
+            };
+            if (term) {
+                ret.terminate = term;
+            }
+            return ret;
+        };
+        let args = p.f.parseArgs(p, cbra, pre, post);
         let end = p.ind-1;
         _"return piece";
     }
@@ -1103,7 +1145,7 @@ taking in the next argument.
         }
 
         let first = p.text[p.ind];
-        
+
 Quote 
 
         if (p.q.test(first) ) {
@@ -1120,8 +1162,10 @@ Quote
 Underscore
 
         } else if (first === p.u) {
-            if (p.q.test(p.text[p.ind+1])) {
-                firstArg = p.f.toTerminator(p, 'code', p.text[p.ind]); 
+            let quote = p.text[p.ind+1];
+            if (p.q.test(quote)) {
+                p.ind +=2;
+                firstArg = p.f.toTerminator(p, 'code', quote); 
             } else {
                 let uEnd = p.f.findFirst(p, par + terminator)[1];
                 firstArg = {
@@ -1143,9 +1187,10 @@ Plain text, possibly no text.
             p.ind = tEnd;
         }
 
+
         if (firstArg) {
-            firstArg.start = start;
-            firstArg.end = p.ind-1;
+            firstArg.start = p.f.ln(start);
+            firstArg.end = p.f.ln(p.ind-1);
         }
 
 We should now be past the text, etc. with p.ind pointing to either a
@@ -1171,24 +1216,78 @@ parenthetical or a terminator.
 This is where we do a sample run of all of this. 
 
 
-    let util = require('util')
-    let up = require('../underpipes');
-    let result = up({text : `_":sample"`, 
-        tracker : (note, data) => {
-            console.log(note, util.inspect(data, {colors:true, depth:15}));
+    const util = require('util');
+    const fs = require('fs');
+    const up = require('../../underpipes');
+    const jp = require('json-stringify-pretty-compact');
+    const diff = require("deep-object-diff").diff
+    let file = fs.readFileSync(__dirname + '/underpipes.txt', {encoding:'utf8'});
+    let tasks = file.split('\n---\n').
+        map(el => el.trim()).
+        map(el => {
+            let ind = el.indexOf(':');
+            return [el.slice(0,ind).trim(), el.slice(ind+1).trim()];
+        });
+    const removeSE = _":remove start and end"; 
+    tasks.forEach( ([name,txt]) => {
+        let ret = {name, txt};
+        if (txt) {
+            try {
+                ret.result = up({text:txt, 
+                    tracker : () => {} });
+                ret.result.forEach(removeSE);
+            } catch (e) {
+                ret.error = e.msg;
+                ret.stack = e.stack;
+            }
+        } else {
+            ret.error = 'no test';
+        }
+        if (ret.error) {
+            console.log('ERROR', ret);
+        } else {
+            try {
+                base = JSON.parse( fs.readFileSync(
+                    __dirname + '/' + name + '.json',
+                ));
+                let test = diff(base,  ret);
+                if (Object.keys(test).length === 0) {
+                    console.log('test ' + name + ' passed');
+                } else {
+                    console.log('FAIL: test ' + name + ' failed');
+                    console.log('DIFF:' + jp(test) );
+                    fs.writeFileSync(__dirname + '/' + name + '-diff.json', 
+                        jp(test) );
+                    fs.writeFileSync(__dirname + '/' + name + '-new.json', 
+                        jp(ret) );
+                }
+            } catch (e) {
+                console.log('No such test ' +  name + '. Please verify');
+                console.log(jp(ret));
+                fs.writeFileSync(__dirname + '/' + name + '-new.json', 
+                    jp(ret) );
+            } 
         }
     });
 
 
-[sample/underpipes.js](# "save:")
+
+[sample/underpipes/index.js](# "save:")
 
 
+[remove start and end]()
 
-[sample]()
+This is a quick little recurse down the tree to remove start and end
+computations because they can obscure what is going on. 
 
-    This is \_"some code" and more
-
-    Another \_':block| dude | _write | what(arg1, !dude, _near, \_"far")' 
+    function removeSE ( piece) {
+        if (!piece) { return;}
+        delete piece.start;
+        delete piece.end;
+        if (piece.args) {
+            piece.args.forEach(removeSE);
+        }
+    };
 
 
 

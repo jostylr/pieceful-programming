@@ -1,0 +1,10 @@
+{
+  "name": "ParseBackslashes",
+  "txt": "_'(\"dude let's quote \\\" and not \\nSome random linebreak\")'",
+  "result": [
+    {
+      "cmd": "call",
+      "args": [{"value": "dude let's quote \" and not \nSome random linebreak"}]
+    }
+  ]
+}

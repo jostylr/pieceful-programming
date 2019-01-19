@@ -1,0 +1,34 @@
+{
+  "name": "Object",
+  "txt": "_\"{key:val, rock:_'rock bit', _rocking : !dude(action), _noval, !dude\n: what}\"",
+  "result": [
+    {
+      "cmd": "obj",
+      "args": [
+        {"cmd": "kv", "args": [{"value": "key"}, {"value": "val"}]},
+        {
+          "cmd": "kv",
+          "args": [
+            {"value": "rock"},
+            {"cmd": "get", "bind": true, "args": [{"value": "rock bit"}]}
+          ]
+        },
+        {
+          "cmd": "kv",
+          "args": [
+            {"cmd": "get", "bind": true, "args": [{"value": "rocking"}]},
+            {"cmd": "dude", "args": [{"value": "action"}]}
+          ]
+        },
+        {
+          "cmd": "kv",
+          "args": [
+            {"cmd": "get", "bind": true, "args": [{"value": "noval"}]},
+            {}
+          ]
+        },
+        {"cmd": "kv", "args": [{"cmd": "dude", "args": []}, {"value": "what"}]}
+      ]
+    }
+  ]
+}

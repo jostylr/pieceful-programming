@@ -309,7 +309,11 @@ async way.
             } else if (arg.cmd) {
                 return (await runCommand.call(state, arg)).value;
             } else {
-                return arg;
+
+This can happen if a terminator is found with no value. Undefined seems
+appropriate here. 
+
+                return undefined;
             }
         };
     }

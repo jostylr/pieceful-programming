@@ -1,0 +1,24 @@
+{
+  "name": "MoreComplicated",
+  "txt": "Another _':block| dude | _write | what(arg1, !dude, _near, _\"far\")'",
+  "result": [
+    {"value": "Another "},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": ":block"}]},
+        {"cmd": "dude", "args": []},
+        {"cmd": "get", "bind": true, "args": [{"value": "write"}]},
+        {
+          "cmd": "what",
+          "args": [
+            {"value": "arg1"},
+            {"cmd": "dude", "args": []},
+            {"cmd": "get", "bind": true, "args": [{"value": "near"}]},
+            {"cmd": "get", "bind": true, "args": [{"value": "far"}]}
+          ]
+        }
+      ]
+    }
+  ]
+}

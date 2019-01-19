@@ -1,0 +1,32 @@
+{
+  "name": "QuotedBlock",
+  "txt": "A quoted code block in an argument: _\"!dude(_'arg | dude(left, right,\n_\"middle | what\"')\"",
+  "result": [
+    {"value": "A quoted code block in an argument: "},
+    {
+      "cmd": "dude",
+      "args": [
+        {
+          "cmd": "pipe",
+          "args": [
+            {"cmd": "get", "bind": true, "args": [{"value": "arg"}]},
+            {
+              "cmd": "dude",
+              "args": [
+                {"value": "left"},
+                {"value": "right"},
+                {
+                  "cmd": "pipe",
+                  "args": [
+                    {"cmd": "get", "bind": true, "args": [{"value": "middle"}]},
+                    {"cmd": "what", "args": []}
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

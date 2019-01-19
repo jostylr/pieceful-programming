@@ -1,0 +1,57 @@
+MostBasic: This is _"some code" and more
+
+---
+MoreComplicated: Another _':block| dude | _write | what(arg1, !dude, _near, _"far")'
+
+---
+QuotedBlock: A quoted code block in an argument: _"!dude(_'arg | dude(left, right,
+_"middle | what"')"
+
+---
+RawQuote: _"('raw quote with _"some block" not read\n')"
+
+---
+ParseBackslashes: _'("dude let's quote \" and not \nSome random linebreak")'
+
+---
+TemplateString:
+
+---
+Get: 
+
+---
+Cmd: 
+
+---
+Eval: 
+
+---
+Math:  _'(#1+4^3, #latex:eval#sin(x),#, #a#_"math expression | dude" | cool)'
+
+---
+Boolean:
+
+---
+Operator:
+
+---
+Array: _"[3, 5, 6] | merge([2, 5, 7])"
+
+---
+Object: _"{key:val, rock:_'rock bit', _rocking : !dude(action), _noval, !dude
+: what}"
+
+---
+Dash:
+
+---
+Dot:
+
+---
+Comment: 
+
+---
+GetScope: 
+
+---
+StoreScope:

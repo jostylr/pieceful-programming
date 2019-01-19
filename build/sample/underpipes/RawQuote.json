@@ -1,0 +1,10 @@
+{
+  "name": "RawQuote",
+  "txt": "_\"('raw quote with _\"some block\" not read\\n')\"",
+  "result": [
+    {
+      "cmd": "call",
+      "args": [{"value": "raw quote with _\"some block\" not read\\n"}]
+    }
+  ]
+}
