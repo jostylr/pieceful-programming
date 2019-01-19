@@ -13,8 +13,7 @@ let defTypeFirst = {
             value =  p.text.slice(p.ind);
             let info = {start: p.f.ln(start), end : p.f.ln(end), value};
             p.f.tracker('unterminated quote', info);
-            throw new Error('unterminated quoted:' + info.start + ':' +
-                value +'\n---\n' + p.text);
+            throw new Error('unterminated quoted:' + info.start + ':' + value);
         }
         value = p.text.slice(p.ind, end);
         p.ind = end+1;
@@ -50,8 +49,7 @@ let defTypeFirst = {
                 value = p.text.slice(p.ind);
                 let info = {start: p.f.ln(start), end : p.f.ln(end), value};
                 p.f.tracker('unterminated quote', info);
-                throw new Error('unterminated quoted:' + info.start + ':' +
-                    value +'\n---\n' + p.text);
+                throw new Error('unterminated quoted:' + info.start + ':' + value);
             }
         }
         throw new Error('internal error at parseBackSlash; unreachable point reached');
@@ -84,8 +82,7 @@ let defTypeFirst = {
                 let value = p.text.slice(p.ind);
                 let info = {start: p.f.ln(start), end : p.f.ln(end), value};
                 p.f.tracker('unterminated quote', info);
-                throw new Error('unterminated quoted:' + info.start + ':' +
-                    value +'\n---\n' + p.text);
+                throw new Error('unterminated quoted:' + info.start + ':' + value);
             }
         }
         throw new Error('internal error at parseBackSlash; unreachable point reached');
@@ -516,16 +513,15 @@ const textArgs = function textArgs (p, terminator) {
     let first = p.text[p.ind];
     if (p.q.test(first) ) {
         let qEnd = p.text.indexOf(first, p.ind+1);
-        if (qEnd) {
-            firstArg = {value: p.text.slice(p.ind, qEnd)};
+        if (qEnd !== -1) {
+            firstArg = {value: p.text.slice(p.ind+1, qEnd)};
             p.ind = p.f.findFirst(p, par+terminator, qEnd)[1];
         } else {
             let end = p.text.length;
             let value = p.text.slice(start);
             let info = {start: p.f.ln(start), end : p.f.ln(end), value};
             p.f.tracker('unterminated quote', info);
-            throw new Error('unterminated quoted:' + info.start + ':' +
-                value +'\n---\n' + p.text);
+            throw new Error('unterminated quoted:' + info.start + ':' + value);
         }
     } else if (first === p.u) {
         let quote = p.text[p.ind+1];
@@ -536,7 +532,7 @@ const textArgs = function textArgs (p, terminator) {
             let uEnd = p.f.findFirst(p, par + terminator)[1];
             firstArg = {
                 cmd: 'get', 
-                args : [ {value: p.f.norm(p.text.slice(p.ind, uEnd))}]
+                args : [ {value: p.f.norm(p.text.slice(p.ind+1, uEnd))}]
             };
             p.ind = uEnd; //on parentheses or terminator
         }

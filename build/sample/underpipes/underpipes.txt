@@ -23,7 +23,12 @@ Get:
 Cmd: 
 
 ---
-Eval: 
+Eval: _"(~2+3, ~'2+[3,4]', ~_rock,~('dude', arg1), ~!dude(arg1),
+~str(arg1),~(),~""" . The second to last is useful to eval the previous
+binding. The last is useless as it evals an empty string! 
+
+---
+EvalError:  _"~"  It is looking for a matching quote. 
 
 ---
 Math:  _'(#1+4^3, #latex:eval#sin(x),#, #a#_"math expression | dude" | cool)'

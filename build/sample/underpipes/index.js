@@ -26,13 +26,13 @@ tasks.forEach( ([name,txt]) => {
                 tracker : () => {} });
             ret.result.forEach(removeSE);
         } catch (e) {
-            ret.error = e.msg;
-            ret.stack = e.stack;
+            ret.error = e.message;
+            //ret.stack = e.stack;
         }
     } else {
-        ret.error = 'no test';
+        ret.noTest = 'no test';
     }
-    if (ret.error) {
+    if (ret.noTest) {
         console.log('ERROR', ret);
     } else {
         try {
@@ -43,7 +43,7 @@ tasks.forEach( ([name,txt]) => {
             if (Object.keys(test).length === 0) {
                 console.log('test ' + name + ' passed');
             } else {
-                console.log('test ' + name + ' failed');
+                console.log('FAIL: test ' + name + ' failed');
                 console.log('DIFF:' + jp(test) );
                 fs.writeFileSync(__dirname + '/' + name + '-diff.json', 
                     jp(test) );
@@ -58,11 +58,3 @@ tasks.forEach( ([name,txt]) => {
         } 
     }
 });
-
-
-/*let result = up({
-    text ,
-    tracker : (note, data) => {
-        console.log(note, util.inspect(data, {colors:true, depth:15}));
-    }
-});*/

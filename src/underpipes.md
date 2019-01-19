@@ -1116,8 +1116,7 @@ value variable defined.
 
     let info = {start: p.f.ln(start), end : p.f.ln(end), value};
     p.f.tracker('unterminated quote', info);
-    throw new Error('unterminated quoted:' + info.start + ':' +
-        value +'\n---\n' + p.text);
+    throw new Error('unterminated quoted:' + info.start + ':' + value);
 
 
 
@@ -1150,8 +1149,8 @@ Quote
 
         if (p.q.test(first) ) {
             let qEnd = p.text.indexOf(first, p.ind+1);
-            if (qEnd) {
-                firstArg = {value: p.text.slice(p.ind, qEnd)};
+            if (qEnd !== -1) {
+                firstArg = {value: p.text.slice(p.ind+1, qEnd)};
                 p.ind = p.f.findFirst(p, par+terminator, qEnd)[1];
             } else {
                 let end = p.text.length;
@@ -1170,7 +1169,7 @@ Underscore
                 let uEnd = p.f.findFirst(p, par + terminator)[1];
                 firstArg = {
                     cmd: 'get', 
-                    args : [ {value: p.f.norm(p.text.slice(p.ind, uEnd))}]
+                    args : [ {value: p.f.norm(p.text.slice(p.ind+1, uEnd))}]
                 };
                 p.ind = uEnd; //on parentheses or terminator
             }
@@ -1237,13 +1236,13 @@ This is where we do a sample run of all of this.
                     tracker : () => {} });
                 ret.result.forEach(removeSE);
             } catch (e) {
-                ret.error = e.msg;
-                ret.stack = e.stack;
+                ret.error = e.message;
+                //ret.stack = e.stack;
             }
         } else {
-            ret.error = 'no test';
+            ret.noTest = 'no test';
         }
-        if (ret.error) {
+        if (ret.noTest) {
             console.log('ERROR', ret);
         } else {
             try {

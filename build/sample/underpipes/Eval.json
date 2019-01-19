@@ -1,0 +1,31 @@
+{
+  "name": "Eval",
+  "txt": "_\"(~2+3, ~'2+[3,4]', ~_rock,~('dude', arg1), ~!dude(arg1),\n~str(arg1),~(),~\"\"\" . The second to last is useful to eval the previous\nbinding. The last is useless as it evals an empty string!",
+  "result": [
+    {
+      "cmd": "call",
+      "args": [
+        {"cmd": "eval", "bind": 1, "args": [{"value": "2+3"}]},
+        {"cmd": "eval", "bind": 1, "args": [{"value": "2+[3,4]"}]},
+        {
+          "cmd": "eval",
+          "bind": 1,
+          "args": [{"cmd": "get", "args": [{"value": "rock"}]}]
+        },
+        {"cmd": "eval", "args": [{"value": "dude"}, {"value": "arg1"}]},
+        {
+          "cmd": "eval",
+          "bind": 1,
+          "args": [{"value": "!dude"}, {"value": "arg1"}]
+        },
+        {
+          "cmd": "eval",
+          "bind": 1,
+          "args": [{"value": "str"}, {"value": "arg1"}]
+        },
+        {"cmd": "eval", "args": []},
+        {"cmd": "eval", "bind": 1, "args": [{"value": ""}]}
+      ]
+    }
+  ]
+}
