@@ -1,0 +1,133 @@
+{
+  "name": "LongBit",
+  "txt": "_\"~section(this , that)\"\n_\"echo(this, that)\" \n_\"dude | sub(this, _there | cmd ) \" \n\n[]( \"dir: arg1, arg2 | process | echo(_proc) | _process, _dude\")\n\n_\"section | cmd( 'some text', _section | cmd2 | cmd3(#3) )\"\n\n_\"get(section 1)\"\n\n_\"section 1 | cmd1( this | that, there) | cmd2(this, that, there)\"\n \n\n_\"section 1 | echo(_\"this\") | _this | _\"this | with | pipes\" \"\n\n\nAll evaling is the command eval. \n\n_\"section\" section retrieved\n_\"~text\" eval the text if function\n_\"~_section\" get section then eval\n_\"!cmd\"  cmd called\n_\"cmd()\" cmd called\n_\"'quoted'\" \n_\"~'evaling'\" eval'd\n_\"_section\" section called\n_\"`${s.templating}`\" backtick templating via an eval. s=scope is the\nscope variable associated with the command context. c=context is the\noverall context and there can also be an args in other eval uses though\nnot here.",
+  "result": [
+    {
+      "cmd": "eval",
+      "bind": 1,
+      "args": [{"value": "section"}, {"value": "this"}, {"value": "that"}]
+    },
+    {"value": "\n"},
+    {"cmd": "echo", "args": [{"value": "this"}, {"value": "that"}]},
+    {"value": " \n"},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "dude"}]},
+        {
+          "cmd": "sub",
+          "args": [
+            {"value": "this"},
+            {
+              "cmd": "pipe",
+              "args": [
+                {"cmd": "get", "bind": true, "args": [{"value": "there"}]},
+                {"cmd": "cmd", "args": []}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": " \n\n[]( \"dir: arg1, arg2 | process | echo(_proc) | _process, _dude\")\n\n"
+    },
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "section"}]},
+        {
+          "cmd": "cmd",
+          "args": [
+            {"value": "some text"},
+            {
+              "cmd": "pipe",
+              "args": [
+                {"cmd": "get", "bind": true, "args": [{"value": "section"}]},
+                {"cmd": "cmd2", "args": []},
+                {
+                  "cmd": "cmd3",
+                  "args": [
+                    {
+                      "cmd": "math",
+                      "bind": 2,
+                      "args": [{"value": "js:eval"}, {"value": "3"}]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {"value": "\n\n"},
+    {"cmd": "get", "args": [{"value": "section 1"}]},
+    {"value": "\n\n"},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "section 1"}]},
+        {
+          "cmd": "cmd1",
+          "args": [
+            {
+              "cmd": "pipe",
+              "args": [{"value": "this"}, {"cmd": "that", "args": []}]
+            },
+            {"value": "there"}
+          ]
+        },
+        {
+          "cmd": "cmd2",
+          "args": [{"value": "this"}, {"value": "that"}, {"value": "there"}]
+        }
+      ]
+    },
+    {"value": "\n \n\n"},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "section 1"}]},
+        {
+          "cmd": "echo",
+          "args": [{"cmd": "get", "bind": true, "args": [{"value": "this"}]}]
+        },
+        {"cmd": "get", "bind": true, "args": [{"value": "this"}]},
+        {
+          "cmd": "pipe",
+          "args": [
+            {"cmd": "get", "bind": true, "args": [{"value": "this"}]},
+            {"cmd": "with", "args": []},
+            {"cmd": "pipes", "args": []}
+          ]
+        }
+      ]
+    },
+    {"value": "\n\n\nAll evaling is the command eval. \n\n"},
+    {"cmd": "get", "bind": true, "args": [{"value": "section"}]},
+    {"value": " section retrieved\n"},
+    {"cmd": "eval", "bind": 1, "args": [{"value": "text"}]},
+    {"value": " eval the text if function\n"},
+    {
+      "cmd": "eval",
+      "bind": 1,
+      "args": [{"cmd": "get", "args": [{"value": "section"}]}]
+    },
+    {"value": " get section then eval\n"},
+    {"cmd": "cmd", "args": []},
+    {"value": "  cmd called\n"},
+    {"cmd": "cmd", "args": []},
+    {"value": " cmd called\n"},
+    {"value": "quoted"},
+    {"value": " \n"},
+    {"cmd": "eval", "bind": 1, "args": [{"value": "evaling"}]},
+    {"value": " eval'd\n"},
+    {"cmd": "get", "bind": true, "args": [{"value": "section"}]},
+    {"value": " section called\n"},
+    {"cmd": "backtick", "bind": 1, "args": [{"value": "${s.templating}"}]},
+    {
+      "value": " backtick templating via an eval. s=scope is the\nscope variable associated with the command context. c=context is the\noverall context and there can also be an args in other eval uses though\nnot here."
+    }
+  ]
+}

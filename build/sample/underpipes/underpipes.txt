@@ -60,3 +60,37 @@ GetScope:
 
 ---
 StoreScope:
+
+
+---
+LongBit:
+_"~section(this , that)"
+_"echo(this, that)" 
+_"dude | sub(this, _there | cmd ) " 
+
+[]( "dir: arg1, arg2 | process | echo(_proc) | _process, _dude")
+
+_"section | cmd( 'some text', _section | cmd2 | cmd3(#3) )"
+
+_"get(section 1)"
+
+_"section 1 | cmd1( this | that, there) | cmd2(this, that, there)"
+ 
+
+_"section 1 | echo(_"this") | _this | _"this | with | pipes" "
+
+
+All evaling is the command eval. 
+
+_"section" section retrieved
+_"~text" eval the text if function
+_"~_section" get section then eval
+_"!cmd"  cmd called
+_"cmd()" cmd called
+_"'quoted'" 
+_"~'evaling'" eval'd
+_"_section" section called
+_"`${s.templating}`" backtick templating via an eval. s=scope is the
+scope variable associated with the command context. c=context is the
+overall context and there can also be an args in other eval uses though
+not here. 

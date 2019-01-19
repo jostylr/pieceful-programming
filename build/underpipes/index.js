@@ -393,7 +393,7 @@ const toTerminator = function toTerminator (p, mode, terminator) {
         } else {
             if (mode === 'args') {  
                 let start = p.ind;
-                p.ind = p.f.findFirst(p, terminator)[1];
+                p.ind = p.f.findFirst(p, terminator+'|')[1];
                 piece = {
                     start : p.f.ln(start),
                     end : p.f.ln(p.ind-1),
