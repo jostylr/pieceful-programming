@@ -1,0 +1,45 @@
+{
+  "name": "Get",
+  "txt": "_\"get1 | !cmd(_get2, _\"get3 | _get4\") | _get5 | ~_get6 | !_get7 |\n    _'\"\"|_get8' | _get9 | !get \"",
+  "result": [
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "get1"}]},
+        {
+          "cmd": "cmd",
+          "args": [
+            {"cmd": "get", "bind": true, "args": [{"value": "get2"}]},
+            {
+              "cmd": "pipe",
+              "args": [
+                {"cmd": "get", "bind": true, "args": [{"value": "get3"}]},
+                {"cmd": "get", "bind": true, "args": [{"value": "get4"}]}
+              ]
+            }
+          ]
+        },
+        {"cmd": "get", "bind": true, "args": [{"value": "get5"}]},
+        {
+          "cmd": "eval",
+          "bind": 1,
+          "args": [{"cmd": "get", "args": [{"value": "get6"}]}]
+        },
+        {
+          "cmd": "call",
+          "bind": 1,
+          "args": [{"cmd": "get", "args": [{"value": "get7"}]}]
+        },
+        {
+          "cmd": "pipe",
+          "args": [
+            {"value": ""},
+            {"cmd": "get", "bind": true, "args": [{"value": "get8"}]}
+          ]
+        },
+        {"cmd": "get", "bind": true, "args": [{"value": "get9"}]},
+        {"cmd": "get", "args": []}
+      ]
+    }
+  ]
+}

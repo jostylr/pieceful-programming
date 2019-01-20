@@ -1,0 +1,55 @@
+{
+  "name": "Dash",
+  "txt": "_\"-ld.pluck([2,3],1) | ([4,3] | -ld.pluck(3), _html | -cheerio.load |\n    .('.apple') | .text() , _\"md bit | -md\" )\"",
+  "result": [
+    {
+      "cmd": "pipe",
+      "args": [
+        {
+          "cmd": "dash",
+          "bind": 1,
+          "args": [
+            {"value": "ld.pluck"},
+            {"cmd": "arr", "args": [{"value": "2"}, {"value": "3"}]},
+            {"value": "1"}
+          ]
+        },
+        {
+          "cmd": "call",
+          "args": [
+            {
+              "cmd": "pipe",
+              "args": [
+                {"cmd": "arr", "args": [{"value": "4"}, {"value": "3"}]},
+                {
+                  "cmd": "dash",
+                  "bind": 1,
+                  "args": [{"value": "ld.pluck"}, {"value": "3"}]
+                }
+              ]
+            },
+            {
+              "cmd": "pipe",
+              "args": [
+                {"cmd": "get", "bind": true, "args": [{"value": "html"}]},
+                {"cmd": "dash", "bind": 1, "args": [{"value": "cheerio.load"}]},
+                {"cmd": "dot", "args": [{"value": ".apple"}]},
+                {
+                  "cmd": "dot",
+                  "args": [{"value": "text"}, {"cmd": "array", "args": []}]
+                }
+              ]
+            },
+            {
+              "cmd": "pipe",
+              "args": [
+                {"cmd": "get", "bind": true, "args": [{"value": "md bit"}]},
+                {"cmd": "dash", "bind": 1, "args": [{"value": "md"}]}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

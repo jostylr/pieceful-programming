@@ -1,0 +1,13 @@
+{
+  "name": "TemplateString",
+  "txt": "_\"`name is ${s.name} and then we can ${3+4} \\` And then `\"",
+  "result": [
+    {
+      "cmd": "backtick",
+      "bind": 1,
+      "args": [
+        {"value": "name is ${s.name} and then we can ${3+4} \\` And then "}
+      ]
+    }
+  ]
+}

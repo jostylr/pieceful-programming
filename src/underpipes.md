@@ -369,8 +369,15 @@ Then we go into pipe mode, returning the pipe piece with all the pipes as args i
                 while (go) {
                     let further = toTerminator(p, 'pipe', terminator);
                     if (further.terminate) { 
-                        go = false;
-                        piece.terminate = further.terminate;
+                        if (terminator.indexOf(further.terminate) !== -1) {
+                    
+If we are in a pipe and that has a pipe which terminates, then that terminator
+may bubble up. So we ignore it unless it is a pipe or terminator that we are
+expecting. 
+
+                            go = false;
+                            piece.terminate = further.terminate;
+                        }
                         delete further.terminate; //not generally needed
                     }
                     if (p.ind >= len) { go = false;}
@@ -775,40 +782,6 @@ no arg to operate on (such as negating the incoming text).
         _"return piece:bind";
     }
     
-[junk]()
-
-        let first = p.f.findFirst(p, '=' + terminator);
-        let op, bind, args;
-        if (first[0] === '=') {
-
-Operator is between equals sign. The stuff after the second equals should be
-the first argument so we skip over it with incoming input. 
-
-            op = p.text.slice(p.ind, first[1]).trim();
-            p.ind = first[1]+1;
-            bind = 2;
-            args = p.f.textArgs(p, terminator);
-            if (!args[0]) {
-                args.shift(); 
-                bind = 1; // nothing after equals after all
-            }
-            args.unshift({value:op});
-        } else { 
-
-No second equals sign. So the operator is the bit before the parentheses or
-terminator. It is automatically placed correctly with textArgs. If no such
-argument exists, we hope the first one is. 
-
-            args = p.f.textArgs(p, terminator);
-            bind = 1;
-            if (!args[0]) {
-                args.shift();
-                bind = 0; //maybe operator is incoming
-            }
-        }
-        let end = p.ind-1;
-        _"return piece:bind";
-    }
 ### Array
 
 This is denoted by square braces. It is assumed to have args separated by
@@ -829,9 +802,6 @@ This is denoted by curly braces. It is assumed to be in `key,value` form,
 separated by commas. It returns the object.
 
 
-TODO: do to terminator for key using colon argument. grab start from key, end
-from value. put term dance in parseargs. 
-
     function parseObject (p) {
         let start = p.ind-1;
         let cmd = 'obj';
@@ -845,9 +815,9 @@ mode args.
             key = p.f.toTerminator(p, 'args', ':,' + cbra);
             if (key.terminate !== ':') {
 
-If no colon, then we assume the given is a key pointing an undefined value. We
-could also throw an error, but maybe there is some use for this? Ugh. Anyway,
-we need to move the p.ind back 1 so we get, essentially an undefined. 
+If no colon, then we assume the given is a key pointing an undefined value.
+We need to move the p.ind back 1 so we get, essentially an undefined. To
+insert pipe input use the `@` syntax.  
 
                 p.ind -= 1;                 
             } 
@@ -891,33 +861,40 @@ used functions, commands, setups, whatever.
 
 ### Dot
 
-This is a special command that assumes the first argument is an object. If the
-. is followed by text, then it is assumed to be a property name and, if there
-are more than one arguments, a method that gets fed those arguments. If
-nothing follows the dot, then we assume property access with each argument
-after the first being a property name subsequentially. 
+Dot is designed to access properties and methods of an object. The first
+argument in the final command should be an object to access with all but,
+possibly, the final arguments being string accessors (after evaling). The
+final argument is an array if the thing is a method and then it gets applied
+to that array. 
 
-`.(obj, prop1, prop2, prop3)` equivalent to `obj.prop1.prop2.prop3` while
-`.join(obj, arg1, arg2)` is equivalent to `obj.join(arg1, arg2)`. 
+The shorthand syntax presented here allows for raw name property access and is
+designed for a pipe incoming input of the object. It makes no sense to have it
+outside of a pipe. 
 
-The method command expects the method name first, then the object, and then
-the arguments. This is so that we can bind the pipe input into the second slot
-and then we can accommodate this whether it is in a pipe or not. 
+`obj | .prop1.prop2.method(arg1, arg2)` should be equivalent to `dot(obj,
+prop1, prop2, method, [arg1, arg2])`. 
+
+If there is no text between the dot and the command, then we simply pass the
+args into the dot command. Not much of a savings. 
 
     function parseDot (p,terminator) {
         let start = p.ind-1;
+        let cmd = 'dot';
         let args = p.f.textArgs(p, terminator);
         let end = p.ind-1;
-        let cmd, bind;
         if (args[0]) {
-            cmd = 'methodCall';
-            bind = 1;
-            _"return piece:bind";
+            let props = args.shift().value.
+                split('.').
+                map( el => el.trim()).
+                map(el => {return {value:el};} );
+            if (p.text[end] === cpar) {
+                props.push({cmd : 'array', args });
+            }
+            args = props;
         } else {
             args.shift();
-            cmd = 'propertyAccess';
-            _"return piece";
         }
+        _"return piece";
     }
 
 ### Comment

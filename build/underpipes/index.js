@@ -291,26 +291,26 @@ let defTypeFirst = {
     }, 
     '.' : function parseDot (p,terminator) {
         let start = p.ind-1;
+        let cmd = 'dot';
         let args = p.f.textArgs(p, terminator);
         let end = p.ind-1;
-        let cmd, bind;
         if (args[0]) {
-            cmd = 'methodCall';
-            bind = 1;
-            return {
-                start: p.f.ln(start),
-                end: p.f.ln(end),
-                cmd, bind, args
-            };
+            let props = args.shift().value.
+                split('.').
+                map( el => el.trim()).
+                map(el => {return {value:el};} );
+            if (p.text[end] === cpar) {
+                props.push({cmd : 'array', args });
+            }
+            args = props;
         } else {
             args.shift();
-            cmd = 'propertyAccess';
-            return {
-                start: p.f.ln(start),
-                end: p.f.ln(end),
-                cmd, args
-            };
         }
+        return {
+            start: p.f.ln(start),
+            end: p.f.ln(end),
+            cmd, args
+        };
     },
     '/' : function parseComment (p, terminator) {
         const start = p.ind-1;
@@ -419,8 +419,10 @@ const toTerminator = function toTerminator (p, mode, terminator) {
             while (go) {
                 let further = toTerminator(p, 'pipe', terminator);
                 if (further.terminate) { 
-                    go = false;
-                    piece.terminate = further.terminate;
+                    if (terminator.indexOf(further.terminate) !== -1) {
+                        go = false;
+                        piece.terminate = further.terminate;
+                    }
                     delete further.terminate; //not generally needed
                 }
                 if (p.ind >= len) { go = false;}

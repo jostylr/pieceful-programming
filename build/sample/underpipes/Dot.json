@@ -1,0 +1,70 @@
+{
+  "name": "Dot",
+  "txt": "_\" [2, 3] | .join(' ')\"  joins 2 and 3. _\"[2,3] | .0\"  extracts first el.\nMultiple:  _\"obj | .prop1.prop2.method(arg1, arg2)\"\nProp : _\"obj | .prop1.prop2\"\nDot vs .:  _\".(obj, prop1, prop2)\"  and _\"dot(obj, prop1, prop2)\" and array\n_\".(prop1, prop2, arr(2, 3))\"",
+  "result": [
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "arr", "args": [{"value": "2"}, {"value": "3"}]},
+        {
+          "cmd": "dot",
+          "args": [
+            {"value": "join"},
+            {"cmd": "array", "args": [{"value": " "}]}
+          ]
+        }
+      ]
+    },
+    {"value": "  joins 2 and 3. "},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "arr", "args": [{"value": "2"}, {"value": "3"}]},
+        {"cmd": "dot", "args": [{"value": "0"}]}
+      ]
+    },
+    {"value": "  extracts first el.\nMultiple:  "},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "obj"}]},
+        {
+          "cmd": "dot",
+          "args": [
+            {"value": "prop1"},
+            {"value": "prop2"},
+            {"value": "method"},
+            {"cmd": "array", "args": [{"value": "arg1"}, {"value": "arg2"}]}
+          ]
+        }
+      ]
+    },
+    {"value": "\nProp : "},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "obj"}]},
+        {"cmd": "dot", "args": [{"value": "prop1"}, {"value": "prop2"}]}
+      ]
+    },
+    {"value": "\nDot vs .:  "},
+    {
+      "cmd": "dot",
+      "args": [{"value": "obj"}, {"value": "prop1"}, {"value": "prop2"}]
+    },
+    {"value": "  and "},
+    {
+      "cmd": "dot",
+      "args": [{"value": "obj"}, {"value": "prop1"}, {"value": "prop2"}]
+    },
+    {"value": " and array\n"},
+    {
+      "cmd": "dot",
+      "args": [
+        {"value": "prop1"},
+        {"value": "prop2"},
+        {"cmd": "arr", "args": [{"value": "2"}, {"value": "3"}]}
+      ]
+    }
+  ]
+}
