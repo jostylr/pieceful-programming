@@ -21,15 +21,17 @@ Get: _"get1 | !cmd(_get2, _"get3 | _get4") | _get5 | ~_get6 | !_get7 |
     _'""|_get8' | _get9 | !get " 
 
 ---
-Cmd: 
+Cmd: _"!cmd1 | cmd2 | cmd3(arg1, arg2) | !_'cmd4 section'(arg3, arg4)"
+_"!(cmd5, arg5)"
+_"dude | ! |!_"what" | !() | !(_"get")"
 
 ---
 Eval: _"(~2+3, ~'2+[3,4]', ~_rock,~('dude', arg1), ~!dude(arg1),
-~str(arg1),~(),~""" . The second to last is useful to eval the previous
+~str(arg1),~(),~"")" . The second to last is useful to eval the previous
 binding. The last is useless as it evals an empty string! 
 
 ---
-EvalError:  _"~"  It is looking for a matching quote. 
+EvalError:  _"~"  It is looking for a matching quote. _"~"dude"" 
 
 ---
 Math:  _'(#1+4^3, #latex:eval#sin(x),#, #a#_"math expression | dude" | cool)'
@@ -66,7 +68,14 @@ Dot vs .:  _".(obj, prop1, prop2)"  and _"dot(obj, prop1, prop2)" and array
 _".(prop1, prop2, arr(2, 3))"
 
 ---
-Comment: 
+Comment: _'/css/this should be whatever'
+_'/what'
+_'//what'
+_'/javadoc/title(args, _:args)'
+_'/'  _'//' _'/css/'
+_'/(dude)'
+_'//(dude)'
+_'_"body text" | /wrap/(<here>,</here>)'
 
 ---
 GetScope: 

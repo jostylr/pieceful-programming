@@ -33,8 +33,7 @@
                       "args": [{"value": "math expression"}]
                     },
                     {"cmd": "dude", "args": []}
-                  ],
-                  "terminate": "\""
+                  ]
                 }
               ]
             },

@@ -315,10 +315,14 @@ let defTypeFirst = {
     '/' : function parseComment (p, terminator) {
         const start = p.ind-1;
         const cmd = 'comment';
-        let slash = p.f.findFirst(p, '/'); //there must be a second slash
-        let type = p.text.slice(p.ind, slash[1]);
-        if (!type) { type = 'js-inline'; }
-        p.ind = slash[1]+1;
+        let type;
+        let slash = p.f.findFirst(p, '/'+terminator);
+        if (slash[0] === '/') {
+            type = p.text.slice(p.ind, slash[1]) || 'js-inline';
+            p.ind = slash[1]+1;
+        } else {
+            type = 'js-inline';
+        }
         let args = p.f.textArgs(p, terminator);
         let bind;
         let end = p.ind-1;
@@ -328,7 +332,7 @@ let defTypeFirst = {
         } else {
             bind = 2; //there is text; incoming can go in extra arguments if needed
         }
-        args.unshift(type);
+        args.unshift({value:type});
         return {
             start: p.f.ln(start),
             end: p.f.ln(end),
@@ -412,6 +416,7 @@ const toTerminator = function toTerminator (p, mode, terminator) {
     p.ind = nxt[1]+1;
     if (nxt[0] === '|') {
         if (mode !== 'pipe') {
+            delete piece.terminate; 
             let args = [piece];
             piece = {cmd: 'pipe', args};
             piece.terminate = true; //likely to be replaced if proper
@@ -517,6 +522,10 @@ const textArgs = function textArgs (p, terminator) {
     }
 
     let first = p.text[p.ind];
+
+    if (terminator.indexOf(first) !== -1) {
+        return [null];
+    }
     if (p.q.test(first) ) {
         let qEnd = p.text.indexOf(first, p.ind+1);
         if (qEnd !== -1) {
@@ -556,6 +565,7 @@ const textArgs = function textArgs (p, terminator) {
     if (firstArg) {
         firstArg.start = p.f.ln(start);
         firstArg.end = p.f.ln(p.ind-1);
+        delete firstArg.terminate;
     }
     if (p.text[p.ind] === par) {
         p.ind += 1;

@@ -1,0 +1,43 @@
+{
+  "name": "Cmd",
+  "txt": "_\"!cmd1 | cmd2 | cmd3(arg1, arg2) | !_'cmd4 section'(arg3, arg4)\"\n_\"!(cmd5, arg5)\"\n_\"dude | ! |!_\"what\" | !() | !(_\"get\")\"",
+  "result": [
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "cmd1", "args": []},
+        {"cmd": "cmd2", "args": []},
+        {"cmd": "cmd3", "args": [{"value": "arg1"}, {"value": "arg2"}]},
+        {
+          "cmd": "call",
+          "bind": 1,
+          "args": [
+            {"cmd": "get", "bind": true, "args": [{"value": "cmd4 section"}]},
+            {"value": "arg3"},
+            {"value": "arg4"}
+          ]
+        }
+      ]
+    },
+    {"value": "\n"},
+    {"cmd": "call", "args": [{"value": "cmd5"}, {"value": "arg5"}]},
+    {"value": "\n"},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "dude"}]},
+        {"cmd": "call", "args": []},
+        {
+          "cmd": "call",
+          "bind": 1,
+          "args": [{"cmd": "get", "bind": true, "args": [{"value": "what"}]}]
+        },
+        {"cmd": "call", "args": []},
+        {
+          "cmd": "call",
+          "args": [{"cmd": "get", "bind": true, "args": [{"value": "get"}]}]
+        }
+      ]
+    }
+  ]
+}

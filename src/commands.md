@@ -48,6 +48,11 @@ edge cases.
 
   Some of this can be linked into the math.js library (also the math command)
 
+
+* dot expects object in first slot, property names in the middle (all strings)
+  and the last argument to be, possibly empty, an array if calling a method. 
+
+
 ### switch*
 
 This is a prototype command for dealing with arguments in a sequential

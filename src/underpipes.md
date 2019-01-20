@@ -362,6 +362,10 @@ We have now figured out the current, we seek the end.
 
 Then we go into pipe mode, returning the pipe piece with all the pipes as args including the one we just found.  
 
+The one that was just found might have a terminator associated with it so we
+delete that since we don't need it anymore. 
+
+                delete piece.terminate; 
                 let args = [piece];
                 piece = {cmd: 'pipe', args};
                 piece.terminate = true; //likely to be replaced if proper
@@ -910,10 +914,14 @@ as the type. Arguments could be places to insert variables for e.g. javadoc
     function parseComment (p, terminator) {
         const start = p.ind-1;
         const cmd = 'comment';
-        let slash = p.f.findFirst(p, '/'); //there must be a second slash
-        let type = p.text.slice(p.ind, slash[1]);
-        if (!type) { type = 'js-inline'; }
-        p.ind = slash[1]+1;
+        let type;
+        let slash = p.f.findFirst(p, '/'+terminator);
+        if (slash[0] === '/') {
+            type = p.text.slice(p.ind, slash[1]) || 'js-inline';
+            p.ind = slash[1]+1;
+        } else {
+            type = 'js-inline';
+        }
         let args = p.f.textArgs(p, terminator);
         let bind;
         let end = p.ind-1;
@@ -923,7 +931,7 @@ as the type. Arguments could be places to insert variables for e.g. javadoc
         } else {
             bind = 2; //there is text; incoming can go in extra arguments if needed
         }
-        args.unshift(type);
+        args.unshift({value:type});
         _"return piece:bind";
     }
 
@@ -1154,6 +1162,10 @@ taking in the next argument.
 
         let first = p.text[p.ind];
 
+        if (terminator.indexOf(first) !== -1) {
+            return [null];
+        }
+
 Quote 
 
         if (p.q.test(first) ) {
@@ -1199,6 +1211,7 @@ Plain text, possibly no text.
         if (firstArg) {
             firstArg.start = p.f.ln(start);
             firstArg.end = p.f.ln(p.ind-1);
+            delete firstArg.terminate;
         }
 
 We should now be past the text, etc. with p.ind pointing to either a

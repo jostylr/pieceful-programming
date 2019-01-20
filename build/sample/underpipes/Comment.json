@@ -1,0 +1,68 @@
+{
+  "name": "Comment",
+  "txt": "_'/css/this should be whatever'\n_'/what'\n_'//what'\n_'/javadoc/title(args, _:args)'\n_'/'  _'//' _'/css/'\n_'/(dude)'\n_'//(dude)'\n_'_\"body text\" | /wrap/(<here>,</here>)'",
+  "result": [
+    {
+      "cmd": "comment",
+      "bind": 2,
+      "args": [{"value": "css"}, {"value": "this should be whatever"}]
+    },
+    {"value": "\n"},
+    {
+      "cmd": "comment",
+      "bind": 2,
+      "args": [{"value": "js-inline"}, {"value": "what"}]
+    },
+    {"value": "\n"},
+    {
+      "cmd": "comment",
+      "bind": 2,
+      "args": [{"value": "js-inline"}, {"value": "what"}]
+    },
+    {"value": "\n"},
+    {
+      "cmd": "comment",
+      "bind": 2,
+      "args": [
+        {"value": "javadoc"},
+        {"value": "title"},
+        {"value": "args"},
+        {"cmd": "get", "bind": true, "args": [{"value": ":args"}]}
+      ]
+    },
+    {"value": "\n"},
+    {"cmd": "comment", "bind": 1, "args": [{"value": "js-inline"}]},
+    {"value": "  "},
+    {"cmd": "comment", "bind": 1, "args": [{"value": "js-inline"}]},
+    {"value": " "},
+    {"cmd": "comment", "bind": 1, "args": [{"value": "css"}]},
+    {"value": "\n"},
+    {
+      "cmd": "comment",
+      "bind": 1,
+      "args": [{"value": "js-inline"}, {"value": "dude"}]
+    },
+    {"value": "\n"},
+    {
+      "cmd": "comment",
+      "bind": 1,
+      "args": [{"value": "js-inline"}, {"value": "dude"}]
+    },
+    {"value": "\n"},
+    {
+      "cmd": "pipe",
+      "args": [
+        {
+          "cmd": "get",
+          "bind": true,
+          "args": [{"value": "body text"}]
+        },
+        {
+          "cmd": "comment",
+          "bind": 1,
+          "args": [{"value": "wrap"}, {"value": "<here>"}, {"value": "</here>"}]
+        }
+      ]
+    }
+  ]
+}

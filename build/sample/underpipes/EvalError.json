@@ -1,5 +1,10 @@
 {
   "name": "EvalError",
-  "txt": "_\"~\"  It is looking for a matching quote.",
-  "error": "unterminated quoted:1,4,3:\"  It is looking for a matching quote."
+  "txt": "_\"~\"  It is looking for a matching quote. _\"~\"dude\"\"",
+  "result": [
+    {"cmd": "eval", "args": []},
+    {"value": "  It is looking for a matching quote. "},
+    {"cmd": "eval", "args": []},
+    {"value": "dude\"\""}
+  ]
 }
