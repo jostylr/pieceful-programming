@@ -1,0 +1,53 @@
+{
+  "name": "GetScope",
+  "txt": "_\"something | cmd( @1, @, @!, @^, @first, \n    @90, @(_\"arr\", [3, 4]), #34 | {key:@, key2:3} )\"",
+  "result": [
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "something"}]},
+        {
+          "cmd": "cmd",
+          "args": [
+            {"cmd": "pipeInput", "args": [{"value": "1"}]},
+            {"cmd": "pipeInput", "args": []},
+            {"cmd": "pipeInput", "args": [{"value": "!"}]},
+            {"cmd": "pipeInput", "args": [{"value": "^"}]},
+            {"cmd": "getScope", "args": [{"value": "first"}]},
+            {"cmd": "pipeInput", "args": [{"value": "90"}]},
+            {
+              "cmd": "apply",
+              "args": [
+                {"cmd": "get", "bind": true, "args": [{"value": "arr"}]},
+                {"cmd": "arr", "args": [{"value": "3"}, {"value": "4"}]}
+              ]
+            },
+            {
+              "cmd": "pipe",
+              "args": [
+                {
+                  "cmd": "math",
+                  "bind": 2,
+                  "args": [{"value": "js:eval"}, {"value": "34"}]
+                },
+                {
+                  "cmd": "obj",
+                  "args": [
+                    {
+                      "cmd": "kv",
+                      "args": [
+                        {"value": "key"},
+                        {"cmd": "pipeInput", "args": []}
+                      ]
+                    },
+                    {"cmd": "kv", "args": [{"value": "key2"}, {"value": "3"}]}
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

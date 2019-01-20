@@ -56,6 +56,7 @@ syntax matching.
         'pipe' : "!"
     };
     const findFirst = _"find first";
+    const space = _"space";
 
 The start is used in defining the line numbering, specifically, going from a
 position in the text to reporting to a line number/col in the larger file.
@@ -85,7 +86,7 @@ For code slicing, we use begin to know where to slice the prior code parts.
         let p = {text, ind, q, u, 
             begin : ind,
             f : {typeFirst, toTerminator, findFirst, tracker, parseArgs, 
-                norm:normalizeString, textArgs, plainText}
+                norm:normalizeString, textArgs, plainText, space}
         };
         Object.assign(p.f,f); // a way to override most of the parsing stuff 
         if (!p.f.hasOwnProperty('ln') ) {
@@ -292,13 +293,7 @@ p is our parsing object and is basically our scope that we pass around.
 We don't care about leading white space. Ever. But we also are not cutting up
 the text so no trimming. 
 
-        let reg = /\s*/g;
-        reg.lastIndex = p.ind;
-        reg.exec(p.text); //just advances past whitespace
-
-Now we are at the first non-whitespace character.
-
-        p.ind = reg.lastIndex;
+        p.f.space(p);
         let first = p.text[p.ind];
 
 If nothing, then we terminate. We have already advanced the index and no
@@ -320,7 +315,7 @@ already have the information we need from it.
         let piece, start = p.ind;
         if (typeFirst.hasOwnProperty(first) ) {
             p.ind += 1;
-            piece = typeFirst[first](p, terminator);
+            piece = typeFirst[first](p, terminator+'|');
         } else {
             
 No leading character. We assume plain text. We need to check for a
@@ -960,20 +955,32 @@ Note `@0` is the current input, but it does not trigger a skipping of the
 usual argument shifting behavior. Only `@` by itself does that. 
 
     function atParse (p, terminator) {
+        let end, cmd, args;
         let start = p.ind;
-        let end = p.f.findFirst(p, terminator)[1]-1;
-        let text = {value:p.f.norm(p.text.slice(start, end))};
-        p.ind = end+1;
-        let cmd, args;
-        if (!text.value) {
+        p.f.space(p);
+        if (p.text[p.ind] === par) {
+        
+This is for the apply command. It takes 
+
+            cmd = 'apply';
+            args = p.f.textArgs(p, terminator);
+            args.shift(); // no first text arg
+            end = p.ind-1;
+            _"return piece";
+        }  
+
+        end = p.f.findFirst(p, terminator)[1];
+        let text = p.f.norm(p.text.slice(start, end));
+        p.ind = end;
+        if (!text) {
             cmd = 'pipeInput';
             args = [];
-        } else if (text[0].search(/^[!0-9^]/) !== -1 ) {
+        } else if (text[0].search(/^[!0-9.^]/) !== -1 ) {
             cmd = 'pipeInput';
-            args = [text];
+            args = [{value:text}];
         } else {
             cmd = 'getScope';
-            args = [text];
+            args = [{value:text}];
         }
         _"return piece";
     }
@@ -982,14 +989,17 @@ usual argument shifting behavior. Only `@` by itself does that.
 ### Store scope
 
 A leading `^` is an instruction to store the incoming pipe into a scope
-variable, possibly with depth of dots. If it ends in `!` then it returns
+variable. If it ends in `!` then it returns
 undefined otherwise it passes along the variable. For more complicated stuff,
-saying pushing onto an array or whatever, another command should be used,
-probably an eval.
+saying pushing onto an array or whatever, use a pipe and the dot command. 
 
-    function eqParse (p, terminator) {
+The arguments should just be 1; the stuff to store.
+
+
+    function caretParse (p, terminator) {
         let start = p.ind-1;
         let args = p.f.textArgs(p, terminator);
+        if (!args[0]) {args.shift();}
         let end = p.ind-1;
         let cmd = 'storeScope';
         let bind = 1; // input is the second argument
@@ -1096,6 +1106,21 @@ applied to section names and command names.
         return str.trim().toLowerCase();
     }
 
+### Space
+
+Advances through white space. 
+
+    function space(p) {
+        let reg = /\s*/g;
+        reg.lastIndex = p.ind;
+        reg.exec(p.text); //just advances past whitespace
+
+Now we are at the first non-whitespace character.
+
+        p.ind = reg.lastIndex;
+    }
+
+
 ### Return Piece
 
 This defines the standard returning of a piece. It assumes that start, end,
@@ -1156,9 +1181,7 @@ taking in the next argument.
         terminator = terminator + '|';
         let args, firstArg;
         let start = p.ind;
-        while (/\s/.test(p.text[p.ind]) ) {
-            p.ind += 1;
-        }
+        p.f.space(p);
 
         let first = p.text[p.ind];
 

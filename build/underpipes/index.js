@@ -340,20 +340,33 @@ let defTypeFirst = {
         };
     },
     '@' : function atParse (p, terminator) {
+        let end, cmd, args;
         let start = p.ind;
-        let end = p.f.findFirst(p, terminator)[1]-1;
-        let text = {value:p.f.norm(p.text.slice(start, end))};
-        p.ind = end+1;
-        let cmd, args;
-        if (!text.value) {
+        p.f.space(p);
+        if (p.text[p.ind] === par) {
+            cmd = 'apply';
+            args = p.f.textArgs(p, terminator);
+            args.shift(); // no first text arg
+            end = p.ind-1;
+            return {
+                start: p.f.ln(start),
+                end: p.f.ln(end),
+                cmd, args
+            };
+        }  
+    
+        end = p.f.findFirst(p, terminator)[1];
+        let text = p.f.norm(p.text.slice(start, end));
+        p.ind = end;
+        if (!text) {
             cmd = 'pipeInput';
             args = [];
-        } else if (text[0].search(/^[!0-9^]/) !== -1 ) {
+        } else if (text[0].search(/^[!0-9.^]/) !== -1 ) {
             cmd = 'pipeInput';
-            args = [text];
+            args = [{value:text}];
         } else {
             cmd = 'getScope';
-            args = [text];
+            args = [{value:text}];
         }
         return {
             start: p.f.ln(start),
@@ -361,9 +374,10 @@ let defTypeFirst = {
             cmd, args
         };
     },
-    '^' : function eqParse (p, terminator) {
+    '^' : function caretParse (p, terminator) {
         let start = p.ind-1;
         let args = p.f.textArgs(p, terminator);
+        if (!args[0]) {args.shift();}
         let end = p.ind-1;
         let cmd = 'storeScope';
         let bind = 1; // input is the second argument
@@ -381,10 +395,7 @@ const toTerminator = function toTerminator (p, mode, terminator) {
         return {terminate:true};
     }
     let ln = p.f.ln;
-    let reg = /\s*/g;
-    reg.lastIndex = p.ind;
-    reg.exec(p.text); //just advances past whitespace
-    p.ind = reg.lastIndex;
+    p.f.space(p);
     let first = p.text[p.ind];
     if (terminator.indexOf(first) !== -1) {
         p.ind += 1;
@@ -393,7 +404,7 @@ const toTerminator = function toTerminator (p, mode, terminator) {
     let piece, start = p.ind;
     if (typeFirst.hasOwnProperty(first) ) {
         p.ind += 1;
-        piece = typeFirst[first](p, terminator);
+        piece = typeFirst[first](p, terminator+'|');
     } else {
         let paren = p.f.findFirst(p, par + '|' + terminator);
         if (paren[0] === par ) {
@@ -517,9 +528,7 @@ const textArgs = function textArgs (p, terminator) {
     terminator = terminator + '|';
     let args, firstArg;
     let start = p.ind;
-    while (/\s/.test(p.text[p.ind]) ) {
-        p.ind += 1;
-    }
+    p.f.space(p);
 
     let first = p.text[p.ind];
 
@@ -596,6 +605,12 @@ const findFirst = function findFirst (p, chars, ind) {
     }
     return [null, ind];
 };
+const space = function space(p) {
+    let reg = /\s*/g;
+    reg.lastIndex = p.ind;
+    reg.exec(p.text); //just advances past whitespace
+    p.ind = reg.lastIndex;
+};
 module.exports = function cta ({
     type = 'code',
     text = '', 
@@ -620,7 +635,7 @@ module.exports = function cta ({
     let p = {text, ind, q, u, 
         begin : ind,
         f : {typeFirst, toTerminator, findFirst, tracker, parseArgs, 
-            norm:normalizeString, textArgs, plainText}
+            norm:normalizeString, textArgs, plainText, space}
     };
     Object.assign(p.f,f); // a way to override most of the parsing stuff 
     if (!p.f.hasOwnProperty('ln') ) {

@@ -78,10 +78,11 @@ _'//(dude)'
 _'_"body text" | /wrap/(<here>,</here>)'
 
 ---
-GetScope: 
+GetScope: _"something | cmd( @1, @, @!, @^, @first, 
+    @90, @(_"arr", [3, 4]), #34 | {key:@, key2:3} )"
 
 ---
-StoreScope:
+StoreScope: _" 34 | ^what | ^who! | ^(this.that, [3,4, _"get"])"
 
 
 ---

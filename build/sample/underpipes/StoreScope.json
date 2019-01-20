@@ -1,0 +1,29 @@
+{
+  "name": "StoreScope",
+  "txt": "_\" 34 | ^what | ^who! | ^(this.that, [3,4, _\"get\"])\"",
+  "result": [
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "34"}]},
+        {"cmd": "storeScope", "bind": 1, "args": [{"value": "what"}]},
+        {"cmd": "storeScope", "bind": 1, "args": [{"value": "who!"}]},
+        {
+          "cmd": "storeScope",
+          "bind": 1,
+          "args": [
+            {"value": "this.that"},
+            {
+              "cmd": "arr",
+              "args": [
+                {"value": "3"},
+                {"value": "4"},
+                {"cmd": "get", "bind": true, "args": [{"value": "get"}]}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

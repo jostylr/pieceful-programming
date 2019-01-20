@@ -418,7 +418,8 @@ accessed with the command pipeInputs.
         let input = inputs[0];
 
 We first check for arguments who has the command 'pipeInput'. This is only for
-the current level of args; no lower levels can access this. For that, one
+the current level of args; no lower levels can access this except for the
+first argument in a pipe?. For that, one
 should use named scope variables.  
 
         let skip = false;
