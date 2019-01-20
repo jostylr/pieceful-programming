@@ -1,0 +1,31 @@
+{
+  "name": "Boolean",
+  "txt": "_'?===(3, 4)' is 3 equal to 4? or _\"rock | ?>=(5)\" or _\"?('===',3,4)\" \nWe also can do just a question which leads to the pipe input going to the\nsecond slot. _`_op | ?(4, 3)`",
+  "result": [
+    {
+      "cmd": "bool",
+      "bind": 1,
+      "args": [{"value": "==="}, {"value": "3"}, {"value": "4"}]
+    },
+    {"value": " is 3 equal to 4? or "},
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "rock"}]},
+        {"cmd": "bool", "bind": 1, "args": [{"value": ">="}, {"value": "5"}]}
+      ]
+    },
+    {"value": " or "},
+    {"cmd": "bool", "args": [{"value": "==="}, {"value": "3"}, {"value": "4"}]},
+    {
+      "value": " \nWe also can do just a question which leads to the pipe input going to the\nsecond slot. "
+    },
+    {
+      "cmd": "pipe",
+      "args": [
+        {"cmd": "get", "bind": true, "args": [{"value": "op"}]},
+        {"cmd": "bool", "args": [{"value": "4"}, {"value": "3"}]}
+      ]
+    }
+  ]
+}

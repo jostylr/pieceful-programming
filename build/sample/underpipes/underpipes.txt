@@ -34,10 +34,17 @@ EvalError:  _"~"  It is looking for a matching quote.
 Math:  _'(#1+4^3, #latex:eval#sin(x),#, #a#_"math expression | dude" | cool)'
 
 ---
-Boolean:
+Boolean: _'?===(3, 4)' is 3 equal to 4? or _"rock | ?>=(5)" or _"?('===',3,4)" 
+We also can do just a question which leads to the pipe input going to the
+second slot. _`_op | ?(4, 3)`
 
 ---
-Operator:
+Operator:  _"#2 | =+3(25,6)| =*7 | =>sin 
+    | =< cos({guess:[3, 3.1],max:10,min:0})" 
+
+Take 2 and add it to 3, 25, and 6, then multiply by 7, then throw that into sine and
+finally find the inverse value for cosine using the secant method with a
+starting guess of 3 and 3.1.
 
 ---
 Array: _"[3, 5, 6] | merge([2, 5, 7])"

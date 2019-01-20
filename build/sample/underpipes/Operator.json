@@ -1,0 +1,53 @@
+{
+  "name": "Operator",
+  "txt": "_\"#2 | =+3(25,6)| =*7 | =>sin \n    | =< cos({guess:[3, 3.1],max:10,min:0})\" \n\nTake 2 and add it to 3, 25, and 6, then multiply by 7, then throw that into sine and\nfinally find the inverse value for cosine using the secant method with a\nstarting guess of 3 and 3.1.",
+  "result": [
+    {
+      "cmd": "pipe",
+      "args": [
+        {
+          "cmd": "math",
+          "bind": 2,
+          "args": [{"value": "js:eval"}, {"value": "2"}]
+        },
+        {
+          "cmd": "op",
+          "bind": 1,
+          "args": [
+            {"value": "+"},
+            {"value": "3"},
+            {"value": "25"},
+            {"value": "6"}
+          ]
+        },
+        {"cmd": "op", "bind": 1, "args": [{"value": "*"}, {"value": "7"}]},
+        {"cmd": "op", "bind": 1, "args": [{"value": ">"}, {"value": "sin"}]},
+        {
+          "cmd": "op",
+          "bind": 1,
+          "args": [
+            {"value": "<"},
+            {"value": "cos"},
+            {
+              "cmd": "obj",
+              "args": [
+                {
+                  "cmd": "kv",
+                  "args": [
+                    {"value": "guess"},
+                    {"cmd": "arr", "args": [{"value": "3"}, {"value": "3.1"}]}
+                  ]
+                },
+                {"cmd": "kv", "args": [{"value": "max"}, {"value": "10"}]},
+                {"cmd": "kv", "args": [{"value": "min"}, {"value": "0"}]}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": " \n\nTake 2 and add it to 3, 25, and 6, then multiply by 7, then throw that into sine and\nfinally find the inverse value for cosine using the secant method with a\nstarting guess of 3 and 3.1."
+    }
+  ]
+}

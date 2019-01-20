@@ -193,37 +193,41 @@ let defTypeFirst = {
         let start = p.ind-1;
         let cmd = 'bool';
         let args = p.f.textArgs(p, terminator);
-        let bind = 2;
         let end = p.ind-1;
-        return {
-            start: p.f.ln(start),
-            end: p.f.ln(end),
-            cmd, bind, args
-        };
+        if (!args[0]) { //in case no op after ?
+            args.shift();
+            return {
+                start: p.f.ln(start),
+                end: p.f.ln(end),
+                cmd, args
+            };
+        } else {
+            let bind = 1;
+            return {
+                start: p.f.ln(start),
+                end: p.f.ln(end),
+                cmd, bind, args
+            };
+        }
     },
     '=' : function parseOperator (p, terminator) {
         let start = p.ind-1;
         let cmd = 'op';
-        let first = p.f.firstFind(p, '=' + terminator);
-        let op, bind, args;
-        if (first[0] === '=') {
-            op = p.text.slice(p.ind, first[1]).trim();
-            p.ind = first[1];
-            bind = 2;
-            args = p.f.textArgs(p, terminator);
-            if (!args[0]) {
-                args.shift(); 
-                bind = 1; // nothing after equals after all
-            }
-            args.unshift(op);
-        } else { 
-            args = p.f.textArgs(p, terminator);
-            bind = 1;
-            if (!args[0]) {
-                args.shift();
-                bind = 0; //maybe operator is incoming
-            }
+        let reg = /[ a-zA-Z0-9]/g;
+        reg.lastIndex = p.ind;
+        let match = reg.exec(p.text);
+        let secondInd;
+        if (match) {
+            secondInd = match.index;
+        } else {
+            throw new Error('need letter, digit, or space for operator: ' +
+                p.ind + ': ' + p.text.slice(p.ind) );
         }
+        let first = {value: p.text.slice(p.ind, secondInd).trim()};
+        p.ind=secondInd;
+        let args = p.f.textArgs(p, terminator);
+        args.unshift(first);
+        let bind = 1;
         let end = p.ind-1;
         return {
             start: p.f.ln(start),

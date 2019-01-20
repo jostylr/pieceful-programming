@@ -727,25 +727,57 @@ A leading question mark indicates that a boolean is desired. The text to the
 terminator is the comparison operator and it is the first argument. The second
 argument is bound to for incoming. Return value is boolean.
 
+If the question mark has no leading text, then we take the pipe input as the
+incoming operator and let the args be it acting on it. If the question mark
+has text, then we take the input to be the second argument, the first thing to
+have the comparison act on. 
+
     function parseBoolean (p, terminator) {
         let start = p.ind-1;
         let cmd = 'bool';
         let args = p.f.textArgs(p, terminator);
-        let bind = 2;
         let end = p.ind-1;
-        _"return piece:bind";
+        if (!args[0]) { //in case no op after ?
+            args.shift();
+            _"return piece";
+        } else {
+            let bind = 1;
+            _"return piece:bind";
+        }
     }
 
 ### Operator
 
 A leading `=` indicates a mathematical operator or function is here to process
-something. Similar to boolean and math. Examples `=+=3` or `=sin=` or `=sin`. This is pretty
-heavy syntax. 
+something. Similar to boolean and math. We expect that there is an operator
+and we gobble until the first `[ a-zA-Z0-9]` The space is what one can use if
+no arg to operate on (such as negating the incoming text).
 
     function parseOperator (p, terminator) {
         let start = p.ind-1;
         let cmd = 'op';
-        let first = p.f.firstFind(p, '=' + terminator);
+        let reg = /[ a-zA-Z0-9]/g;
+        reg.lastIndex = p.ind;
+        let match = reg.exec(p.text);
+        let secondInd;
+        if (match) {
+            secondInd = match.index;
+        } else {
+            throw new Error('need letter, digit, or space for operator: ' +
+                p.ind + ': ' + p.text.slice(p.ind) );
+        }
+        let first = {value: p.text.slice(p.ind, secondInd).trim()};
+        p.ind=secondInd;
+        let args = p.f.textArgs(p, terminator);
+        args.unshift(first);
+        let bind = 1;
+        let end = p.ind-1;
+        _"return piece:bind";
+    }
+    
+[junk]()
+
+        let first = p.f.findFirst(p, '=' + terminator);
         let op, bind, args;
         if (first[0] === '=') {
 
@@ -753,14 +785,14 @@ Operator is between equals sign. The stuff after the second equals should be
 the first argument so we skip over it with incoming input. 
 
             op = p.text.slice(p.ind, first[1]).trim();
-            p.ind = first[1];
+            p.ind = first[1]+1;
             bind = 2;
             args = p.f.textArgs(p, terminator);
             if (!args[0]) {
                 args.shift(); 
                 bind = 1; // nothing after equals after all
             }
-            args.unshift(op);
+            args.unshift({value:op});
         } else { 
 
 No second equals sign. So the operator is the bit before the parentheses or

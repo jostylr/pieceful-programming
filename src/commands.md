@@ -34,8 +34,19 @@ first line of the code block. 2nd arg could be comment style (css=js-long for wr
 `indent` which takes in a number and adjusts the hanging indent computation
 appropriately. Pass in 'none' to do none. There could also be a directive
 scope environmental variable to do it, particularly for the none. Could allow
-edge cases. 
+edge cases.
 
+
+* `op`  this applies an operator to arguments. Check for numbers and convert
+  them. It expects symbols. Need a way to add to them or something. Anyway,
+  the `>` is to take the second argument and put it into a defined function in
+  the second argument. The `<` inverts it, e.g., if `>, 3, sin` then try to
+  solve `sin(x) = 3`. This can use the secant method which should allow
+  configuration parameters in the form of an object, which we assume is the
+  purpose of anything that is an object. We could also do `^^, ^-, ^_,^/,^|` to
+  find, respectively, the max, extrema, min, inflection point, vertical asymptote, `^=` could do a limit where the incoming can be the value to compute it at with javascripts infinity, negative infinity as an option. 
+
+  Some of this can be linked into the math.js library (also the math command)
 
 ### switch*
 
