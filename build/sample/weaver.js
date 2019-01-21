@@ -1,16 +1,19 @@
 const Weaver = require('../core/index.js');
 const util = require('util');
-let weaver = new Weaver({}, ()=> {});
+let weaver = new Weaver({}, 
+    () => {}
+   // (note, data)=> {console.log(note + ':', util.inspect(data, {depth:6}) );}
+);
 
 /*(lab, args) =>
 {console.log(lab + ':', util.inspect(args, {depth:6})) } );*/
 
 web = {
     start : {pieces : [ 
-        { value : 'hello'},
+        { value : 'hello '},
         {cmd: 'pipe', args: [
             { cmd : 'get', args: [{value:'nxt'}]},
-            { cmd : 'flip', args : [{value:'b'}, {value:'e'}] }
+            { cmd : 'flip', args : [{value:'better'}, {value:'e'}] }
         ]}
     ]},
     nxt : {pieces : [ {value : 'bye'} ]}

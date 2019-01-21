@@ -19,6 +19,8 @@ provided and synced up with the directives will call. There is also a debugger
 function that can be provided that defaults to an empty function. It gets
 called in the command and directive processors. 
 
+    /* eslint-disable no-console */
+    //const util = require('util');
     module.exports = function Weaver (
         io = {}, 
         tracker = (...args) => { console.log(args); }  
@@ -37,7 +39,8 @@ These are inlined into run command and are just placeholders here.
                 array : () => {}, 
                 pipe : () => {},
                 compose : () => {}, 
-                nodekeys : _"nodekeys"
+                call : () => {},
+                apply : () => {}
             },
             directives : {},
         };
@@ -53,7 +56,7 @@ These are inlined into run command and are just placeholders here.
         const runCommand = _"run command";
         const makeScope = _"make scope";
         weaver.syntax = {
-            descentSpecial : _"compose:descent special",
+            descentSpecial : _"descent special",
             getFullNodeName : _"get full node name",
         };
         
@@ -62,6 +65,8 @@ These are inlined into run command and are just placeholders here.
         weaver.addDirectives =  _"add directives";
         weaver.runDirective = _"run directive";
         weaver.addPieces = _"process pieces";
+        
+        weaver.v.commands.nodekeys = _"nodekeys";
 
 
         return weaver;
@@ -209,11 +214,9 @@ We start by checking if all the vals are strings. If so, then we concatenate
 them. 
     
     vals = vals ||  [];
-    console.log('V1', vals);
     if (vals.every( (el) => (typeof el === 'object') && (typeof el.value === 'string') ) ){
         vals = vals.map(el => el.value).join('');
     }
-    console.log('V2', vals);
     if (node.transform) {
         let pt = node.transform;
         pt.input = vals;
@@ -263,7 +266,6 @@ contains the actual values.
         await Promise.all(args.map(argProcessor) );
         let actualArgs = data.actualArgs = args.map( (el) => el.value); 
         tracker('run directive', {tracking, name, actualArgs, scope});
-        console.log('RD', name, actualArgs, '\nARGS', args);
         let ret = await dire.call({weaver, scope}, {src, target, args:actualArgs});
         data.value = ret;
         tracker('directive done', {tracking, name, result:ret});
@@ -300,7 +302,6 @@ async way.
 
     function makeArgProcessor(state) {
         return async function argProcessor (arg) {
-            console.log('AP', arg);
             if (!arg) {
                 return arg;
             }
@@ -341,7 +342,7 @@ then the insertion happens
         }
         let {cmd, args=[]} = piece;
         let override;
-        _":deal with pipe inputs"
+        _"pipe:deal with pipe inputs"
         let {tracking = ''} = scope;
         let ret;
         tracker('command called', {tracking, cmd, piece});
@@ -349,8 +350,6 @@ then the insertion happens
             _"pipe"
         } else if (cmd === 'get') {
             _"get"
-        } ese if (cmd === 'nodeKeys') {
-            _"array of nodekeys"
         } else if (cmd === 'compose') {
             _"compose"
         } else { 
@@ -415,16 +414,15 @@ So pipe generates an inputs array for each piece in a pipe, which can be
 accessed with the command pipeInputs. 
 
     if (piece.hasOwnProperty('inputs') ) {
+        let inputs = piece.inputs;
         let input = inputs[0];
 
 We first check for arguments who has the command 'pipeInput'. This is only for
-the current level of args; no lower levels can access this except for the
-first argument in a pipe?. For that, one
+the current level of args; no lower levels can access this. For that, one
 should use named scope variables.  
 
         let skip = false;
-        let splice;
-        let pipeInputs = args.forEach(el, idx) => {
+        args.forEach( (el, idx) => {
             if (el.cmd && (el.cmd === 'pipeInput') ) {
                 if (el.args && el.args.length) {
                     if (el.args.length === 1) {
@@ -456,7 +454,7 @@ This is to allow the previous input to get passed on instead of this one.
                 }
             }
         });
-        if (!skip) && (input && (typeof input.value !== 'undefined') ) {
+        if ( (!skip) && (input && (typeof input.value !== 'undefined') ) ) {
             if (piece.hasOwnProperty('bind') ) {
             
 Bind being true means we ignore the input. Note that this is ignored by the
@@ -561,7 +559,7 @@ will need to wrap them up in a value argument.
         };
         return await runCommand.call(scope, pipes);   
 
-    } 
+    };
 
 
 #### Descent Special
@@ -597,7 +595,7 @@ that pushing at the end.
 
                     if (val[0] === '$') { //escape
                         piece.value = val; //dropped one dollar sign
-                    } else else if (val.match(/[1-9][0-9]*/) ) {
+                    } else if (val.match(/[1-9][0-9]*/) ) {
                         let arg =  args[val];
                         if (arg) {
                             piece = arg;
@@ -607,7 +605,7 @@ that pushing at the end.
                             piece.special = 'no such arg given:' + val;
                         }
                     } else {
-                        piece.value = property(scope, val);
+                        piece.value = scope[val];
                     }
                 }
             } else if (piece.hasOwnProperty('args') ) { //descend
@@ -629,7 +627,7 @@ of the arguments so named.
     let end = splice[1] || args.length;
     args.slice(start, end).forEach( (el, idx) => {
         el.special = val + ':' + (start + idx);
-        ret.push(el) 
+        ret.push(el); 
     });
 
 
@@ -642,7 +640,7 @@ This could be a separate command function, but it requires special access.
 We assume this command is given names of sections, typically a single one, but
 possibly an array. 
 
-    let arg = args[0];
+    let arg = args[0].value || '';
     if (Array.isArray(arg) ) { // list of sections
         let names = [];
         let proms = _":loop through the names"
@@ -651,7 +649,7 @@ possibly an array.
         _":zip names vals"
     } else {
         _":promise node value"
-        ret = (await prr).value;
+        ret = (await prr.prom);
     }
 
 [promise node value]()
@@ -663,19 +661,19 @@ possibly an array.
         weaver.p.web[nodeName] = prr;
     }
 
-[loop trough the names]()
+[loop through the names]()
 
-    arg.map( (el) => {
+    arg.map( (arg) => {
         _":promise node value"
         names.push(nodeName);
-        return prr;
+        return prr.prom;
     });
 
 [zip names vals]()
 
     vals.forEach( (el, idx) => {
         ret[names[idx]] = el;
-    }
+    } );
 
 
 
@@ -734,7 +732,7 @@ End list
             }
         }
         if (frag.indexOf('::') === -1) {
-            return curNode.prefix+frag;
+            return (curNode.prefix || '') + frag;
         }
         return frag; //fits a full name. 
     }
@@ -795,23 +793,24 @@ whether other prefixes have been loaded).
             let c = weaver.v.web[name].scope;
             return (prefix(c) && lv4(c) && lv3(c) && lv2(c) && lv1(c));
         };
+    })(filter)
 
 
 [prefix]()
 
-        let ind = filter.indexOf('::');
-        if ( (ind !== -1) && (filter[0] !== '#') ) {
-            let preReg = new RegExp(filter.slice(0, ind));
-            prefix = function (c) {
-                return preReg.test(c.prefix);
-            };
-            filter = filter.slice(ind+2);
-        } else { 
-            let preStr = context.prefix;
-            prefix = function (c) {
-                return (c.prefix.indexOf(preStr) !== -1)'
-            };
-        }
+    let ind = filter.indexOf('::');
+    if ( (ind !== -1) && (filter[0] !== '#') ) {
+        let preReg = new RegExp(filter.slice(0, ind));
+        prefix = function (c) {
+            return preReg.test(c.prefix);
+        };
+        filter = filter.slice(ind+2);
+    } else { 
+        let preStr = context.prefix;
+        prefix = function (c) {
+            return (c.prefix.indexOf(preStr) !== -1);
+        };
+    }
       
 [lv4]()
 
@@ -819,14 +818,14 @@ Next up is the minor part, lv4. This is also not too bad. Slice from the end,
 assume none if nothing given. Keep in mind a hash mark indicates using the
 context name. 
         
-        ind = filter.indexOf(':');
-        if (ind !== -1) {
-            let lv4Reg = filter.slice(ind+1);
-            filter = filter.slice(0,ind);
-            _":lvreg"
-        } else {
-            _":none| sub #,4"
-        }
+    ind = filter.indexOf(':');
+    if (ind !== -1) {
+        let lv4Reg = filter.slice(ind+1);
+        filter = filter.slice(0,ind);
+        _":lvreg"
+    } else {
+        _":none| sub #,4"
+    }
 
 
 [lv2 and lv3]()
@@ -835,48 +834,49 @@ Next up is slicing off any potential slashes. We assume the presence of one
 slice indicates lv2 while the presence of two gives us lv2 and lv3. If no
 slashes, then we will ignore anything with lv2 or lv3.
 
-        ind = filter.indexOf('/');
-        if (ind !== -1) {
-            let scndInd = filter.indexOf('/', ind+1);
-            if (scndInd !== -1) {
+    ind = filter.indexOf('/');
+    if (ind !== -1) {
+        let scndInd = filter.indexOf('/', ind+1);
+        if (scndInd !== -1) {
 
 We have two slashes so we deal with lv2 and lv3. 
 
-                let lv2Reg = filter.slice(ind+1, scndInd);
-                let lv3Reg = filter.slice(scndInd+1);
-                filter = filter.slice(0,ind);
-                _":lvreg | 4, 2"
-                _":lvreg | 4, 3"
-            } else {
-                
+            let lv2Reg = filter.slice(ind+1, scndInd);
+            let lv3Reg = filter.slice(scndInd+1);
+            filter = filter.slice(0,ind);
+            _":lvreg | sub 4, 2"
+            _":lvreg | sub 4, 3"
+        } else {
+            
 Just one slash so lv2 is being conditioned on and lv3 should be empty. 
 
-                let lv2Reg = filter.slice(ind+1);
-                filter = filter.slice(0,ind);
-                _":lvreg | 4, 2"
-                _":none|sub #,3"
-            }
-        } else {
-            _":none| sub #,3"
-            _":none| sub #,2"
+            let lv2Reg = filter.slice(ind+1);
+            filter = filter.slice(0,ind);
+            _":lvreg | sub 4, 2"
+            _":none|sub #,3"
         }
+    } else {
+        _":none| sub #,3"
+        _":none| sub #,2"
+    }
 
 [lv1]()
 
 And now we handle the main part. This is lv1only. There may be nothing at this
 point, in which case we allow a permissive filter
 
-        if (filter) {
-            if (filter === '#') {
-                let lv1Str = context.lv1only;
-                lv1 = return function (c) {
-                    return (c.lv1only.indexOf(lv1Str) !== -1);
-                };
-        } else {
-            lv1 = function () {
-                return true;
+    if (filter) {
+        if (filter === '#') {
+            let lv1Str = context.lv1only;
+            lv1 = function (c) {
+                return (c.lv1only.indexOf(lv1Str) !== -1);
             };
         }
+    } else {
+        lv1 = function () {
+            return true;
+        };
+    }
 
 
 
@@ -905,6 +905,7 @@ This creates the matching functions for the lv2-4;
         lv4 = function (c) {
             return lv4Reg.test(c.lv4);
         };
+    }
 
 
 
@@ -991,17 +992,20 @@ This is a sample bare minimum program to show this works.
 
     const Weaver = require('../core/index.js');
     const util = require('util');
-    let weaver = new Weaver({}, ()=> {});
+    let weaver = new Weaver({}, 
+        () => {}
+       // (note, data)=> {console.log(note + ':', util.inspect(data, {depth:6}) );}
+    );
     
     /*(lab, args) =>
     {console.log(lab + ':', util.inspect(args, {depth:6})) } );*/
 
     web = {
         start : {pieces : [ 
-            { value : 'hello'},
+            { value : 'hello '},
             {cmd: 'pipe', args: [
                 { cmd : 'get', args: [{value:'nxt'}]},
-                { cmd : 'flip', args : [{value:'b'}, {value:'e'}] }
+                { cmd : 'flip', args : [{value:'better'}, {value:'e'}] }
             ]}
         ]},
         nxt : {pieces : [ {value : 'bye'} ]}
