@@ -19,9 +19,7 @@ provided and synced up with the directives will call. There is also a debugger
 function that can be provided that defaults to an empty function. It gets
 called in the command and directive processors. 
 
-    /* eslint-disable no-console */
-    //const util = require('util');
-    module.exports = function Weaver (
+    function Weaver (
         io = {}, 
         tracker = (...args) => { console.log(args); }  
     ) {
@@ -72,8 +70,15 @@ These are inlined into run command and are just placeholders here.
         return weaver;
     };
 
-[core/index.js](# "save:")
 
+### Module form
+
+    /* eslint-disable no-console */
+    //const util = require('util');
+    module.exports = _"pieceful core";
+
+
+[core/index.js](# "save:")
 
 ### Use example
 

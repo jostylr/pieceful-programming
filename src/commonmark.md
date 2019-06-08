@@ -13,7 +13,22 @@ This handles the markdown structure. To parse the code parts into pieces, we
 use a separate code parsing function. To compensate for that, the nodes have a
 major field associated with them if they are not independent blocks. 
 
+    let cmparse;
     
+    {
+    _"core"
+    }
+
+    module.exports = cmparse;
+
+We have a separate module for this, but in the core running class, we
+integrate the script directly. 
+
+
+[commonmark/index.js](# "save:")
+
+## Core
+
 
     let commonmark = require('commonmark');
 
@@ -22,7 +37,7 @@ the link text and title text. They cannot see or affect anything else.
 
     let commonParsingDirectives = _"common parsing directives";
 
-    module.exports = function cmparse (text, {
+    cmparse = function cmparse (text, {
         prefix = '',
         origin = '', //filepath
         tracker = (...args) => {console.log(args); }, 
@@ -85,7 +100,6 @@ The current state
 
     };
 
-[commonmark/index.js](# "save:")
 
 
 # walk the tree

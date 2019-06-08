@@ -1,6 +1,11 @@
+let cmparse;
+
+{
 let commonmark = require('commonmark');
 let commonParsingDirectives = {
-    eval : function ({webNode}) {
+    eval : function (data) {
+        let webNode = data.webNode;
+        let localContext = this;
         let originalCode = webNode.code; //eslint-disable-line no-unused-vars
         let code = webNode.code.reduce( (acc, next) => {
             return acc + next[0];
@@ -32,7 +37,7 @@ let commonParsingDirectives = {
     }
 };
 
-module.exports = function cmparse (text, {
+cmparse = function cmparse (text, {
     prefix = '',
     origin = '', //filepath
     tracker = (...args) => {console.log(args); }, 
@@ -40,6 +45,9 @@ module.exports = function cmparse (text, {
 {
     tracker('commonmark parsing about to begin', {prefix, text});
     
+    parsingDirectives = Object.assign({}, commonParsingDirectives,
+        parsingDirectives);
+
     const originalPrefix = prefix;
     let scope = { prefix, origin};
 
@@ -67,8 +75,8 @@ module.exports = function cmparse (text, {
 
     let event;
 
-    parsingDirectives = Object.assign({}, commonParsingDirectives,
-        parsingDirectives);
+    let localContext = {tracker, lineNumbering, web, parsingDirectives, event, directives};
+
 
     let reader = new commonmark.Parser();
     let parsed = reader.parse(text);
@@ -221,7 +229,7 @@ module.exports = function cmparse (text, {
                     let target = ltext;
                     let data = {args, target, scope, context:webNode};
                     tracker("calling parse directive", {directive, data});
-                    parsingDirectives[directive](data );
+                    parsingDirectives[directive].call(localContext, data);
                     tracker("done with parse directive", {directive, scope, context : webNode});
                 } else if ( (ind = title.indexOf(":")) !== -1) { //compile directive
                     let data = {
@@ -299,6 +307,7 @@ module.exports = function cmparse (text, {
                     delete scope.lv3;
                     delete scope.lv2;
                     scope.lv1 = scope.prefix + name;
+                    scope.lv1only = name;
                     scope.majorname = scope.lv1; 
                 }
                 scope.fullname = fullname = scope.majorname;
@@ -322,10 +331,11 @@ module.exports = function cmparse (text, {
                 htext = false;
             }
         } else if (ty === 'document' && entering) {
-            scope.lv1 = scope.prefix + '';
+            scope.lv1 = scope.prefix + '^';
             scope.fullname = scope.majorname = scope.lv1; 
-            webNode = web[prefix] = {
-                name : '', heading:'', 
+            scope.lv1only = '^';
+            webNode = web[scope.fullname] = {
+                name : '^', heading:'^', 
                 rawTransform : [],
                 raw : [ [scope.sourcepos[0]] ],
                 code : [],
@@ -347,3 +357,6 @@ module.exports = function cmparse (text, {
     return {web, directives};
 
 };
+}
+
+module.exports = cmparse;

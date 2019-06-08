@@ -26,6 +26,15 @@ array helper commands
         all, string, functional 
     };
 
+
+## Core Loader
+
+This loads the core functions. Pass in an object into this function and it
+adds all the commands. 
+
+    
+
+
 ## TODO
 
 `/(some comment)` command that produces a comment at the end of the

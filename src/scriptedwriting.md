@@ -44,12 +44,12 @@ they are all global as written.
 Note the convention of yaml and main having special behaviors is not apparent
 in the file processor. This happens in the client and can be overriden. 
 
-## File Processor
+## Core
 
 This is a simple module that exports a function that will take in a file of
 the above form and produce an output similar to commonmark processing. 
 
-    module.exports = function (text='', {
+    scriptedwriting = function scriptedwriting (text='', {
         prefix = '',
         firstName = 'abstract',
         current = [1,1, 0]
@@ -92,8 +92,6 @@ the above form and produce an output similar to commonmark processing.
 
     };
 
-[swparse/index.js](# "save:")
-
 
 [current update]()
 
@@ -103,6 +101,18 @@ old object.
     current = [current[0]+1, 1, ind+1];
     lines.push(current.slice());
 
+## Module
+
+The separate module part is here.
+
+    let scriptedwriting;
+    {
+    _"core"
+    }
+
+    module.exports = scriptedwriting;
+
+[swparse/index.js](# "save:")
 
 ### New Heading
 
@@ -338,13 +348,6 @@ fullname.
 
 
 [sample/scriptedwriting/simple.js](# "save:")
-
-
-## Cli
-
-Have a list of "files" and names. Process each file.
-
-## Browser
 
 
 
