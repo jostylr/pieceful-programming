@@ -88,3 +88,9 @@ loaded. This would still not quite be the cli client, but it would be close.
 This is the middle. 
 
 
+
+## TODO
+
+Make a command that can take in a piece of text and will run it through the
+underpipes process and run through commands. This is basically the compile
+command from before. Maybe call it that. Allow for setting node info 

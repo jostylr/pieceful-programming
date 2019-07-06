@@ -19,8 +19,11 @@ module.exports = {
             "unix"
         ],
         "semi": [
-            "error",
+            "warn",
             "always"
-        ]
+        ], 
+	"no-console": [
+		"warn"
+	]
     }
 };

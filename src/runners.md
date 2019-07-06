@@ -11,7 +11,7 @@ We have a minimalist version and a full version with all batteries included.
 
 Minimalist version 
 
-* [pieceful/](# "cd:save")  Changing save directory to pieceful
+* [pfp/](# "cd:save")  Changing save directory to pieceful
 * [index.js](#min-index "save:") This is for being included by require
 * [cli.js](#min-cli "save:") This runs the command line client
 * [browser.js](#min-browser "save:") This has the browser version
@@ -20,7 +20,7 @@ Minimalist version
 Batteries included version
 
 
-* [literate-programming/](# "cd:save")  Changing save directory for full
+* [pieceful/](# "cd:save")  Changing save directory for full
   batteries: literate-programming
 * [index.js](#max-index "save:") This is for being included by require
 * [cli.js](#max-cli "save:") This runs the command line client
@@ -52,7 +52,7 @@ literate program files.
   after diffing or ...).
 
 
-## Common Part Beginning
+## Beginning
 
 This is the core part of what we need. 
 
@@ -60,7 +60,6 @@ We need defined weaver, commands, directives, parsers. We load these directly.
 This is the first part. There
 should be a middle where extras are loaded and the io is defined. 
 
-    const vfs = (_"vfs::core")();
     const Weaver = _"core::pieceful core";
     let custom = {
         commands : {},
@@ -103,14 +102,20 @@ command.
 
  
 
-## Cli 
+## Cli Min
 
 The command line client comes in two flavors, a minimal version and full
 version. The lite version uses the command `pfp` while the full one uses
 `pieceful`.  
 
 
-### Common intro
+    _"vfs::cli"
+    _"beginning"
+    _"cli common"
+    _"ending"
+
+
+### Cli Common
 
 These are the common parts of the command line client
 
@@ -126,21 +131,34 @@ We need:
     (_"basic io")(custom.io);
 
 
+## Cli Max
+
+    _"vfs::cli"
+    _"beginning"
+    _"load batteries"
+    _"cli common"
+    (_"full options")(options);
+    (_"full io")(options);
+    _"ending"
 
 
-### Full additions
+### Full Options
 
 Not sure what might be needed here, but inserting it now. 
 
-    (_"full options")(options);
-    (_"full io")(options);
 
 https://www.npmjs.com/package/shelljs
 https://www.npmjs.com/package/inquirer
 https://www.npmjs.com/package/chalk
 
+### Full IO
 
-## Browser
+?
+
+## Browser Min
 
 These are the common parts of the browser. 
+
+
+
 

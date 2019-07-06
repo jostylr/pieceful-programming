@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "A web of programming pieces woven together",
   "main": "index.js",
-  "dependencies": {},
+  "dependencies": {
+    "node-fetch": "^2.6.0"
+  },
   "devDependencies": {
     "deep-object-diff": "^1.1.0",
-    "eslint": "^5.11.1",
+    "eslint": "^5.16.0",
     "json-stringify-pretty-compact": "^1.2.0"
   },
   "scripts": {
