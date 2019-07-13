@@ -19,6 +19,8 @@ web = {
     nxt : {pieces : [ {value : 'bye'} ]}
 };
 
+weaver.getNode('nxt').then( (node) => console.log('printing nxt:', node));
+
 weaver.addPieces(web).then( (values) => console.log(values) );
 weaver.addCommands({
     flip : async function (text, ...args) {
@@ -48,3 +50,5 @@ weaver.addDirectives({
         return 'done';
     }
 });
+
+setTimeout( () => {console.log('timed out');});

@@ -1,4 +1,6 @@
-module.exports = function (text='', {
+let sw;
+{
+sw = function scriptedwriting (text='', {
     prefix = '',
     firstName = 'abstract',
     current = [1,1, 0]
@@ -7,7 +9,7 @@ module.exports = function (text='', {
     let lines = [];
     let scope = {
         prefix,
-        lv1 : (prefix ? prefix + '::' : '' ) + firstName,
+        lv1 : prefix + '::' + firstName,
         lv1only : firstName,
     };
     scope.fullname = scope.lv1;
@@ -24,7 +26,6 @@ module.exports = function (text='', {
     let len = text.length;
     let start = current.slice();
     while (ind < len) {
-        console.log(ind);
         if (text[ind] === '\n') {
             if (text.slice(ind+1, ind+5) === '--- ') {
                 current = [current[0]+1, 1, ind+1];
@@ -41,7 +42,6 @@ module.exports = function (text='', {
                 ind -= 1;
                 while (ind < len) {
                     ind += 1;
-                    console.log(text[ind], current, ind);
                     if ( (!transStart ) && (text[ind] === '|') ) {
                         name = text.slice(nameStart, ind).trim().toLowerCase();
                         ind +=1;
@@ -98,7 +98,7 @@ module.exports = function (text='', {
                             }
                             if (match[2]) {
                                 scope.lv1only = match[2];
-                                scope.lv1  = (prefix ? prefix + '::' : '') + scope.lv1only;
+                                scope.lv1  = prefix + '::' + scope.lv1only;
                                 delete scope.lv2;
                                 delete scope.lv3;
                                 delete scope.lv4;
@@ -142,6 +142,7 @@ module.exports = function (text='', {
                         ind +=1; //now pointing to newline
                         break;
                     } else {
+                        console.log('should not be here: loop through heading swparse');
                     }
                 }
                 current = [current[0]+1, 1, ind+1];
@@ -151,14 +152,13 @@ module.exports = function (text='', {
                 let fullname = scope.fullname;
                     
                 if (name ) {
-                    if (web.hasOwnProperty(fullname) ) {
+                    if (has(web, fullname) ) {
                         piece = web[fullname];
                         scope = web.scope;
                         scope.sourcepos.push(start);
                     } else {
                         piece = web[fullname] = {
                             code:[], 
-                            rawTransform : [],
                             scope : Object.assign({ sourcepos: [start]}, scope)
                         };
                     }
@@ -170,7 +170,11 @@ module.exports = function (text='', {
                 }
                 
                 if (transform[1]) {
-                    web[fullname].rawTransform.push(transform);
+                    if (has(piece,'rawTransform') ) {
+                        piece.rawTransform.push(transform);
+                    } else {
+                        piece.rawTransform = [transform];
+                    }
                 }
                 
                 if (directive[0]) {
@@ -189,3 +193,6 @@ module.exports = function (text='', {
     return ret; 
 
 };
+}
+
+module.exports = sw;

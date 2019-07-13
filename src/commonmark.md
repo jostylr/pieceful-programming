@@ -5,7 +5,7 @@ We use commonmark and it generates an AST which we can then do whatever we
 like with it. Our purposes are purely informational and we extract headers,
 links, and code blocks. 
 
-We output an object with nodes and directives. This is a purely syncronous
+We output an object with nodes and directives. This is a purely synchronous
 function as we are given the text to start and are only concerned with
 returning the parsed contents of that text. 
 
@@ -63,11 +63,11 @@ The current state
 
         let htext = false;
         let ltext = false;
-        let webNode, sourcepos;
+        let webNode;
 
         let event;
 
-        let localContext = {tracker, lineNumbering, web, parsingDirectives, event, directives};
+        let localContext = {originalPrefix, tracker, lineNumbering, web, parsingDirectives, event, directives};
 
 
         let reader = new commonmark.Parser();
@@ -98,7 +98,7 @@ The current state
 
         return {web, directives};
 
-    };
+    }
 
 
 
@@ -143,12 +143,11 @@ trackers.
 This is where we create an initial webnode. It has the key of the prefix by
 itself. 
 
-    scope.lv1 = scope.prefix + '^';
+    scope.lv1 = scope.prefix + '::^';
     scope.fullname = scope.majorname = scope.lv1; 
     scope.lv1only = '^';
     webNode = web[scope.fullname] = {
         name : '^', heading:'^', 
-        rawTransform : [],
         raw : [ [scope.sourcepos[0]] ],
         code : [],
         scope : Object.assign({}, scope)
@@ -185,27 +184,39 @@ will lead to it being a transformation string.
 
         let transStart = lineNumbering([scope.sourcepos[0][0],
             scope.sourcepos[0][1]+ind]);
-        let transform = [transStart, heading.slice(ind).trim() || ''];
+        let transformText = heading.slice(ind).trim();
+        let transform;
+        if (transformText) {
+            transform = [transStart, transformText];
+        } 
 
         let hlevel = node.level;
         let fullname;
         
         _":compute name"
         
-        if (web.hasOwnProperty(fullname) ) {
+        if (has(web, fullname) ) {
             tracker('repeat heading found', {fullname, heading});
             webNode = web[fullname];
             webNode.raw.push( [sourcepos[0]] );
-            webNode.rawTransform.push(transform);
+            if (transform) {
+                if (has(webNode, 'rawTransform') ) {
+                    webNode.rawTransform.push(transform);
+                } else {
+                    webNode.rawTransform = [transform];
+                }
+            }
         } else {
             tracker('new heading found', {fullname, heading});
             webNode = web[fullname] = {
                 name, heading, 
-                rawTransform : [transform],
                 raw : [ [sourcepos[0]] ],
                 code : [],
                 scope : Object.assign({}, scope)
             };
+            if (transform) {
+                webNode.rawTransform = [transform];
+            }
         }
         
         htext = false;
@@ -242,7 +253,7 @@ And now the code...
         delete scope.lv4;
         delete scope.lv3;
         delete scope.lv2;
-        scope.lv1 = scope.prefix + name;
+        scope.lv1 = scope.prefix + '::' + name;
         scope.lv1only = name;
         scope.majorname = scope.lv1; 
     }
@@ -272,10 +283,11 @@ To improve location, slice out the text and look for first quoted character.
             search(/('|"):/);
         let transStart = lineNumbering([sourcepos[0][0],
             sourcepos[0][1]+ind]);
-        transform = [transStart, title.trim() || ''];
-    } else {
-        transform = [sourcepos[1], ''];
-    }
+        let transText = title.trim();
+        if (transText) {
+            transform = [transStart, transText];
+        }
+    } 
 
     scope.minor = name;
 
@@ -285,20 +297,28 @@ path related to the last header.
 
     let fullname = scope.fullname = scope.majorname + ':' + name;
     
-    if (web.hasOwnProperty(fullname)) {
+    if (has(web, fullname)) {
         tracker('repeat minor found', {fullname});
         webNode = web[fullname];
         webNode.raw.push( [sourcepos[0]] );
-        webNode.rawTransform.push(transform);
+        if (transform) {
+            if (has(webNode, 'rawTransform') ) {
+                webNode.rawTransform.push(transform);
+            } else {
+                webNode.rawTransform = [transform];
+            }
+        }
     } else {
         tracker('new minor found', {fullname});
         webNode = web[fullname] = {
             name, 
-            rawTransform : [transform],
             raw : [ [sourcepos[0]] ],
             code : [],
             scope : Object.assign({}, scope)
         };
+        if (transform) {
+            webNode.rawTransform = [transform];
+        }
     }
 
 
@@ -327,7 +347,7 @@ something else, mainly for source mappish concerns.
     }
     _":adjust sourcepos"
 
-    webNode.code.push([code, lang, sourcepos]);
+    webNode.code.push( {code, lang, start:sourcepos[0], end:sourcepos[1]});
 
 If there are code fences in the code, then the positioning information is
 going to be off. Not sure whether to address this. 
@@ -445,7 +465,7 @@ The store command uses the prefix
 
 These are directives identified by the href having an `!` as the first
 character. Seems harmless and we don't need a ref because these are always
-syncronous, mainly modifying either the current webnode or scope 
+synchronous, mainly modifying either the current webnode or scope 
 objects. They can do more by tapping in to the localContext but hopefully that
 is kept to a minimum. 
 
@@ -506,15 +526,18 @@ into elsewhere.
 This is a simple eval execution. No async. It grabs the code from the current
 node and that's it. It then removes the code from the node from the web being generated. 
 
+Both localContext and originalCode are there simply to be referenced by the
+evaling code if it wants. 
+
     function (data) {
         let webNode = data.webNode;
-        let localContext = this;
+        let localContext = this; //eslint-disable-line no-unused-vars
         let originalCode = webNode.code; //eslint-disable-line no-unused-vars
         let code = webNode.code.reduce( (acc, next) => {
             return acc + next[0];
         }, '');
         webNode.code = [];
-        tracker("local directive evaling code", {webNode, code});
+        localContext.tracker("local directive evaling code", {webNode, code});
         eval(code);
     }
 
@@ -551,11 +574,18 @@ This sets (or unsets) the prefix. It makes the most sense to do this just
 before a new header. Minors will not use a new prefix until a new header, but
 their scope will report it if done before. 
 
+If it ends in double colons (useful style to indicate the change), then those
+are stripped. A set of double colons by itself will reset the prefix to the
+original state.  
+
     function ({target, scope}) {
+        if (target.slice(-2) === '::') {
+            target = target.slice(0,-2);
+        }
         if (target) {
-            prefix = scope.prefix = target;
+            scope.prefix = target;
         } else {
-            prefix = scope.prefix = originalPrefix;
+            scope.prefix = this.originalPrefix;
         }
     }
 
@@ -564,8 +594,8 @@ their scope will report it if done before.
 
 This reports current state of parsing. 
 
-    function ({label:taget, scope, webNode}) {
-        tracker("commonmark parsing directive report", {label, scope,
+    function ({label, scope, webNode}) {
+        this.tracker("commonmark parsing directive report", {label, scope,
             webNode}); 
     }
 
@@ -709,7 +739,7 @@ A sample md doc
 
     [=vname](# ": make | new |var")
 
-    [dude::](!prefix) Doing a prefix change here
+    [dude](!prefix) Doing a prefix change here
 
     #### Courageous
     

@@ -5,13 +5,13 @@ let commonmark = require('commonmark');
 let commonParsingDirectives = {
     eval : function (data) {
         let webNode = data.webNode;
-        let localContext = this;
+        let localContext = this; //eslint-disable-line no-unused-vars
         let originalCode = webNode.code; //eslint-disable-line no-unused-vars
         let code = webNode.code.reduce( (acc, next) => {
             return acc + next[0];
         }, '');
         webNode.code = [];
-        tracker("local directive evaling code", {webNode, code});
+        localContext.tracker("local directive evaling code", {webNode, code});
         eval(code);
     },
     scope : function ({target, scope}) {
@@ -24,15 +24,18 @@ let commonParsingDirectives = {
             scope[vname] = val;
         }
     },
-    report : function ({label:taget, scope, webNode}) {
-        tracker("commonmark parsing directive report", {label, scope,
+    report : function ({label, scope, webNode}) {
+        this.tracker("commonmark parsing directive report", {label, scope,
             webNode}); 
     },
     prefix : function ({target, scope}) {
+        if (target.slice(-2) === '::') {
+            target = target.slice(0,-2);
+        }
         if (target) {
-            prefix = scope.prefix = target;
+            scope.prefix = target;
         } else {
-            prefix = scope.prefix = originalPrefix;
+            scope.prefix = this.originalPrefix;
         }
     }
 };
@@ -71,11 +74,11 @@ cmparse = function cmparse (text, {
     let directives = [];
     let htext = false;
     let ltext = false;
-    let webNode, sourcepos;
+    let webNode;
 
     let event;
 
-    let localContext = {tracker, lineNumbering, web, parsingDirectives, event, directives};
+    let localContext = {originalPrefix, tracker, lineNumbering, web, parsingDirectives, event, directives};
 
 
     let reader = new commonmark.Parser();
@@ -139,28 +142,37 @@ cmparse = function cmparse (text, {
                             search(/('|"):/);
                         let transStart = lineNumbering([sourcepos[0][0],
                             sourcepos[0][1]+ind]);
-                        transform = [transStart, title.trim() || ''];
-                    } else {
-                        transform = [sourcepos[1], ''];
-                    }
+                        let transText = title.trim();
+                        if (transText) {
+                            transform = [transStart, transText];
+                        }
+                    } 
                     
                     scope.minor = name;
                     let fullname = scope.fullname = scope.majorname + ':' + name;
                     
-                    if (web.hasOwnProperty(fullname)) {
+                    if (has(web, fullname)) {
                         tracker('repeat minor found', {fullname});
                         webNode = web[fullname];
                         webNode.raw.push( [sourcepos[0]] );
-                        webNode.rawTransform.push(transform);
+                        if (transform) {
+                            if (has(webNode, 'rawTransform') ) {
+                                webNode.rawTransform.push(transform);
+                            } else {
+                                webNode.rawTransform = [transform];
+                            }
+                        }
                     } else {
                         tracker('new minor found', {fullname});
                         webNode = web[fullname] = {
                             name, 
-                            rawTransform : [transform],
                             raw : [ [sourcepos[0]] ],
                             code : [],
                             scope : Object.assign({}, scope)
                         };
+                        if (transform) {
+                            webNode.rawTransform = [transform];
+                        }
                     }
                 } else if (title[0] === ":") { 
                     if  ( (ltext[0] === '|') || ( ltext.length === 0) ) { //transform
@@ -197,28 +209,37 @@ cmparse = function cmparse (text, {
                                 search(/('|"):/);
                             let transStart = lineNumbering([sourcepos[0][0],
                                 sourcepos[0][1]+ind]);
-                            transform = [transStart, title.trim() || ''];
-                        } else {
-                            transform = [sourcepos[1], ''];
-                        }
+                            let transText = title.trim();
+                            if (transText) {
+                                transform = [transStart, transText];
+                            }
+                        } 
                         
                         scope.minor = name;
                         let fullname = scope.fullname = scope.majorname + ':' + name;
                         
-                        if (web.hasOwnProperty(fullname)) {
+                        if (has(web, fullname)) {
                             tracker('repeat minor found', {fullname});
                             webNode = web[fullname];
                             webNode.raw.push( [sourcepos[0]] );
-                            webNode.rawTransform.push(transform);
+                            if (transform) {
+                                if (has(webNode, 'rawTransform') ) {
+                                    webNode.rawTransform.push(transform);
+                                } else {
+                                    webNode.rawTransform = [transform];
+                                }
+                            }
                         } else {
                             tracker('new minor found', {fullname});
                             webNode = web[fullname] = {
                                 name, 
-                                rawTransform : [transform],
                                 raw : [ [sourcepos[0]] ],
                                 code : [],
                                 scope : Object.assign({}, scope)
                             };
+                            if (transform) {
+                                webNode.rawTransform = [transform];
+                            }
                         }
                     }
                 } else if (href[0] === '!') { //parse directive
@@ -263,7 +284,7 @@ cmparse = function cmparse (text, {
                 sourcepos = [lineNumbering(start), lineNumbering(end)];
             }
             
-            webNode.code.push([code, lang, sourcepos]);
+            webNode.code.push( {code, lang, start:sourcepos[0], end:sourcepos[1]});
         } else if (ty === 'heading') {
             if (entering) {
                 htext = [];
@@ -287,7 +308,11 @@ cmparse = function cmparse (text, {
             
                 let transStart = lineNumbering([scope.sourcepos[0][0],
                     scope.sourcepos[0][1]+ind]);
-                let transform = [transStart, heading.slice(ind).trim() || ''];
+                let transformText = heading.slice(ind).trim();
+                let transform;
+                if (transformText) {
+                    transform = [transStart, transformText];
+                } 
             
                 let hlevel = node.level;
                 let fullname;
@@ -306,37 +331,44 @@ cmparse = function cmparse (text, {
                     delete scope.lv4;
                     delete scope.lv3;
                     delete scope.lv2;
-                    scope.lv1 = scope.prefix + name;
+                    scope.lv1 = scope.prefix + '::' + name;
                     scope.lv1only = name;
                     scope.majorname = scope.lv1; 
                 }
                 scope.fullname = fullname = scope.majorname;
                 
-                if (web.hasOwnProperty(fullname) ) {
+                if (has(web, fullname) ) {
                     tracker('repeat heading found', {fullname, heading});
                     webNode = web[fullname];
                     webNode.raw.push( [sourcepos[0]] );
-                    webNode.rawTransform.push(transform);
+                    if (transform) {
+                        if (has(webNode, 'rawTransform') ) {
+                            webNode.rawTransform.push(transform);
+                        } else {
+                            webNode.rawTransform = [transform];
+                        }
+                    }
                 } else {
                     tracker('new heading found', {fullname, heading});
                     webNode = web[fullname] = {
                         name, heading, 
-                        rawTransform : [transform],
                         raw : [ [sourcepos[0]] ],
                         code : [],
                         scope : Object.assign({}, scope)
                     };
+                    if (transform) {
+                        webNode.rawTransform = [transform];
+                    }
                 }
                 
                 htext = false;
             }
         } else if (ty === 'document' && entering) {
-            scope.lv1 = scope.prefix + '^';
+            scope.lv1 = scope.prefix + '::^';
             scope.fullname = scope.majorname = scope.lv1; 
             scope.lv1only = '^';
             webNode = web[scope.fullname] = {
                 name : '^', heading:'^', 
-                rawTransform : [],
                 raw : [ [scope.sourcepos[0]] ],
                 code : [],
                 scope : Object.assign({}, scope)
@@ -356,7 +388,7 @@ cmparse = function cmparse (text, {
 
     return {web, directives};
 
-};
+}
 }
 
 module.exports = cmparse;

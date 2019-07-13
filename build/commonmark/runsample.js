@@ -46,7 +46,7 @@ Got some minor
 
 [=vname](# ": make | new |var")
 
-[dude::](!prefix) Doing a prefix change here
+[dude](!prefix) Doing a prefix change here
 
 #### Courageous
 

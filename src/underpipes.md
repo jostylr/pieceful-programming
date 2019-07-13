@@ -63,7 +63,7 @@ position in the text to reporting to a line number/col in the larger file.
 This is separate from the index position of `ind` in the text that is passed
 in which is generally a segment of that larger file. 
 
-    module.exports = function cta ({
+    cta = function cta ({
         type = 'code',
         text = '', 
         //eslint-disable-next-line no-console
@@ -89,7 +89,7 @@ For code slicing, we use begin to know where to slice the prior code parts.
                 norm:normalizeString, textArgs, plainText, space}
         };
         Object.assign(p.f,f); // a way to override most of the parsing stuff 
-        if (!p.f.hasOwnProperty('ln') ) {
+        if (!has(p.f, 'ln') ) {
             p.f.ln = lineNumberFactory(text, start);
         }
         let parsed, ret;
@@ -106,6 +106,25 @@ For code slicing, we use begin to know where to slice the prior code parts.
         return ret;
     };
 
+
+### Core
+
+This is the part to extract into embedding. Should be linked into the variable
+cta on the outside as in Module. 
+
+    {
+        _"Parsing of substitutions and pipes"
+    }
+
+### Module
+
+This is the module version
+
+    let cta;
+    {
+        _"Parsing of substitutions and pipes"
+    }
+    module.exports = cta;
 
 [underpipes/index.js](# "save:")
 
@@ -265,7 +284,7 @@ for args is a full array.
     let args = [];
     while (p.ind < len) {
         let piece = toTerminator(p, 'args', ',');
-        if (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) {
+        if (has(piece, 'value') || has(piece, 'cmd') ) {
             args.push(piece);
         }
     }
@@ -313,7 +332,7 @@ text stuff won't have that character and this makes it consistent. We also
 already have the information we need from it. 
     
         let piece, start = p.ind;
-        if (typeFirst.hasOwnProperty(first) ) {
+        if (has(typeFirst, first) ) {
             p.ind += 1;
             piece = typeFirst[first](p, terminator+'|');
         } else {
@@ -407,7 +426,7 @@ passed in typeFirst if not present. If a value is present, but not a function,
 then we assume we need to delete the key. 
 
     Object.keys(defTypeFirst).forEach( (key) => {
-        if (typeFirst.hasOwnProperty(key) ) {
+        if (has(typeFirst, key) ) {
             if (typeof typeFirst[key] !== 'function' ) {
                 delete typeFirst[key];
             }
@@ -579,7 +598,7 @@ comma, generating an array of pieces.
             let piece = toTerminator(p, 'args', term);
             if  (piece) {
                 if (post) { piece = post(piece);}
-                if  (piece.hasOwnProperty('value') || piece.hasOwnProperty('cmd') ) {
+                if  (has(piece, 'value') || has(piece, 'cmd') ) {
                     args.push(piece);
                 }
                 let terminate = piece.terminate;
@@ -619,7 +638,7 @@ the pipe to be the first argument of the eventually called command.
 
 
             cmd = 'call';
-        } else if (cmdName.hasOwnProperty('value') ) {
+        } else if (has(cmdName, 'value') ) {
 
 The actual expected notion of calling a command name
 

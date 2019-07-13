@@ -1,30 +1,37 @@
 /* eslint-disable no-console */
 //const util = require('util');
 module.exports = function Weaver (
-    io = {}, 
+    organs = {directives:{}, commands:{}, parsers:{}, env:{}},
     tracker = (...args) => { console.log(args); }  
 ) {
+    if (!organs) {
+        throw Error('Weaver requires commands, directives, parsers, etc');
+    }
     const weaver = this;
-    weaver.io = io;
     weaver.tracker = tracker;
+    const env = organs.env || {};
     //the actual values
     weaver.v = {
         web : {},
-        commands : {
+        commands : Object.assign({
             get : ()=> {}, 
             array : () => {}, 
             pipe : () => {},
             compose : () => {}, 
+            '*' :() => {}, //short version of compose
+            compile :() => {},
             call : () => {},
             apply : () => {}
-        },
-        directives : {},
+        }, organs.commands || {}),
+        directives : organs.directives || {},
+        parsers : organs.parsers || {}
     };
     //the promises 
     weaver.p = {
         web : {},
         commands: {},
-        directives : {}
+        directives : {},
+        parser : {}
     };
 
     const makePromise = function makePromise () {
@@ -40,7 +47,7 @@ module.exports = function Weaver (
             if (!arg) {
                 return arg;
             }
-            if (arg.hasOwnProperty('value') ) {
+            if (has(arg, 'value') ) {
                 return arg.value;
             } else if (arg.cmd) {
                 return (await runCommand.call(state, arg)).value;
@@ -51,15 +58,16 @@ module.exports = function Weaver (
     };
     const runCommand = async function runCommand (piece = {}) {
         let scope = this;
-        if (piece.hasOwnProperty('value') ) { return piece;}
+        if (has(piece, 'value') ) { return piece;}
         if (!piece.cmd) { 
             tracker('run command called but no command to execute',
                 {piece,scope});
-            throw new Error('no command to execute: ' + scope.tracking);
+            piece.value = ''; 
+            return piece;
         }
         let {cmd, args=[]} = piece;
         let override;
-        if (piece.hasOwnProperty('inputs') ) {
+        if (has(piece, 'inputs') ) {
             let inputs = piece.inputs;
             let input = inputs[0];
             let skip = false;
@@ -88,7 +96,7 @@ module.exports = function Weaver (
                 }
             });
             if ( (!skip) && (input && (typeof input.value !== 'undefined') ) ) {
-                if (piece.hasOwnProperty('bind') ) {
+                if (has(piece, 'bind') ) {
                     if (piece.bind !== true) {
                         args.splice(piece.bind, 0, input);
                     } 
@@ -148,7 +156,7 @@ module.exports = function Weaver (
                 }
                 ret = (await prr.prom);
             }
-        } else if (cmd === 'compose') {
+        } else if ((cmd === 'compose') || (cmd === '*' )) {
             tracker('composing', {tracking, args, scope});
             let funs = args;
             let oldScope = scope;
@@ -170,7 +178,7 @@ module.exports = function Weaver (
                 let f = async function seq (ind) {
                     let arg = seq.args[ind];
                     if (arg) {
-                        if (arg.hasOwnProperty('value') ) {
+                        if (has(arg, 'value') ) {
                             return arg.value;
                         } else {
                             return (await runCommand.call(scope, arg)).value; 
@@ -188,7 +196,8 @@ module.exports = function Weaver (
                 if (!prr) {
                     prr = makePromise();
                     weaver.p.commands[cmd] = prr;
-                } comm = await prr.prom;
+                }
+                comm = await prr.prom;
             }
             tracker('process command arguments', {tracking, cmd, args, scope});
             let argProcessor = makeArgProcessor(scope);
@@ -196,7 +205,7 @@ module.exports = function Weaver (
                 filter( (el => el) ); //filter removes undefined elements
             piece.actualArgs = processed;
             tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
-            ret = await comm.apply(scope, processed); 
+            ret = await comm.apply({scope, piece}, processed); 
         }
         tracker('command finished', {tracking, cmd, ret, scope});
         if (override) {
@@ -215,7 +224,7 @@ module.exports = function Weaver (
     weaver.syntax = {
         descentSpecial : function descentSpecial (arr, args, scope) {
             return arr.reduce( (ret, piece) => {
-                if (piece.hasOwnProperty('value') ) { //base case
+                if (has(piece, 'value') ) { //base case
                     let val = piece.value;
                     if ( (typeof val === 'string') && (val[0] === '$') ) {
                         piece.special = val;
@@ -246,7 +255,7 @@ module.exports = function Weaver (
                             piece.value = scope[val];
                         }
                     }
-                } else if (piece.hasOwnProperty('args') ) { //descend
+                } else if (has(piece, 'args') ) { //descend
                     piece.args = descentSpecial(piece.args, args, scope);
                     ret.push(piece);
                 } 
@@ -255,6 +264,9 @@ module.exports = function Weaver (
             }, []);
         },
         getFullNodeName : function getFullNodeName (frag, curNode) {
+            if (has(curNode, 'scope') ) {
+                curNode = curNode.scope;
+            }
             if (frag === '::') {
                 return curNode.prefix + '^';
             }
@@ -283,10 +295,10 @@ module.exports = function Weaver (
                 }
             }
             if (frag.indexOf('::') === -1) {
-                return (curNode.prefix || '') + frag;
+                return (curNode.prefix || '') + '::' + frag;
             }
             return frag; //fits a full name. 
-        },
+        }
     };
     
     //external api, probably should make read only
@@ -334,6 +346,28 @@ module.exports = function Weaver (
         });
     
     }   ;
+    weaver.addParsers = function (parsers = {}, prefix='') {
+        let weParsers = weaver.v.parsers;
+        let weWait = weaver.p.parsers;
+        Object.keys(parsers).forEach( (key) => {
+            const name = prefix + key;
+            const old = weParsers[name];
+            const pars = parsers[key];
+            if (old && old.original !== pars.toString() ) {
+                tracker('Reassigning parser name', {
+                    name, oldF: old.toString(), newF:pars.toString()
+                });
+                throw new Error('Reassigning parser ' + name );
+            }
+            tracker('adding new parser', {name});
+            let f = weParsers[name] = pars;
+            let prom = weWait[name];
+            if (prom) {
+                prom.resolve(f);
+            }
+        });
+    
+    }   ;
     weaver.runDirective = async function runDirective (name, data) {
         let {
             tracking=`directive ${name} from ${data.scope.fullname}`,
@@ -341,14 +375,15 @@ module.exports = function Weaver (
             target = '',
             src = ''
         } = data;
-        tracker('directive queued', {tracking, name});
+        tracker('directive queued', {tracking, name, data});
         let dire = weaver.v.directives[name]; 
         if (!dire) {
             let prr = weaver.p.directives[name];
             if (!prr) {
                 prr = makePromise();
                 weaver.p.directives[name] = prr;
-            } dire = await prr.prom;
+            }
+            dire = await prr.prom;
         }
         let scope = makeScope({tracking, context : data});
         let argProcessor = makeArgProcessor(scope);
@@ -356,55 +391,60 @@ module.exports = function Weaver (
         await Promise.all(args.map(argProcessor) );
         let actualArgs = data.actualArgs = args.map( (el) => el.value); 
         tracker('run directive', {tracking, name, actualArgs, scope});
-        let ret = await dire.call({weaver, scope}, {src, target, args:actualArgs});
+        let ret = await dire.call({env, weaver, scope}, {src, target, args:actualArgs});
         data.value = ret;
         tracker('directive done', {tracking, name, result:ret});
         return data;
     };
-    weaver.addPieces = async function processWeb (web) {
+    weaver.addPieces = async function processWeb ({web, directives}) {
+        directives.forEach( (d) => {
+            weaver.runDirective(d.directive, d);
+        });
         const names = Object.keys(web);
         const wvWeb = weaver.v.web;
         const prWeb = weaver.p.web;
         let proms = names.map( async function (name) {
             let node = web[name];
             let vals; // local to piece values
-            let prr;
-            if (wvWeb.hasOwnProperty(name) ) {
-                tracker("node in web already exists", {
-                    name, newNode : node , existingNode : wvWeb[name]
-                });
-                throw new Error("redundant node name " + name);
-            } else {
-                wvWeb[name] = node;
-                prr = prWeb[name];
-                if (!prr) {
-                    prr = prWeb[name] = makePromise();
-                }
-                tracker("storing node", {name, node, prr});
+            let prr = prWeb[name];
+            if (!prr) {
+                prr = prWeb[name] = makePromise();
             }
-            if (node.pieces) {
+            tracker(`storing node promise: ${name}`, {name, node, prr});
+            console.log('New Node', node);
+            if (has(node,'pieces')) {
                 let pieceProms = node.pieces.map( 
                     async function singlePieceProcess (piece, idx) {
-                        if ( (piece.cmd) && !(piece.hasOwnProperty('value') ) ) {
+                        if (has(piece, 'value') ) {return piece.value;}
+                        if  ( has(piece, 'cmd') )   {
                             let scope = makeScope({
                                 tracking : 'creating piece ' + idx + ' of node ' + name, 
-                                context : web[name]}
+                                context : node}
                             );
+                            weaver.full('BEFORE CMD',scope, piece);
                             await runCommand.call(scope, piece);
+                            weaver.full(scope, piece);
                             if (piece.indent) {
                                 piece.value = piece.value.replace(/\n/g, '\n'+piece.indent );
                             }
+                            return piece.value;
                         }
-                        return piece;
+                        tracker(`Bad state reached in parsing piece of node ${node.scope.fullname}`); 
+                        piece.value = '';
+                        return piece.value;
                     }
                 );
                 vals = await Promise.all(pieceProms);
-            } 
-            vals = vals ||  [];
-            if (vals.every( (el) => (typeof el === 'object') && (typeof el.value === 'string') ) ){
-                vals = vals.map(el => el.value).join('');
+                console.log(node.scope.fullname, vals);
+            } else {
+                vals = [''];
             }
-            if (node.transform) {
+            vals = vals ||  [];
+            if (vals.every( (el) => (typeof el === 'string') ) ){
+                vals = vals.join('');
+            }
+            console.log('HEY', vals);
+            if (node.transform && node.transform.length > 0) {
                 let pt = node.transform;
                 pt.input = vals;
                 let scope = makeScope({
@@ -415,21 +455,148 @@ module.exports = function Weaver (
             } else {
                 node.value = vals;
             }
+            console.log('Hey Done', node.value);
             prr.resolve(node.value);
             tracker('node ' + name + ' value is computed', {name, value: node.value});
             return node.value;
         });
+        console.log('Waiting proms');
+        console.log(proms);
         let vals = await Promise.all(proms);
         let ret = {};
+        console.log('Proms done', vals);
         names.forEach( (name, idx) => {
+            let newNode = web[name];
+            if (has(wvWeb, name) ) {
+                let oldNode = wvWeb[name];
+                if (oldNode.value === newNode.value) {
+                    tracker(`redundant node compilation ${name}`, {name, newNode, oldNode}); 
+                } else {
+                    tracker(`different nodes with same name: ${name}`, {name, newNode, oldNode});
+                    throw new Error("redundant node name " + name);
+                }
+            } else {
+                wvWeb[name] = newNode;
+                tracker(`storing node ${name}`, {name, newNode });
+            }
             ret[name] = vals[idx];
         });
     
+        console.log(Object.keys(web));
         tracker('a web of nodes is done', {web});
         return ret;
     
     };
-    
+    weaver.parse = async function parse (text, prefix, textParserName, codeParserName) {
+        let textParser = weaver.v.parsers[textParserName]; 
+        if (!textParser) {
+            let prr = weaver.p.parsers[textParserName];
+            if (!prr) {
+                prr = makePromise();
+                weaver.p.parsers[textParserName] = prr;
+            }
+            textParser = await prr.prom;
+        }
+        let codeParser = weaver.v.parsers[codeParserName]; 
+        if (!codeParser) {
+            let prr = weaver.p.parsers[codeParserName];
+            if (!prr) {
+                prr = makePromise();
+                weaver.p.parsers[codeParserName] = prr;
+            }
+            codeParser = await prr.prom;
+        }
+        let {web, directives} = textParser(text, {prefix, tracker : () => {}});
+        directives.forEach( (el) => {
+            el.rawArgs = el.args;
+            if (el.args) {
+                let argPieces = codeParser({text: el.args, type:'args', start : el.scope.sourcepos[0]});
+                el.args = argPieces;
+            } else {
+                el.args = [];    
+            }
+        });
+        Object.keys(web).forEach( (name) => {
+            const node = web[name];
+            const code = node.code || [];
+            node.pieces = code.reduce( (acc, el) => {
+                let {code, start} = el;
+                weaver.full(el);
+                let pieces = codeParser({text:code, type:'code', start});
+                el.pieces = pieces; // in case it is needed as reference
+                return acc.concat(pieces);
+            }, []);
+            const transform = node.rawTransform || []; 
+            node.transform = transform.reduce( (acc, el) => {
+                let [start, text] = el;
+                let pieces = codeParser({text, type:'transform', start});
+                el.pieces = pieces;
+                return acc.concat(pieces);
+            }, []);
+            if (node.transform.length === 0) { delete node.transform}
+        });
+        return {web, directives};
+    };
+    weaver.getNode = function getNode (nodeName) {
+        let weaver = this;
+        let prr = weaver.p.web[nodeName];
+        if (!prr) {
+            prr = makePromise();
+            weaver.p.web[nodeName] = prr;
+        }
+        return prr.prom;
+    };
+    weaver.run = async function run (loader) {
+        let {directive} = loader;
+        weaver.runDirective(directive, loader);
+        let proms = env.promises;
+        let n = 0;
+        let count = 0;
+        let limit = 3;
+        let repeat = function repeat () {
+            count += 1;
+            return new Promise( (resolve) => setTimeout( resolve ) );
+        };
+        let promiseDone = function promiseDone () {
+            n = proms.length;   
+            count = 0;
+            return Promise.all(proms);
+        };
+        while ( (n < proms.length) || count < limit) {
+            if (n < proms.length) {
+                await promiseDone();
+                continue;
+            }
+            if (count < limit) {
+                await repeat();
+                continue;
+            }
+        }
+        let unresolved = weaver.keyDiff(weaver.p, weaver.v);
+        return unresolved;
+    };
+    weaver.keyDiff = function keyDiff (larger, smaller) {
+        return Object.keys(larger).
+            reduce( (acc, heading) => {
+                let smObj = smaller[heading];
+                if (!smObj) {
+                    return acc;
+                }
+                let smKeys = Object.keys(smObj);
+                let laKeys = Object.keys(larger[heading]);
+                acc[heading] = laKeys.filter( (key) => !smKeys.includes(key) );
+                if (acc[heading].length === 0) { delete acc[heading];}
+                return acc;
+            }, {});
+    };
+    weaver.twoLevelCopy = function copy (obj) {
+        Object.keys(obj).
+            reduce( (acc, heading) => {
+                acc[heading] = Object.assign({}, obj[heading]);
+                return acc;
+            });
+    };
+
     weaver.v.commands.nodekeys = function nodeKeys (...args) {
         let context = this.context;
         return args.reduce( (list, filter) => {
@@ -466,7 +633,7 @@ module.exports = function Weaver (
                     }
                 } else {
                     lv4 = function (c) {
-                        return !(c.hasOwnProperty('lv4'));
+                        return !(has(c, 'lv4'));
                     };
                 }
                 ind = filter.indexOf('/');
@@ -513,15 +680,15 @@ module.exports = function Weaver (
                             };
                         }
                         lv3 = function (c) {
-                            return !(c.hasOwnProperty('lv3'));
+                            return !(has(c, 'lv3'));
                         };
                     }
                 } else {
                     lv3 = function (c) {
-                        return !(c.hasOwnProperty('lv3'));
+                        return !(has(c, 'lv3'));
                     };
                     lv2 = function (c) {
-                        return !(c.hasOwnProperty('lv2'));
+                        return !(has(c, 'lv2'));
                     };
                 }
                 if (filter) {
@@ -547,7 +714,6 @@ module.exports = function Weaver (
             });
         }, Object.keys(weaver.v.web) );
     };
-
 
     return weaver;
 };

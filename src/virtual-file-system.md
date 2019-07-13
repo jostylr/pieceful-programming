@@ -49,6 +49,7 @@ Client specific requires and functions.
 
     let env = environments.nodejs = envMaker(fsp, path, exec, rest);
     env.base = process.cwd();
+
     env.hash = _"node crypto hash";
 
 ## Browser
@@ -122,6 +123,10 @@ A simple command for doing latex->dvi->ps as an example.
         cmds : {
             tex2pdf : _"tex2pdf" 
         },
+
+        //@ promiseStarts : empty -> promise
+        promiseStarts : _"promise starts",
+        promises : [],
     
         //@log: msg, tag, print level, ...whatever -> true    
         log: _"log",
@@ -131,9 +136,12 @@ A simple command for doing latex->dvi->ps as an example.
 
 The error function stores an error and throws it. 
 
-        error : function error (msg, data) {
+        error : function error (msg, data, e) {
             env.errors.push([msg, data]);
-            throw Error(msg);
+            if (e) {
+                e.msg = msg + '\n' + e.message;
+                throw e;
+            }
         },
         errors : [], 
 
@@ -160,21 +168,27 @@ to create a directory. Probably could use some more error logic for writing.
 By default, files go under the build directory. 
 
     async function write (originalTarget, text, encoding ='utf8') {
-        console.log(originalTarget);
         const target = env.path(originalTarget, 'B');
-        console.log(target);
+        let {res, rej} = env.promiseStarts('write', target);
         try {
             await fsp.writeFile(target, text, encoding); 
+            res();
         } catch (e) {
             try {
                 await env.mkdir(originalTarget);
             } catch (e) {
                 env.error(`write: failed to create directory for writing ${target}`, e);
             }
-            await fsp.writeFile(target, text, encoding); 
+            try {
+                await fsp.writeFile(target, text, encoding); 
+                res();
+                env.log(`write: File ${target} written`, 'write', 1);
+                return true; //writefile does not return a value other than resolution
+            } catch (e) {
+                rej(`write: File ${target} failed to be written--${e.msg}`);
+                return false;
+            }
         }
-        env.log(`write: File ${target} written`, 'write', 1);
-        return true; //writefile does not return a value other than resolution
     }
 
 ### read 
@@ -183,11 +197,15 @@ This reads a file.
 
     async function read (originalTarget, encoding = 'utf8') {
         const target = env.path(originalTarget, 'S');
+        let {res, rej} = env.promiseStarts('read', target);
         try {
             env.log(`read: Reading ${target}`, 'read', 1);
-            return await fsp.readFile(target, {encoding} );
+            let text = await fsp.readFile(target, {encoding} );
+            res(`read: Reading ${target}`);
+            return text;
         } catch (e) {
-            env.error(`read: Failure to read ${target}`, e); 
+            rej(`read: File ${target} failed to be read--${e.msg}`);
+            return false;
         }
     }
 
@@ -229,8 +247,7 @@ best. This is a good function to overwrite if one wants more caution.
             env.log(`mkdir: Directory ${path.dirname(target)} now exists`, 'write', 3);
             return true;
         } catch (e) {
-            console.log(e);
-            env.error(`mkdir: Failed to create directory ${target}`);
+            env.error(`mkdir: Failed to create directory ${target}`, e);
         }
     }
 
@@ -296,7 +313,7 @@ Example: `B./stuff/to/build`
             lead = defaultLead || 'B';
         }
         let paths = env.paths;
-        if (paths.hasOwnProperty(lead) ) {
+        if (has(paths, lead) ) {
             target = path.join(env.base, paths[lead], target);
         } else {
             env.error(`Base ${lead} not a valid path toggle. Target: ${target} with default ${env.paths[defaultLead]}`);  
@@ -318,7 +335,7 @@ differently. The exec function will localize the cwd for execOptions if
 provided, using the 'middle' directory as a default. 
 
     async function execProxy (cmd, cmdLineOptions={}, execOptions = {}) {
-        if ( ! env.cmds.hasOwnProperty(cmd) ) {
+        if ( ! has(env.cmds, cmd) ) {
             env.error(`Unknown command ${cmd}`);
             return;
         }  
@@ -333,6 +350,20 @@ provided, using the 'middle' directory as a default.
         return obj.stdout; // stderr, stdout as properties
     }
 
+### promise starts
+
+This creates a promise that resolves after the IO is done. The idea is that
+the promise array is being monitored
+
+    function promiseIO () {
+        let rej, res;
+        let prom = new Promise( (resolve, reject) => {
+            res = resolve;
+            rej = reject;
+        });
+        env.promises.push(prom);
+        return {res, rej, prom};
+    }
 
 ### log
 
@@ -486,7 +517,7 @@ This writes a file.
             throw `Directory does not exist for ${target} to be saved`;
         }
         let file;
-        if (dir.value.hasOwnProperty(basename) ) {
+        if (has(dir.value, basename) ) {
             file = dir.value[basename];
             file.modified = file.change = (new Date).getTime();
             file.value = data;
@@ -533,7 +564,7 @@ This creates directories, recursively.
         let dirnames = target.split(path.sep);
         dirnames.reduce ( (acc, name) => {
             if (!name) { return acc;} 
-            if (acc.value.hasOwnProperty(name) ) {
+            if (has(acc.value, name) ) {
                 return acc.value[name];
             } else {
                 let time = (new Date).getTime();
@@ -605,7 +636,7 @@ undefined value.
         return dirnames.reduce ( (acc, name) => {
             if (!acc) {return undefined;}
             if (!name) { return acc; }
-            if (acc.value.hasOwnProperty(name) ) {
+            if (has(acc.value, name) ) {
                 return acc.value[name];
             } else {
                 return undefined;
@@ -706,7 +737,7 @@ the node child process exec. This is because the cmdOptions is best as it is
 without being concatenated. 
 
     async function execAttempt (cmd, cmdOptions, execOptions) {
-        if (env.cmds.hasOwnProperty(cmd) ) {
+        if (has(env.cmds, cmd) ) {
             return await env.cmds[cmd](cmdOptions, execOptions);
         } else {
             env.log(`Exec command ${cmd} not known`, 'exec', 3, cmdOptions, execOptions );

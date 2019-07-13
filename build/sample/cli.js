@@ -2,30 +2,40 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
     const env = {
         //@ write: target, text, encoding -> true when done
         write : async function write (originalTarget, text, encoding ='utf8') {
-            console.log(originalTarget);
             const target = env.path(originalTarget, 'B');
-            console.log(target);
+            let {res, rej} = env.promiseStarts('write', target);
             try {
                 await fsp.writeFile(target, text, encoding); 
+                res();
             } catch (e) {
                 try {
                     await env.mkdir(originalTarget);
                 } catch (e) {
                     env.error(`write: failed to create directory for writing ${target}`, e);
                 }
-                await fsp.writeFile(target, text, encoding); 
+                try {
+                    await fsp.writeFile(target, text, encoding); 
+                    res();
+                    env.log(`write: File ${target} written`, 'write', 1);
+                    return true; //writefile does not return a value other than resolution
+                } catch (e) {
+                    rej(`write: File ${target} failed to be written--${e.msg}`);
+                    return false;
+                }
             }
-            env.log(`write: File ${target} written`, 'write', 1);
-            return true; //writefile does not return a value other than resolution
         }, 
         //@ read: target, encoding -> file contents
         read : async function read (originalTarget, encoding = 'utf8') {
             const target = env.path(originalTarget, 'S');
+            let {res, rej} = env.promiseStarts('read', target);
             try {
                 env.log(`read: Reading ${target}`, 'read', 1);
-                return await fsp.readFile(target, {encoding} );
+                let text = await fsp.readFile(target, {encoding} );
+                res(`read: Reading ${target}`);
+                return text;
             } catch (e) {
-                env.error(`read: Failure to read ${target}`, e); 
+                rej(`read: File ${target} failed to be read--${e.msg}`);
+                return false;
             }
         },
         //@ fetch: url, local file destination, url options, response type -> file saved or data returned
@@ -53,8 +63,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
                 env.log(`mkdir: Directory ${path.dirname(target)} now exists`, 'write', 3);
                 return true;
             } catch (e) {
-                console.log(e);
-                env.error(`mkdir: Failed to create directory ${target}`);
+                env.error(`mkdir: Failed to create directory ${target}`, e);
             }
         },
         //@ ls: target -> {files, dir}
@@ -97,7 +106,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
                 lead = defaultLead || 'B';
             }
             let paths = env.paths;
-            if (paths.hasOwnProperty(lead) ) {
+            if (has(paths, lead) ) {
                 target = path.join(env.base, paths[lead], target);
             } else {
                 env.error(`Base ${lead} not a valid path toggle. Target: ${target} with default ${env.paths[defaultLead]}`);  
@@ -106,7 +115,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         },
         //@exec : command name, options for the command, options for exec -> stdout from command line (stderror is logged) 
         exec : async function execProxy (cmd, cmdLineOptions={}, execOptions = {}) {
-            if ( ! env.cmds.hasOwnProperty(cmd) ) {
+            if ( ! has(env.cmds, cmd) ) {
                 env.error(`Unknown command ${cmd}`);
                 return;
             }  
@@ -130,6 +139,18 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             } 
         },
     
+        //@ promiseStarts : empty -> promise
+        promiseStarts : function promiseIO () {
+            let rej, res;
+            let prom = new Promise( (resolve, reject) => {
+                res = resolve;
+                rej = reject;
+            });
+            env.promises.push(prom);
+            return {res, rej, prom};
+        },
+        promises : [],
+    
         //@log: msg, tag, print level, ...whatever -> true    
         log: function log (msg, tag='general', priority = 1, ...rest) {
             env.logs.push(msg, tag, priority, ...rest);
@@ -141,9 +162,12 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
     
         logs : [],
         printPriority : 3,
-        error : function error (msg, data) {
+        error : function error (msg, data, e) {
             env.errors.push([msg, data]);
-            throw Error(msg);
+            if (e) {
+                e.msg = msg + '\n' + e.message;
+                throw e;
+            }
         },
         errors : [], 
         paths : {
@@ -210,6 +234,7 @@ let environments = {};
     
     let env = environments.nodejs = envMaker(fsp, path, exec, rest);
     env.base = process.cwd();
+    
     env.hash = async function hash (message) {
         const hash = crypto.createHash('sha256');
         hash.update(message);
@@ -230,7 +255,7 @@ let environments = {};
                 throw `Directory does not exist for ${target} to be saved`;
             }
             let file;
-            if (dir.value.hasOwnProperty(basename) ) {
+            if (has(dir.value, basename) ) {
                 file = dir.value[basename];
                 file.modified = file.change = (new Date).getTime();
                 file.value = data;
@@ -263,7 +288,7 @@ let environments = {};
             let dirnames = target.split(path.sep);
             dirnames.reduce ( (acc, name) => {
                 if (!name) { return acc;} 
-                if (acc.value.hasOwnProperty(name) ) {
+                if (has(acc.value, name) ) {
                     return acc.value[name];
                 } else {
                     let time = (new Date).getTime();
@@ -323,7 +348,7 @@ let environments = {};
             return dirnames.reduce ( (acc, name) => {
                 if (!acc) {return undefined;}
                 if (!name) { return acc; }
-                if (acc.value.hasOwnProperty(name) ) {
+                if (has(acc.value, name) ) {
                     return acc.value[name];
                 } else {
                     return undefined;
@@ -391,7 +416,7 @@ let environments = {};
     env = environments.browser = envMaker(fsp, path, exec, rest);
     env.base = '';
     env.exec = async function execAttempt (cmd, cmdOptions, execOptions) {
-        if (env.cmds.hasOwnProperty(cmd) ) {
+        if (has(env.cmds, cmd) ) {
             return await env.cmds[cmd](cmdOptions, execOptions);
         } else {
             env.log(`Exec command ${cmd} not known`, 'exec', 3, cmdOptions, execOptions );

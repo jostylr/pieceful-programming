@@ -88,9 +88,34 @@ loaded. This would still not quite be the cli client, but it would be close.
 This is the middle. 
 
 
+## Notes
+
+Some notes to incorporate. 
+
+So using the `*` by itself as a shortcut for compose. If the star appears as
+the last character in a command name, then it becomes a sequncer command. The
+arguments can be written as usual, but the command function will not receive
+them as processed. Instead, it will receive a function that, given an index,
+will provide back the value of the argument. Not entirely clear on the use
+case, but simple code. 
+
+
 
 ## TODO
 
-Make a command that can take in a piece of text and will run it through the
+COMPILE: Make a command that can take in a piece of text and will run it through the
 underpipes process and run through commands. This is basically the compile
 command from before. Maybe call it that. Allow for setting node info 
+
+DIRECTIVES:  Get basic directives working
+
+RUN: Get it fully running with minimal commands and directives
+
+SEQUENCE: Allow for segmented sequence of loading files. Each file is done in
+order, waiting for the previous to finish. The next has full access to what
+was before. No filenames lead to setup.md, project.md and cleanup.md as the
+default sequence, if those files are present. 
+
+
+
+

@@ -49,7 +49,7 @@ in the file processor. This happens in the client and can be overriden.
 This is a simple module that exports a function that will take in a file of
 the above form and produce an output similar to commonmark processing. 
 
-    scriptedwriting = function scriptedwriting (text='', {
+    sw = function scriptedwriting (text='', {
         prefix = '',
         firstName = 'abstract',
         current = [1,1, 0]
@@ -58,7 +58,7 @@ the above form and produce an output similar to commonmark processing.
         let lines = [];
         let scope = {
             prefix,
-            lv1 : (prefix ? prefix + '::' : '' ) + firstName,
+            lv1 : prefix + '::' + firstName,
             lv1only : firstName,
         };
         scope.fullname = scope.lv1;
@@ -75,7 +75,6 @@ the above form and produce an output similar to commonmark processing.
         let len = text.length;
         let start = current.slice();
         while (ind < len) {
-            console.log(ind);
             if (text[ind] === '\n') {
                 if (text.slice(ind+1, ind+5) === '--- ') {
                     _"new heading"
@@ -105,12 +104,12 @@ old object.
 
 The separate module part is here.
 
-    let scriptedwriting;
+    let sw;
     {
     _"core"
     }
 
-    module.exports = scriptedwriting;
+    module.exports = sw;
 
 [swparse/index.js](# "save:")
 
@@ -127,7 +126,7 @@ If there is no name, then we do not store the node at all, but we still create
 a piece to avoid complications; it is just wasted. If there is a
 directive, then it becomes a stand-alone added directive. 
 
-    _"file processor:current update"
+    _"core:current update"
     _"close old piece"
 
     ind += 5; 
@@ -138,20 +137,19 @@ directive, then it becomes a stand-alone added directive.
 After looping through the heading, the index points to the end of the heading
 line. 
 
-    _"file processor:current update"
+    _"core:current update"
     start = current.slice();
 
     let fullname = scope.fullname;
         
     if (name ) {
-        if (web.hasOwnProperty(fullname) ) {
+        if (has(web, fullname) ) {
             piece = web[fullname];
             scope = web.scope;
             scope.sourcepos.push(start);
         } else {
             piece = web[fullname] = {
                 code:[], 
-                rawTransform : [],
                 scope : Object.assign({ sourcepos: [start]}, scope)
             };
         }
@@ -167,7 +165,11 @@ any text of the code essentially gets ignored.
     }
 
     if (transform[1]) {
-        web[fullname].rawTransform.push(transform);
+        if (has(piece,'rawTransform') ) {
+            piece.rawTransform.push(transform);
+        } else {
+            piece.rawTransform = [transform];
+        }
     }
 
     if (directive[0]) {
@@ -194,7 +196,6 @@ directive started by `:=>`.
     ind -= 1;
     while (ind < len) {
         ind += 1;
-        console.log(text[ind], current, ind);
         if ( (!transStart ) && (text[ind] === '|') ) {
 
 We have found a pipe so start transform unless we have already done so or
@@ -240,6 +241,7 @@ avoided it because we found something else first.
             ind +=1; //now pointing to newline
             break;
         } else {
+            console.log('should not be here: loop through heading swparse');
         }
     }
 
@@ -283,7 +285,7 @@ is found that arises earlier.
     }
     if (match[2]) {
         scope.lv1only = match[2];
-        scope.lv1  = (prefix ? prefix + '::' : '') + scope.lv1only;
+        scope.lv1  = prefix + '::' + scope.lv1only;
         delete scope.lv2;
         delete scope.lv3;
         delete scope.lv4;
@@ -342,7 +344,7 @@ fullname.
     let swparse = require('../../swparse');
     
     let txt = fs.readFileSync(__dirname + '/simple.txt', {encoding:'utf8'});
-    let result = swparse(txt);
+    let result = swparse(txt, {prefix:'sample'});
 
     console.log(util.inspect(result, {depth:10}));
 

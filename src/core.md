@@ -20,16 +20,19 @@ function that can be provided that defaults to an empty function. It gets
 called in the command and directive processors. 
 
     function Weaver (
-        io = {}, 
+        organs = {directives:{}, commands:{}, parsers:{}, env:{}},
         tracker = (...args) => { console.log(args); }  
     ) {
+        if (!organs) {
+            throw Error('Weaver requires commands, directives, parsers, etc');
+        }
         const weaver = this;
-        weaver.io = io;
         weaver.tracker = tracker;
+        const env = organs.env || {};
         //the actual values
         weaver.v = {
             web : {},
-            commands : {
+            commands : Object.assign({
                 
 These are inlined into run command and are just placeholders here. 
 
@@ -37,16 +40,20 @@ These are inlined into run command and are just placeholders here.
                 array : () => {}, 
                 pipe : () => {},
                 compose : () => {}, 
+                '*' :() => {}, //short version of compose
+                compile :() => {},
                 call : () => {},
                 apply : () => {}
-            },
-            directives : {},
+            }, organs.commands || {}),
+            directives : organs.directives || {},
+            parsers : organs.parsers || {}
         };
         //the promises 
         weaver.p = {
             web : {},
             commands: {},
-            directives : {}
+            directives : {},
+            parser : {}
         };
 
         const makePromise = _"make promise";
@@ -55,20 +62,25 @@ These are inlined into run command and are just placeholders here.
         const makeScope = _"make scope";
         weaver.syntax = {
             descentSpecial : _"descent special",
-            getFullNodeName : _"get full node name",
+            getFullNodeName : _"get full node name"
         };
         
         //external api, probably should make read only
         weaver.addCommands = _"add commands";
         weaver.addDirectives =  _"add directives";
+        weaver.addParsers = _"add parsers";
         weaver.runDirective = _"run directive";
         weaver.addPieces = _"process pieces";
-        
+        weaver.parse = _"parse";
+        weaver.getNode = _"get node";
+        weaver.run = _"run";
+        weaver.keyDiff = _"key diff";
+        weaver.twoLevelCopy = _"two level copy";
+
         weaver.v.commands.nodekeys = _"nodekeys";
 
-
         return weaver;
-    };
+    }
 
 
 ### Module form
@@ -119,6 +131,100 @@ object, including the io object. The commands for the arguments to the
 directive does not, but after all of that is computed, the directive is called
 and its scope includes access to weaver. 
 
+## Run
+
+This is the command for the runner to run with a single loading directive. The
+idea is that at each stage, we have one master file that loads whatever else
+needs to be loaded. 
+
+The loader should have a src, target, args, and scope (identifier) as needed
+for the directive calling. The load directive requires a src for loading the
+file. Target is the prefix. 
+
+We return all the nodes generated during this time. 
+
+    async function run (loader) {
+        let {directive} = loader;
+        weaver.runDirective(directive, loader);
+        _":orchestrate waiting for being done"
+        let unresolved = weaver.keyDiff(weaver.p, weaver.v);
+        return unresolved;
+    }
+
+
+[orchestrate waiting for being done]()
+
+We want to know when the processing is done. The IO stuff stores promises.
+When those promises complete, we will do a couple of rounds of setTimeout to
+ensure things are settled. After that, we check to find what stuff was
+promised, but not present
+
+    let proms = env.promises;
+    let n = 0;
+    let count = 0;
+    let limit = 3;
+    let repeat = function repeat () {
+        count += 1;
+        return new Promise( (resolve) => setTimeout( resolve ) );
+    };
+    let promiseDone = function promiseDone () {
+        n = proms.length;   
+        count = 0;
+        return Promise.all(proms);
+    };
+    while ( (n < proms.length) || count < limit) {
+        if (n < proms.length) {
+            await promiseDone();
+            continue;
+        }
+        if (count < limit) {
+            await repeat();
+            continue;
+        }
+    }
+
+
+   
+### key diff
+
+This will compare two objects with a heading : { keys: values} structure and
+report that which is present in the first, but not the second. 
+
+We use this by comparing the promises to the actual values. We can also use
+this to compare the additions after adding pieces. 
+
+    function keyDiff (larger, smaller) {
+        return Object.keys(larger).
+            reduce( (acc, heading) => {
+                let smObj = smaller[heading];
+                if (!smObj) {
+                    return acc;
+                }
+                let smKeys = Object.keys(smObj);
+                let laKeys = Object.keys(larger[heading]);
+                acc[heading] = laKeys.filter( (key) => !smKeys.includes(key) );
+                if (acc[heading].length === 0) { delete acc[heading];}
+                return acc;
+            }, {});
+    }
+
+
+### two level copy
+
+This is a simple depth level 2 shallow copy of an object intended for a
+heading : {keys: value}  object where the k-v object should be copied, but
+values are what they were. This is useful, for example, for keeping the state
+changes as we run through different runs from loading different files. 
+
+    function copy (obj) {
+        Object.keys(obj).
+            reduce( (acc, heading) => {
+                acc[heading] = Object.assign({}, obj[heading]);
+                return acc;
+            });
+    }
+
+
 ## Process pieces
 
 This is where we define the heart of the processing: getting a value out of a
@@ -132,14 +238,17 @@ operate directly with the nodes as they finish, but this is an alternate route
 to get a perspective. If any nodes fail to process, a rejection is given to
 the promise and that allows for some error tracking here. 
 
-    async function processWeb (web) {
+    async function processWeb ({web, directives}) {
+        directives.forEach( (d) => {
+            weaver.runDirective(d.directive, d);
+        });
         const names = Object.keys(web);
         const wvWeb = weaver.v.web;
         const prWeb = weaver.p.web;
         let proms = names.map( async function (name) {
             let node = web[name];
             let vals; // local to piece values
-            _":store node"
+            _":store promise"
             _":promise the pieces"
             _":transform the value"
             prr.resolve(node.value);
@@ -152,63 +261,85 @@ When done, we zip them into an object and return the values. This could be
 useful in an interactive environment, such as a browser, or for debugging to
 see what pieces became what. 
 
+        console.log('Waiting proms');
+        console.log(proms);
         let vals = await Promise.all(proms);
         let ret = {};
+        console.log('Proms done', vals);
         names.forEach( (name, idx) => {
+            _":store node"
             ret[name] = vals[idx];
         });
 
+        console.log(Object.keys(web));
         tracker('a web of nodes is done', {web});
         return ret;
 
     }
     
+[store promise]()
+
+We setup the ultimate promise for when the value is returned. We need to
+check if it already exists. If so, we use it. If not, we set it up. 
+
+    let prr = prWeb[name];
+    if (!prr) {
+        prr = prWeb[name] = makePromise();
+    }
+    tracker(`storing node promise: ${name}`, {name, node, prr});
+
 [store node]()
 
 Here we need to stash the node. Pretty simple; just check for redundancy and
 throw error if so. 
 
-We also setup the ultimate promise for when the value is returned. We need to
-check if it already exists. If so, we use it. If not, we set it up. 
-
-    let prr;
-    if (wvWeb.hasOwnProperty(name) ) {
-        tracker("node in web already exists", {
-            name, newNode : node , existingNode : wvWeb[name]
-        });
-        throw new Error("redundant node name " + name);
-    } else {
-        wvWeb[name] = node;
-        prr = prWeb[name];
-        if (!prr) {
-            prr = prWeb[name] = makePromise();
+    let newNode = web[name];
+    if (has(wvWeb, name) ) {
+        let oldNode = wvWeb[name];
+        if (oldNode.value === newNode.value) {
+            tracker(`redundant node compilation ${name}`, {name, newNode, oldNode}); 
+        } else {
+            tracker(`different nodes with same name: ${name}`, {name, newNode, oldNode});
+            throw new Error("redundant node name " + name);
         }
-        tracker("storing node", {name, node, prr});
+    } else {
+        wvWeb[name] = newNode;
+        tracker(`storing node ${name}`, {name, newNode });
     }
-
 
 [promise the pieces]()
 
 Here we setup and execute the promising of the pieces. 
 
-    if (node.pieces) {
+
+    console.log('New Node', node);
+    if (has(node,'pieces')) {
         let pieceProms = node.pieces.map( 
             async function singlePieceProcess (piece, idx) {
-                if ( (piece.cmd) && !(piece.hasOwnProperty('value') ) ) {
+                if (has(piece, 'value') ) {return piece.value;}
+                if  ( has(piece, 'cmd') )   {
                     let scope = makeScope({
                         tracking : 'creating piece ' + idx + ' of node ' + name, 
-                        context : web[name]}
+                        context : node}
                     );
+                    weaver.full('BEFORE CMD',scope, piece);
                     await runCommand.call(scope, piece);
+                    weaver.full(scope, piece);
                     if (piece.indent) {
                         piece.value = piece.value.replace(/\n/g, '\n'+piece.indent );
                     }
+                    return piece.value;
                 }
-                return piece;
+                tracker(`Bad state reached in parsing piece of node ${node.scope.fullname}`); 
+                piece.value = '';
+                return piece.value;
             }
         );
         vals = await Promise.all(pieceProms);
-    } 
+        console.log(node.scope.fullname, vals);
+    } else {
+        vals = [''];
+    }
 
 
 [transform the value]()
@@ -219,10 +350,14 @@ We start by checking if all the vals are strings. If so, then we concatenate
 them. 
     
     vals = vals ||  [];
-    if (vals.every( (el) => (typeof el === 'object') && (typeof el.value === 'string') ) ){
-        vals = vals.map(el => el.value).join('');
+    if (vals.every( (el) => (typeof el === 'string') ) ){
+        vals = vals.join('');
     }
-    if (node.transform) {
+    console.log('HEY', vals);
+
+TODO FIX THIS. NOT RIGHT. TRANSFORM IS AN ARRAY? 
+
+    if (node.transform && node.transform.length > 0) {
         let pt = node.transform;
         pt.input = vals;
         let scope = makeScope({
@@ -233,10 +368,64 @@ them.
     } else {
         node.value = vals;
     }
+    console.log('Hey Done', node.value);
+
+## Parse
+
+This does the parsing of a piece of text into nodes and then it takes each
+of the nodes and does the underpiping parsing. 
+
+So the textParsers, such as commonmark, take in a text document and returns an
+object with two subobjects: web which is an object of nodes whose keys are the
+full names and directives which is an array consisting of each directive in
+the order found. 
+
+A node in a web has a variety of properties. The two we care about at the
+parsing level are rawTransform and code. Both of these are arrays and their
+text objects need to be converted into a parsed object that can then be
+executed after this step. 
+
+A directive has an args string which is the bit that needs to be parsed out.
+We do not have the location of where the args are started so it will be off a
+bit in the line numbering reporting. 
 
 
+    async function parse (text, prefix, textParserName, codeParserName) {
+        _"wait for function | sub name,  textParserName, VNAME, textParser, TYPE, parsers"
+        _"wait for function | sub name, codeParserName, VNAME, codeParser, TYPE, parsers"
+        let {web, directives} = textParser(text, {prefix, tracker : () => {}});
+        directives.forEach( (el) => {
+            el.rawArgs = el.args;
+            if (el.args) {
+                let argPieces = codeParser({text: el.args, type:'args', start : el.scope.sourcepos[0]});
+                el.args = argPieces;
+            } else {
+                el.args = [];    
+            }
+        });
+        Object.keys(web).forEach( (name) => {
+            const node = web[name];
+            const code = node.code || [];
+            node.pieces = code.reduce( (acc, el) => {
+                let {code, start} = el;
+                weaver.full(el);
+                let pieces = codeParser({text:code, type:'code', start});
+                el.pieces = pieces; // in case it is needed as reference
+                return acc.concat(pieces);
+            }, []);
+            const transform = node.rawTransform || []; 
+            node.transform = transform.reduce( (acc, el) => {
+                let [start, text] = el;
+                let pieces = codeParser({text, type:'transform', start});
+                el.pieces = pieces;
+                return acc.concat(pieces);
+            }, []);
+            if (node.transform.length === 0) { delete node.transform}
+        });
+        return {web, directives};
+    }
 
-## Run directive
+# Run directive
 
 Each directive is fed in one at a time. The first argument is a directive
 name, the second is an array of arguments to feed in. 
@@ -249,6 +438,8 @@ while commands only have the scope available which should hopefully not be
 able to see the weaver. This is intentional. Commands are intended to be pure
 functions while directives are the messy state-messing procedures. 
 
+The data passed into the directive also includes the scope object from parsing
+which contains the name and location data. 
 
     async function runDirective (name, data) {
         let {
@@ -257,7 +448,7 @@ functions while directives are the messy state-messing procedures.
             target = '',
             src = ''
         } = data;
-        tracker('directive queued', {tracking, name});
+        tracker('directive queued', {tracking, name, data});
         _"wait for function | sub VNAME, dire, TYPE, directives"
         let scope = makeScope({tracking, context : data});
         let argProcessor = makeArgProcessor(scope);
@@ -271,7 +462,7 @@ contains the actual values.
         await Promise.all(args.map(argProcessor) );
         let actualArgs = data.actualArgs = args.map( (el) => el.value); 
         tracker('run directive', {tracking, name, actualArgs, scope});
-        let ret = await dire.call({weaver, scope}, {src, target, args:actualArgs});
+        let ret = await dire.call({env, weaver, scope}, {src, target, args:actualArgs});
         data.value = ret;
         tracker('directive done', {tracking, name, result:ret});
         return data;
@@ -289,7 +480,8 @@ This is a generic bit of code that works for both the directives and commands.
         if (!prr) {
             prr = makePromise();
             weaver.p.TYPE[name] = prr;
-        } VNAME = await prr.prom;
+        }
+        VNAME = await prr.prom;
     }
 
 
@@ -310,7 +502,7 @@ async way.
             if (!arg) {
                 return arg;
             }
-            if (arg.hasOwnProperty('value') ) {
+            if (has(arg, 'value') ) {
                 return arg.value;
             } else if (arg.cmd) {
                 return (await runCommand.call(state, arg)).value;
@@ -339,11 +531,12 @@ then the insertion happens
 
     async function runCommand (piece = {}) {
         let scope = this;
-        if (piece.hasOwnProperty('value') ) { return piece;}
+        if (has(piece, 'value') ) { return piece;}
         if (!piece.cmd) { 
             tracker('run command called but no command to execute',
                 {piece,scope});
-            throw new Error('no command to execute: ' + scope.tracking);
+            piece.value = ''; 
+            return piece;
         }
         let {cmd, args=[]} = piece;
         let override;
@@ -355,7 +548,7 @@ then the insertion happens
             _"pipe"
         } else if (cmd === 'get') {
             _"get"
-        } else if (cmd === 'compose') {
+        } else if ((cmd === 'compose') || (cmd === '*' )) {
             _"compose"
         } else { 
             if ( (cmd.length > 1) && (cmd[cmd.length-1] === '*') ) {
@@ -368,7 +561,7 @@ then the insertion happens
                 filter( (el => el) ); //filter removes undefined elements
             piece.actualArgs = processed;
             tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
-            ret = await comm.apply(scope, processed); 
+            ret = await comm.apply({scope, piece}, processed); 
         }
         tracker('command finished', {tracking, cmd, ret, scope});
         if (override) {
@@ -418,7 +611,7 @@ As this sequential piping, we use a for loop along with the sync.
 So pipe generates an inputs array for each piece in a pipe, which can be
 accessed with the command pipeInputs. 
 
-    if (piece.hasOwnProperty('inputs') ) {
+    if (has(piece, 'inputs') ) {
         let inputs = piece.inputs;
         let input = inputs[0];
 
@@ -460,7 +653,7 @@ This is to allow the previous input to get passed on instead of this one.
             }
         });
         if ( (!skip) && (input && (typeof input.value !== 'undefined') ) ) {
-            if (piece.hasOwnProperty('bind') ) {
+            if (has(piece, 'bind') ) {
             
 Bind being true means we ignore the input. Note that this is ignored by the
 pipeInput command. This is only meant to prevent the automatic insertion of
@@ -482,12 +675,14 @@ This allows for commands to process the args selectively.
 This gets triggered by a command name ending in `*`, similar to the
 generator syntax for js functions (that star is on the reserved word function,
 but similar enough). Such commands should expect a single argument, the
-sequencer function. 
+sequencer function. One use case is that of a switch (if/else) kind of setup
+where we first execute an argument to decide what other argument to run. 
+
 
     let f = async function seq (ind) {
         let arg = seq.args[ind];
         if (arg) {
-            if (arg.hasOwnProperty('value') ) {
+            if (has(arg, 'value') ) {
                 return arg.value;
             } else {
                 return (await runCommand.call(scope, arg)).value; 
@@ -508,7 +703,7 @@ arguments. It can be used in functions acting on lists, such as map, created
 inline or the command directive can create a stand-alone function. 
 
 This can also do partial application, if only one function is passed in. One
-can leave slots open (anywhere in the explict args chain) with a special
+can leave slots open (anywhere in the explicit args chain) with a special
 syntax, namely strings of the form `$#` will place the incoming argument at
 slot `#` into that place. 
 
@@ -580,7 +775,7 @@ anything; that should be done before or after, depending.
 
     function descentSpecial (arr, args, scope) {
         return arr.reduce( (ret, piece) => {
-            if (piece.hasOwnProperty('value') ) { //base case
+            if (has(piece, 'value') ) { //base case
                 let val = piece.value;
 
 We only do anything if there is a leading dollar sign. 
@@ -613,7 +808,7 @@ that pushing at the end.
                         piece.value = scope[val];
                     }
                 }
-            } else if (piece.hasOwnProperty('args') ) { //descend
+            } else if (has(piece, 'args') ) { //descend
                 piece.args = descentSpecial(piece.args, args, scope);
                 ret.push(piece);
             } 
@@ -681,6 +876,21 @@ possibly an array.
     } );
 
 
+### Get Node
+
+This is an external function (used by directive save, for example), to grab a
+node. 
+
+    function getNode (nodeName) {
+        let weaver = this;
+        let prr = weaver.p.web[nodeName];
+        if (!prr) {
+            prr = makePromise();
+            weaver.p.web[nodeName] = prr;
+        }
+        return prr.prom;
+    }
+
 
 #### Get Full Node Name
 
@@ -706,9 +916,15 @@ We have various shorthands:
 * No `::` means we should append the current prefix. 
   
 
-End list
+Generally, the name information is in scope of curNode, but this was coded
+with that not in mind, hence the switcheroo. 
+
+TODO: Probably should convert the curNode name.
 
     function getFullNodeName (frag, curNode) {
+        if (has(curNode, 'scope') ) {
+            curNode = curNode.scope;
+        }
         if (frag === '::') {
             return curNode.prefix + '^';
         }
@@ -737,7 +953,7 @@ End list
             }
         }
         if (frag.indexOf('::') === -1) {
-            return (curNode.prefix || '') + frag;
+            return (curNode.prefix || '') + '::' + frag;
         }
         return frag; //fits a full name. 
     }
@@ -892,7 +1108,7 @@ point, in which case we allow a permissive filter
 This looks for no property at a certain level. 
 
     lv# = function (c) {
-        return !(c.hasOwnProperty('lv#'));
+        return !(has(c, 'lv#'));
     };
 
 
@@ -919,6 +1135,12 @@ This creates the matching functions for the lv2-4;
 This is the same as adding directives just different names. 
 
     _"add directives | sub directive, command, Directive, Command, dire, comm"
+
+## Add parsers
+
+This is the same as adding directives just different names. 
+
+    _"add directives | sub directive, parser, Directive, Parser, dire, pars"
 
 
 ## Add directives
@@ -1016,6 +1238,8 @@ This is a sample bare minimum program to show this works.
         nxt : {pieces : [ {value : 'bye'} ]}
     };
 
+    weaver.getNode('nxt').then( (node) => console.log('printing nxt:', node));
+
     weaver.addPieces(web).then( (values) => console.log(values) );
     weaver.addCommands({
         flip : async function (text, ...args) {
@@ -1045,5 +1269,9 @@ This is a sample bare minimum program to show this works.
             return 'done';
         }
     });
+
+    setTimeout( () => {console.log('timed out');});
+
+
 
 [sample/weaver.js](# "save:")
