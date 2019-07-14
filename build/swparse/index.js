@@ -31,7 +31,7 @@ sw = function scriptedwriting (text='', {
                 current = [current[0]+1, 1, ind+1];
                 lines.push(current.slice());
                 let end = current.slice();
-                piece.code.push([text.slice(start[2], end[2]).trim(), start, end]);
+                piece.code.push( {code: text.slice(start[2], end[2]).trim(), start, end, lang:''});
                 
                 ind += 5; 
                 
@@ -51,14 +51,17 @@ sw = function scriptedwriting (text='', {
                         ind -=1;
                         if (!transStart) {
                             name = text.slice(nameStart, ind).trim().toLowerCase();
-                            transStart = current.slice();
                         } 
                         current = [current[0], current[1] + ind - current[2], ind];
                         transEnd = current.slice();
-                        transform = [
-                            transStart, 
-                            text.slice(transStart[2], transEnd[2]+1).trim()
-                        ];
+                        if (transStart) {
+                            transform = [
+                                transStart, 
+                                text.slice(transStart[2], transEnd[2]+1).trim()
+                            ];
+                        } else {
+                            transStart = transEnd; 
+                        }
                         ind +=1+3; //get past :=>
                         current = [current[0], current[1] + ind - current[2], ind];
                         direStart = current.slice();
@@ -67,13 +70,7 @@ sw = function scriptedwriting (text='', {
                         current = [current[0], current[1] + ind - current[2], ind];
                         if (!transStart) {
                             name = text.slice(nameStart, ind).trim().toLowerCase();
-                            transStart = current.slice();
-                            current = [current[0], current[1] + ind - current[2], ind];
-                            transEnd = current.slice();
-                            transform = [
-                                transStart, 
-                                text.slice(transStart[2], transEnd[2]+1).trim()
-                            ];
+                            transStart = transEnd = current.slice();
                         }
                         if (!direStart) {
                             direStart = current.slice();
@@ -124,10 +121,11 @@ sw = function scriptedwriting (text='', {
                             let chunk = directive[0];
                             let reg = /^\s*(\S+)(?:\s*$|\s+(\S+)(?:\s*$|\s+(.+$)))/;
                             let match = reg.exec(chunk);
+                            console.log(name, scope);
                             if (match) {
                                 directive[0] = {
                                     directive : match[1],
-                                    src : scope.fullname,
+                                    src : name ||scope.fullname,
                                     target : (match[2] || ''),
                                     args : (match[3] || ''),
                                     scope : Object.assign({}, scope)
@@ -141,8 +139,6 @@ sw = function scriptedwriting (text='', {
                         }
                         ind +=1; //now pointing to newline
                         break;
-                    } else {
-                        console.log('should not be here: loop through heading swparse');
                     }
                 }
                 current = [current[0]+1, 1, ind+1];
@@ -164,21 +160,22 @@ sw = function scriptedwriting (text='', {
                     }
                 } else {
                     piece = {
-                        scope : Object.assign({ sourcepos: [start]}, scope),
+                        scope : Object.assign({}, scope, { sourcepos: [start]}),
                         code:[]
                     };
                 }
                 
-                if (transform[1]) {
+                if (transform && transform[1]) {
                     if (has(piece,'rawTransform') ) {
                         piece.rawTransform.push(transform);
                     } else {
                         piece.rawTransform = [transform];
                     }
                 }
-                
                 if (directive[0]) {
-                    directives.push(directive);
+                    directive[0].scope = Object.assign({}, directive[0].scope,
+                        {start:directive[1], end:directive[2]});
+                    directives.push(directive[0]);
                 }
                 continue;
             } else {
@@ -189,7 +186,7 @@ sw = function scriptedwriting (text='', {
         ind +=1;
     }
     current[1] = 1+ ind - current[2]; //get column
-    piece.code.push([text.slice(start[2], ind), start, current.slice()]);
+    piece.code.push( {code: text.slice(start[2], ind).trim(), start, end:current.slice(), lang:''});
     return ret; 
 
 };

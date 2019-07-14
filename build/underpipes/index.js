@@ -617,7 +617,7 @@ let cta;
         type = 'code',
         text = '', 
         //eslint-disable-next-line no-console
-        tracker = (note, data) => {console.log("UP/" + note, data);}, 
+        tracker = ()=>{},// (note, data) => {console.log("UP/" + note, data);}, 
         start = [1,1,0],
         ind = 0,
         u = '\u005f',
@@ -701,9 +701,31 @@ let cta;
                         value : prevText
                     });
                 }
+                let indent;
+                if (ind === 0) { indent = ''; }
+                {
+                    let start = ind-1;
+                    let cur = start;
+                    while (true) { //eslint-disable-line no-constant-condition
+                        if (cur === 0) {
+                            indent = '\n' + text.slice(cur,start+1);
+                            break;
+                        }
+                        if (text[cur] === '\n') { 
+                            indent = text.slice(cur, start+1);
+                            break;
+                        }
+                        if (text[cur] !== ' ') {
+                            start = cur -= 1;
+                        } else {
+                            cur -= 1;
+                        }
+                    }
+                }
                 p.ind = ind + 2;
                 let further = toTerminator(p, 'code', quote);
                 delete further.terminate;
+                further.indent = indent;
                 pieces.push(further);
                 begin = ind = p.ind;
             }

@@ -1,0 +1,48 @@
+This is a quick demo using fizzbuzz. 
+
+FizzBuzz is a trivial program that [weeds out programmers](http://www.codinghorror.com/blog/2007/02/why-cant-programmers-program.html).  
+
+The goal of the program is to to print out the numbers from 1 to 100 except multiples of 3 should output Fizz, of 5 Buzz, and of both FizzBuzz. 
+
+We create just one file. To run it, run node on fizzbuzz.js. 
+
+--- main :=> save fizzbuzz.js 
+
+/*global console */
+var overwrite = _"Overwrite multiples in array";
+
+var numarr = new Array(100);
+_":Initial array"
+
+overwrite(numarr, 3, "Fizz");
+overwrite(numarr, 5, "Buzz");
+overwrite(numarr, 15, "FizzBuzz");
+
+_"Output array"
+
+
+--- :Initial array
+
+var i; 
+for (i = 0; i < 100; i += 1) {
+    numarr[i] = i+1;
+}
+
+--- Output array
+
+console.log(numarr.join(", "));
+
+--- Overwrite multiples in array
+
+function (arr, m, str) {
+    var n = arr.length;
+    for (i = m-1; i < n; i += m) {
+        _"test indent"
+    }
+}
+
+--- Test indent
+
+arr[i] = str;       
+arr[i] = str;       
+

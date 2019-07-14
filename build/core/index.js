@@ -411,7 +411,7 @@ module.exports = function Weaver (
                 prr = prWeb[name] = makePromise();
             }
             tracker(`storing node promise: ${name}`, {name, node, prr});
-            console.log('New Node', node);
+            // console.log('New Node', node);
             if (has(node,'pieces')) {
                 let pieceProms = node.pieces.map( 
                     async function singlePieceProcess (piece, idx) {
@@ -421,11 +421,11 @@ module.exports = function Weaver (
                                 tracking : 'creating piece ' + idx + ' of node ' + name, 
                                 context : node}
                             );
-                            weaver.full('BEFORE CMD',scope, piece);
+                            //weaver.full('BEFORE CMD',scope, piece);
                             await runCommand.call(scope, piece);
-                            weaver.full(scope, piece);
-                            if (piece.indent) {
-                                piece.value = piece.value.replace(/\n/g, '\n'+piece.indent );
+                            //weaver.full(scope, piece);
+                            if ( (piece.indent) && ( typeof piece.value === 'string') ) {
+                                piece.value = piece.value.replace(/\n/g, piece.indent );
                             }
                             return piece.value;
                         }
@@ -435,7 +435,7 @@ module.exports = function Weaver (
                     }
                 );
                 vals = await Promise.all(pieceProms);
-                console.log(node.scope.fullname, vals);
+                //  console.log(node.scope.fullname, vals);
             } else {
                 vals = [''];
             }
@@ -445,6 +445,7 @@ module.exports = function Weaver (
             }
             console.log('HEY', vals);
             if (node.transform && node.transform.length > 0) {
+                weaver.full('TRANSFORM', node.transform);
                 let pt = node.transform;
                 pt.input = vals;
                 let scope = makeScope({
@@ -455,7 +456,7 @@ module.exports = function Weaver (
             } else {
                 node.value = vals;
             }
-            console.log('Hey Done', node.value);
+            // console.log('Hey Done', node.value);
             prr.resolve(node.value);
             tracker('node ' + name + ' value is computed', {name, value: node.value});
             return node.value;

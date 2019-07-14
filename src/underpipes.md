@@ -67,7 +67,7 @@ in which is generally a segment of that larger file.
         type = 'code',
         text = '', 
         //eslint-disable-next-line no-console
-        tracker = (note, data) => {console.log("UP/" + note, data);}, 
+        tracker = ()=>{},// (note, data) => {console.log("UP/" + note, data);}, 
         start = [1,1,0],
         ind = 0,
         u = '\u005f',
@@ -134,13 +134,11 @@ A code block is where we look for an underscore quote match. We have to be
 mindful of escaped underscores including the `\5_"` kind of setup where the
 number counts down (for repeated compiling). 
 
-Another fact is figuring out the hanging indent. The code block starting place
-is just part of the concatenation, but the code underneath needs to be
-indented properly. If the starting is on a line by itself then any indent is
-applied to the rest. But if there is non-white space on the starting line
-before the block, then the indent decided for that line is what is applied to
-the rest. This is not going to cover all possible uses, but it should cover
-all reasonable uses such as `fname = _"function definition"`.
+We also put a placement array which consists of a string that is joined in
+front of the text (basically do we have a newline and spaces or not) and then
+a second entry for a hanging indent that serves to indent all the other lines
+in the code replacement. 
+
 
     tracker("parsing code block", {text, start});
     let len = text.length;
@@ -153,6 +151,7 @@ all reasonable uses such as `fname = _"function definition"`.
             _":is it escaped"
         }
         _":previous text"
+        _":determine indent"
         _":process quote"
     }
     ind = len;
@@ -175,6 +174,7 @@ to that for the next processing.
     p.ind = ind + 2;
     let further = toTerminator(p, 'code', quote);
     delete further.terminate;
+    further.indent = indent;
     pieces.push(further);
 
 At this point `p.ind` should point to after the last index. 
@@ -193,6 +193,39 @@ At this point `p.ind` should point to after the last index.
         });
     }
 
+[determine indent]()
+
+At this point, the index is pointing to the underscore.
+We have two cases: underscore starts a line after
+spaces or there are non-space characters. So we bracktrack until we hit the
+beginning of the string or a newline. 
+
+Note the indent is only used for the hanging part. The lead indent is not
+needed as we just put it where it is.
+
+
+
+    let indent;
+    if (ind === 0) { indent = ''; }
+    {
+        let start = ind-1;
+        let cur = start;
+        while (true) { //eslint-disable-line no-constant-condition
+            if (cur === 0) {
+                indent = '\n' + text.slice(cur,start+1);
+                break;
+            }
+            if (text[cur] === '\n') { 
+                indent = text.slice(cur, start+1);
+                break;
+            }
+            if (text[cur] !== ' ') {
+                start = cur -= 1;
+            } else {
+                cur -= 1;
+            }
+        }
+    }
 
 [is it escaped]()
 

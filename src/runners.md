@@ -175,14 +175,20 @@ TODO
         colors: true}))};
     let tracker = full;
     tracker = () => {};
-    let loaders = [{directive:'load', src: 'R./test.md', target:'test', args:[],
-        scope:{fullname:'test file'},
-        middle : function (text) {
-            console.log(text);
-            return text;
+    let loaders = [
+        {directive:'load', src: 'R./test.md', target:'test', args:[],
+            scope:{fullname:'test file'},
+            middle : function (text) {
+                console.log(text);
+                return text;
+            }
+        }, 
+        {directive:'load', src: 'R./guess.pfp', target:'guess', args:[], 
+            scope: {fullname:'guess scriptedwriting'}
         }
-    }];
+    ];
 
+    loaders.shift(); // get rid of the first one for now. 
 
 ## Cli Max
 

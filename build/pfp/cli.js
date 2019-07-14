@@ -867,7 +867,7 @@ const Weaver = function Weaver (
                 prr = prWeb[name] = makePromise();
             }
             tracker(`storing node promise: ${name}`, {name, node, prr});
-            console.log('New Node', node);
+            // console.log('New Node', node);
             if (has(node,'pieces')) {
                 let pieceProms = node.pieces.map( 
                     async function singlePieceProcess (piece, idx) {
@@ -877,11 +877,11 @@ const Weaver = function Weaver (
                                 tracking : 'creating piece ' + idx + ' of node ' + name, 
                                 context : node}
                             );
-                            weaver.full('BEFORE CMD',scope, piece);
+                            //weaver.full('BEFORE CMD',scope, piece);
                             await runCommand.call(scope, piece);
-                            weaver.full(scope, piece);
-                            if (piece.indent) {
-                                piece.value = piece.value.replace(/\n/g, '\n'+piece.indent );
+                            //weaver.full(scope, piece);
+                            if ( (piece.indent) && ( typeof piece.value === 'string') ) {
+                                piece.value = piece.value.replace(/\n/g, piece.indent );
                             }
                             return piece.value;
                         }
@@ -891,7 +891,7 @@ const Weaver = function Weaver (
                     }
                 );
                 vals = await Promise.all(pieceProms);
-                console.log(node.scope.fullname, vals);
+                //  console.log(node.scope.fullname, vals);
             } else {
                 vals = [''];
             }
@@ -901,6 +901,7 @@ const Weaver = function Weaver (
             }
             console.log('HEY', vals);
             if (node.transform && node.transform.length > 0) {
+                weaver.full('TRANSFORM', node.transform);
                 let pt = node.transform;
                 pt.input = vals;
                 let scope = makeScope({
@@ -911,7 +912,7 @@ const Weaver = function Weaver (
             } else {
                 node.value = vals;
             }
-            console.log('Hey Done', node.value);
+            // console.log('Hey Done', node.value);
             prr.resolve(node.value);
             tracker('node ' + name + ' value is computed', {name, value: node.value});
             return node.value;
@@ -1695,7 +1696,7 @@ let organs = {
                     current = [current[0]+1, 1, ind+1];
                     lines.push(current.slice());
                     let end = current.slice();
-                    piece.code.push([text.slice(start[2], end[2]).trim(), start, end]);
+                    piece.code.push( {code: text.slice(start[2], end[2]).trim(), start, end, lang:''});
                     
                     ind += 5; 
                     
@@ -1715,14 +1716,17 @@ let organs = {
                             ind -=1;
                             if (!transStart) {
                                 name = text.slice(nameStart, ind).trim().toLowerCase();
-                                transStart = current.slice();
                             } 
                             current = [current[0], current[1] + ind - current[2], ind];
                             transEnd = current.slice();
-                            transform = [
-                                transStart, 
-                                text.slice(transStart[2], transEnd[2]+1).trim()
-                            ];
+                            if (transStart) {
+                                transform = [
+                                    transStart, 
+                                    text.slice(transStart[2], transEnd[2]+1).trim()
+                                ];
+                            } else {
+                                transStart = transEnd; 
+                            }
                             ind +=1+3; //get past :=>
                             current = [current[0], current[1] + ind - current[2], ind];
                             direStart = current.slice();
@@ -1731,13 +1735,7 @@ let organs = {
                             current = [current[0], current[1] + ind - current[2], ind];
                             if (!transStart) {
                                 name = text.slice(nameStart, ind).trim().toLowerCase();
-                                transStart = current.slice();
-                                current = [current[0], current[1] + ind - current[2], ind];
-                                transEnd = current.slice();
-                                transform = [
-                                    transStart, 
-                                    text.slice(transStart[2], transEnd[2]+1).trim()
-                                ];
+                                transStart = transEnd = current.slice();
                             }
                             if (!direStart) {
                                 direStart = current.slice();
@@ -1788,10 +1786,11 @@ let organs = {
                                 let chunk = directive[0];
                                 let reg = /^\s*(\S+)(?:\s*$|\s+(\S+)(?:\s*$|\s+(.+$)))/;
                                 let match = reg.exec(chunk);
+                                console.log(name, scope);
                                 if (match) {
                                     directive[0] = {
                                         directive : match[1],
-                                        src : scope.fullname,
+                                        src : name ||scope.fullname,
                                         target : (match[2] || ''),
                                         args : (match[3] || ''),
                                         scope : Object.assign({}, scope)
@@ -1805,8 +1804,6 @@ let organs = {
                             }
                             ind +=1; //now pointing to newline
                             break;
-                        } else {
-                            console.log('should not be here: loop through heading swparse');
                         }
                     }
                     current = [current[0]+1, 1, ind+1];
@@ -1828,21 +1825,22 @@ let organs = {
                         }
                     } else {
                         piece = {
-                            scope : Object.assign({ sourcepos: [start]}, scope),
+                            scope : Object.assign({}, scope, { sourcepos: [start]}),
                             code:[]
                         };
                     }
                     
-                    if (transform[1]) {
+                    if (transform && transform[1]) {
                         if (has(piece,'rawTransform') ) {
                             piece.rawTransform.push(transform);
                         } else {
                             piece.rawTransform = [transform];
                         }
                     }
-                    
                     if (directive[0]) {
-                        directives.push(directive);
+                        directive[0].scope = Object.assign({}, directive[0].scope,
+                            {start:directive[1], end:directive[2]});
+                        directives.push(directive[0]);
                     }
                     continue;
                 } else {
@@ -1853,7 +1851,7 @@ let organs = {
             ind +=1;
         }
         current[1] = 1+ ind - current[2]; //get column
-        piece.code.push([text.slice(start[2], ind), start, current.slice()]);
+        piece.code.push( {code: text.slice(start[2], ind).trim(), start, end:current.slice(), lang:''});
         return ret; 
     
     };
@@ -2480,7 +2478,7 @@ let organs = {
             type = 'code',
             text = '', 
             //eslint-disable-next-line no-console
-            tracker = (note, data) => {console.log("UP/" + note, data);}, 
+            tracker = ()=>{},// (note, data) => {console.log("UP/" + note, data);}, 
             start = [1,1,0],
             ind = 0,
             u = '\u005f',
@@ -2564,9 +2562,31 @@ let organs = {
                             value : prevText
                         });
                     }
+                    let indent;
+                    if (ind === 0) { indent = ''; }
+                    {
+                        let start = ind-1;
+                        let cur = start;
+                        while (true) { //eslint-disable-line no-constant-condition
+                            if (cur === 0) {
+                                indent = '\n' + text.slice(cur,start+1);
+                                break;
+                            }
+                            if (text[cur] === '\n') { 
+                                indent = text.slice(cur, start+1);
+                                break;
+                            }
+                            if (text[cur] !== ' ') {
+                                start = cur -= 1;
+                            } else {
+                                cur -= 1;
+                            }
+                        }
+                    }
                     p.ind = ind + 2;
                     let further = toTerminator(p, 'code', quote);
                     delete further.terminate;
+                    further.indent = indent;
                     pieces.push(further);
                     begin = ind = p.ind;
                 }
@@ -2620,13 +2640,20 @@ let full = (...args) => {console.log(util.inspect(args, {depth:11,
     colors: true}))};
 let tracker = full;
 tracker = () => {};
-let loaders = [{directive:'load', src: 'R./test.md', target:'test', args:[],
-    scope:{fullname:'test file'},
-    middle : function (text) {
-        console.log(text);
-        return text;
+let loaders = [
+    {directive:'load', src: 'R./test.md', target:'test', args:[],
+        scope:{fullname:'test file'},
+        middle : function (text) {
+            console.log(text);
+            return text;
+        }
+    }, 
+    {directive:'load', src: 'R./guess.pfp', target:'guess', args:[], 
+        scope: {fullname:'guess scriptedwriting'}
     }
-}];
+];
+
+loaders.shift(); // get rid of the first one for now. 
 let weaver = new Weaver(organs, tracker);
 weaver.full = full;
 

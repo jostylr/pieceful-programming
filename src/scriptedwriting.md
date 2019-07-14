@@ -86,7 +86,7 @@ the above form and produce an output similar to commonmark processing.
             ind +=1;
         }
         current[1] = 1+ ind - current[2]; //get column
-        piece.code.push([text.slice(start[2], ind), start, current.slice()]);
+        piece.code.push( {code: text.slice(start[2], ind).trim(), start, end:current.slice(), lang:''});
         return ret; 
 
     };
@@ -159,12 +159,12 @@ No name present.  Directive and transform can link in to previous piece, but
 any text of the code essentially gets ignored.
 
         piece = {
-            scope : Object.assign({ sourcepos: [start]}, scope),
+            scope : Object.assign({}, scope, { sourcepos: [start]}),
             code:[]
         };
     }
 
-    if (transform[1]) {
+    if (transform && transform[1]) {
         if (has(piece,'rawTransform') ) {
             piece.rawTransform.push(transform);
         } else {
@@ -172,8 +172,12 @@ any text of the code essentially gets ignored.
         }
     }
 
+This is to conform with the standard directive format. 
+
     if (directive[0]) {
-        directives.push(directive);
+        directive[0].scope = Object.assign({}, directive[0].scope,
+            {start:directive[1], end:directive[2]});
+        directives.push(directive[0]);
     }
 
 
@@ -182,7 +186,7 @@ any text of the code essentially gets ignored.
 We cut out the body now that we have the end and push it onto code. 
 
     let end = current.slice();
-    piece.code.push([text.slice(start[2], end[2]).trim(), start, end]);
+    piece.code.push( {code: text.slice(start[2], end[2]).trim(), start, end, lang:''});
 
 
 ### Loop through heading
@@ -209,7 +213,6 @@ avoided it because we found something else first.
             ind -=1;
             if (!transStart) {
                 _":end name"
-                transStart = current.slice();
             } 
             _":end transform"
             ind +=1+3; //get past :=>
@@ -220,8 +223,7 @@ avoided it because we found something else first.
             _":current"
             if (!transStart) {
                 _":end name"
-                transStart = current.slice();
-                _":end transform"
+                transStart = transEnd = current.slice();
             }
             if (!direStart) {
                 direStart = current.slice();
@@ -240,8 +242,6 @@ avoided it because we found something else first.
             }
             ind +=1; //now pointing to newline
             break;
-        } else {
-            console.log('should not be here: loop through heading swparse');
         }
     }
 
@@ -253,10 +253,14 @@ avoided it because we found something else first.
 
     _":current"
     transEnd = current.slice();
-    transform = [
-        transStart, 
-        text.slice(transStart[2], transEnd[2]+1).trim()
-    ];
+    if (transStart) {
+        transform = [
+            transStart, 
+            text.slice(transStart[2], transEnd[2]+1).trim()
+        ];
+    } else {
+        transStart = transEnd; 
+    }
 
 [current]()
 
@@ -321,10 +325,11 @@ fullname.
     let chunk = directive[0];
     let reg = /^\s*(\S+)(?:\s*$|\s+(\S+)(?:\s*$|\s+(.+$)))/;
     let match = reg.exec(chunk);
+    console.log(name, scope);
     if (match) {
         directive[0] = {
             directive : match[1],
-            src : scope.fullname,
+            src : name ||scope.fullname,
             target : (match[2] || ''),
             args : (match[3] || ''),
             scope : Object.assign({}, scope)

@@ -312,7 +312,7 @@ throw error if so.
 Here we setup and execute the promising of the pieces. 
 
 
-    console.log('New Node', node);
+    // console.log('New Node', node);
     if (has(node,'pieces')) {
         let pieceProms = node.pieces.map( 
             async function singlePieceProcess (piece, idx) {
@@ -322,12 +322,10 @@ Here we setup and execute the promising of the pieces.
                         tracking : 'creating piece ' + idx + ' of node ' + name, 
                         context : node}
                     );
-                    weaver.full('BEFORE CMD',scope, piece);
+                    //weaver.full('BEFORE CMD',scope, piece);
                     await runCommand.call(scope, piece);
-                    weaver.full(scope, piece);
-                    if (piece.indent) {
-                        piece.value = piece.value.replace(/\n/g, '\n'+piece.indent );
-                    }
+                    //weaver.full(scope, piece);
+                    _":indent"
                     return piece.value;
                 }
                 tracker(`Bad state reached in parsing piece of node ${node.scope.fullname}`); 
@@ -336,9 +334,25 @@ Here we setup and execute the promising of the pieces.
             }
         );
         vals = await Promise.all(pieceProms);
-        console.log(node.scope.fullname, vals);
+        //  console.log(node.scope.fullname, vals);
     } else {
         vals = [''];
+    }
+
+
+[indent]()
+
+Another fact is figuring out the hanging indent. The code block starting place
+is just part of the concatenation, but the code underneath needs to be
+indented properly. If the starting is on a line by itself then any indent is
+applied to the rest. But if there is non-white space on the starting line
+before the block, then the indent decided for that line is what is applied to
+the rest. This is not going to cover all possible uses, but it should cover
+all reasonable uses such as `fname = _"function definition"`.
+
+
+    if ( (piece.indent) && ( typeof piece.value === 'string') ) {
+        piece.value = piece.value.replace(/\n/g, piece.indent );
     }
 
 
@@ -358,6 +372,7 @@ them.
 TODO FIX THIS. NOT RIGHT. TRANSFORM IS AN ARRAY? 
 
     if (node.transform && node.transform.length > 0) {
+        weaver.full('TRANSFORM', node.transform);
         let pt = node.transform;
         pt.input = vals;
         let scope = makeScope({
@@ -368,7 +383,7 @@ TODO FIX THIS. NOT RIGHT. TRANSFORM IS AN ARRAY?
     } else {
         node.value = vals;
     }
-    console.log('Hey Done', node.value);
+    // console.log('Hey Done', node.value);
 
 ## Parse
 
