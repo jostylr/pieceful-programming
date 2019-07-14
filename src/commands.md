@@ -15,8 +15,11 @@ These commands are always available. Hopefully a small footprint.
         //@echo: arg1, arg2, ... -> last arg
         echo : _"echo",
         //@sub: old,new, old, new, ..
-        sub : _"sub"
-
+        sub : _"sub",
+        //@indent : text, space -> text [modifies indent on main object]
+        indent : _"indent",
+        //@math : type, expression
+        math : _"math"
     }
 
 ### Echo
@@ -24,6 +27,7 @@ These commands are always available. Hopefully a small footprint.
 Parrots back the last argument. 
 
     async function echo (...args) {
+        if (args.length === 0) { return ; }
         return args[args.length-1];
     }
         
@@ -66,6 +70,43 @@ replace function with the array.
 We use the split join method as it is clean; no worry about escaping el if
 converted into a regex and no worry about an infinite loop if we replaced
 repeatedly and checked equality. 
+
+### Indent 
+
+This modifies the indent property of the piece affecting how the final indent
+is done. It does nothing to the actual text in the pipe sequence. 
+
+    async function indent (text, space) {
+        console.log(this);
+        let pipe = this.scope.pipe;
+        if (typeof space === 'number') {
+            let temp = '\n';
+            for (let i = 0; i < space; i += 1) {
+                temp += ' ';
+            }
+            space = temp;
+        }
+        pipe.indent = space;
+        return text;
+    }
+
+### Math
+
+This is a simple math parser. A more complicated one will be part of full? For
+now, it ignores the type and just assumes the goal is to evaluate it as a
+JavaScript number or expression. 
+
+    async function (type, expression) {
+        if (type !== 'js:eval') {
+            //emit a warning
+        }
+        let num = 1*expression; //number conversion
+        if ( num !== num) {  //NaN test
+            return eval(expression);
+        } else {
+            return num;
+        }
+    }
 
 ## Full
 

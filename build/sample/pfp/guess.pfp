@@ -37,7 +37,7 @@ console.log(numarr.join(", "));
 function (arr, m, str) {
     var n = arr.length;
     for (i = m-1; i < n; i += m) {
-        _"test indent"
+        _"test indent | indent(#3)"
     }
 }
 

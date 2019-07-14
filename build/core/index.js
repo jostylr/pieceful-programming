@@ -111,6 +111,7 @@ module.exports = function Weaver (
         if (cmd === 'pipe') {
             let input;
             let pipes = args;
+            scope.pipe = piece;
             tracker('pipe started', {tracking, pipes, scope});
             let pipeVals = [];
             for (let i = 0; i < pipes.length; i += 1) {
@@ -127,6 +128,7 @@ module.exports = function Weaver (
                 }
                 pipeVals.unshift(input);
             }
+            delete scope.pipe;
             ret = input.value;
         } else if (cmd === 'get') {
             let arg = args[0].value || '';
@@ -205,7 +207,7 @@ module.exports = function Weaver (
                 filter( (el => el) ); //filter removes undefined elements
             piece.actualArgs = processed;
             tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
-            ret = await comm.apply({scope, piece}, processed); 
+            ret = await comm.apply({scope, piece }, processed); 
         }
         tracker('command finished', {tracking, cmd, ret, scope});
         if (override) {

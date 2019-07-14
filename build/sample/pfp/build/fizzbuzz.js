@@ -3,7 +3,7 @@ var overWrite = function (arr, m, str) {
     var n = arr.length;
     for (i = m-1; i < n; i += m) {
         arr[i] = str;       
-        arr[i] = str;
+   arr[i] = str;
     }
 };
 

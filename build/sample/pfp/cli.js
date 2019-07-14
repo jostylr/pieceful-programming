@@ -567,6 +567,7 @@ const Weaver = function Weaver (
         if (cmd === 'pipe') {
             let input;
             let pipes = args;
+            scope.pipe = piece;
             tracker('pipe started', {tracking, pipes, scope});
             let pipeVals = [];
             for (let i = 0; i < pipes.length; i += 1) {
@@ -583,6 +584,7 @@ const Weaver = function Weaver (
                 }
                 pipeVals.unshift(input);
             }
+            delete scope.pipe;
             ret = input.value;
         } else if (cmd === 'get') {
             let arg = args[0].value || '';
@@ -661,7 +663,7 @@ const Weaver = function Weaver (
                 filter( (el => el) ); //filter removes undefined elements
             piece.actualArgs = processed;
             tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
-            ret = await comm.apply({scope, piece}, processed); 
+            ret = await comm.apply({scope, piece }, processed); 
         }
         tracker('command finished', {tracking, cmd, ret, scope});
         if (override) {
@@ -1171,6 +1173,7 @@ let organs = {
     commands : {
         //@echo: arg1, arg2, ... -> last arg
         echo : async function echo (...args) {
+            if (args.length === 0) { return ; }
             return args[args.length-1];
         },
         //@sub: old,new, old, new, ..
@@ -1198,8 +1201,33 @@ let organs = {
                 i += 2;
             }
             return text;
+        },
+        //@indent : text, space -> text [modifies indent on main object]
+        indent : async function indent (text, space) {
+            console.log(this);
+            let pipe = this.scope.pipe;
+            if (typeof space === 'number') {
+                let temp = '\n';
+                for (let i = 0; i < space; i += 1) {
+                    temp += ' ';
+                }
+                space = temp;
+            }
+            pipe.indent = space;
+            return text;
+        },
+        //@math : type, expression
+        math : async function (type, expression) {
+            if (type !== 'js:eval') {
+                //emit a warning
+            }
+            let num = 1*expression; //number conversion
+            if ( num !== num) {  //NaN test
+                return eval(expression);
+            } else {
+                return num;
+            }
         }
-    
     },
     directives : {
         save : async function save ({src, target, args}) {

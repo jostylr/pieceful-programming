@@ -359,6 +359,9 @@ The transform is an array of piped commands. Probably just one, but in
 any case, we loop over it feeding the last value in as an input which should
 become the first argument of each pipe command. 
 
+Note that this need not be a pipe. It can be a single command and it will
+still just work with the input going in as the first argument. 
+
     vals = vals ||  [];
     if (vals.every( (el) => (typeof el === 'string') ) ){
         vals = vals.join('');
@@ -570,7 +573,7 @@ then the insertion happens
                 filter( (el => el) ); //filter removes undefined elements
             piece.actualArgs = processed;
             tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
-            ret = await comm.apply({scope, piece}, processed); 
+            ret = await comm.apply({scope, piece }, processed); 
         }
         tracker('command finished', {tracking, cmd, ret, scope});
         if (override) {
@@ -591,8 +594,12 @@ argument is what gets the input unless the input is undefined. Thus, there is
 no input into the first command. For the standard underscore setup, the first
 bit before the pipe is transformed into a get and that is what the pipe sees. 
 
+We add pipe to the scope as some commands, such as indent, may need access to
+this parent object.
+
     let input;
     let pipes = args;
+    scope.pipe = piece;
     tracker('pipe started', {tracking, pipes, scope});
 
 As this sequential piping, we use a for loop along with the sync. 
@@ -612,6 +619,7 @@ As this sequential piping, we use a for loop along with the sync.
         }
         pipeVals.unshift(input);
     }
+    delete scope.pipe;
     ret = input.value;
 
 
