@@ -643,7 +643,7 @@ let cta;
         if (!has(p.f, 'ln') ) {
             p.f.ln = lineNumberFactory(text, start);
         }
-        let parsed, ret;
+        let ret;
         if (type === 'code') {
             tracker("parsing code block", {text, start});
             let len = text.length;
@@ -743,14 +743,8 @@ let cta;
             ret = pieces;
             tracker("code block parsed", ret);
         } else if (type === 'transform') {
-            tracker('transform about to be parsed', {text, start});
-            parsed = toTerminator(p, 'pipe', '');
-            ret = {
-                start,
-                end: p.f.ln(p.ind-1),
-                cmd : ['pipe'],
-                args : parsed.cmds
-            };
+            tracker('transform about to be parsed', p.ind, {text, start});
+            ret = toTerminator(p, '', '');
             tracker('transform parsed', ret);
         } else if (type === 'args') {
             tracker('args about to be parsed', {text, start});

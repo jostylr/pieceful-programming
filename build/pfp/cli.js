@@ -867,7 +867,6 @@ const Weaver = function Weaver (
                 prr = prWeb[name] = makePromise();
             }
             tracker(`storing node promise: ${name}`, {name, node, prr});
-            // console.log('New Node', node);
             if (has(node,'pieces')) {
                 let pieceProms = node.pieces.map( 
                     async function singlePieceProcess (piece, idx) {
@@ -877,9 +876,7 @@ const Weaver = function Weaver (
                                 tracking : 'creating piece ' + idx + ' of node ' + name, 
                                 context : node}
                             );
-                            //weaver.full('BEFORE CMD',scope, piece);
                             await runCommand.call(scope, piece);
-                            //weaver.full(scope, piece);
                             if ( (piece.indent) && ( typeof piece.value === 'string') ) {
                                 piece.value = piece.value.replace(/\n/g, piece.indent );
                             }
@@ -891,7 +888,6 @@ const Weaver = function Weaver (
                     }
                 );
                 vals = await Promise.all(pieceProms);
-                //  console.log(node.scope.fullname, vals);
             } else {
                 vals = [''];
             }
@@ -899,29 +895,28 @@ const Weaver = function Weaver (
             if (vals.every( (el) => (typeof el === 'string') ) ){
                 vals = vals.join('');
             }
-            console.log('HEY', vals);
+            
             if (node.transform && node.transform.length > 0) {
-                weaver.full('TRANSFORM', node.transform);
-                let pt = node.transform;
-                pt.input = vals;
+                let n = node.transform.length;
                 let scope = makeScope({
                     tracking : 'transforming value of ' + name,
-                    context : web[name]}
-                );
-                node.value = (await runCommand.call(scope, pt )).value;
-            } else {
-                node.value = vals;
+                    context : web[name]
+                });
+                for (let i = 0; i < n; i += 1) {
+                    let pipe = node.transform[i];
+                    pipe.args.unshift( {
+                        value : vals
+                    });
+                    vals = (await runCommand.call(scope, pipe )).value;
+                }            
             }
-            // console.log('Hey Done', node.value);
+            node.value = vals;
             prr.resolve(node.value);
             tracker('node ' + name + ' value is computed', {name, value: node.value});
             return node.value;
         });
-        console.log('Waiting proms');
-        console.log(proms);
         let vals = await Promise.all(proms);
         let ret = {};
-        console.log('Proms done', vals);
         names.forEach( (name, idx) => {
             let newNode = web[name];
             if (has(wvWeb, name) ) {
@@ -939,7 +934,6 @@ const Weaver = function Weaver (
             ret[name] = vals[idx];
         });
     
-        console.log(Object.keys(web));
         tracker('a web of nodes is done', {web});
         return ret;
     
@@ -978,7 +972,6 @@ const Weaver = function Weaver (
             const code = node.code || [];
             node.pieces = code.reduce( (acc, el) => {
                 let {code, start} = el;
-                weaver.full(el);
                 let pieces = codeParser({text:code, type:'code', start});
                 el.pieces = pieces; // in case it is needed as reference
                 return acc.concat(pieces);
@@ -1176,11 +1169,12 @@ const Weaver = function Weaver (
 };
 let organs = {
     commands : {
+        //@echo: arg1, arg2, ... -> last arg
+        echo : async function echo (...args) {
+            return args[args.length-1];
+        },
         //@sub: old,new, old, new, ..
         sub : async function sub (text, ...args) {
-            // to be used in error dealing: let {scope, piece} = this;
-            //scope.check(
-            console.log('SUB!!', text, args);
             if (typeof text !== 'string') {
                 throw Error('cmd sub: requires text to operate on');
             }
@@ -1786,7 +1780,6 @@ let organs = {
                                 let chunk = directive[0];
                                 let reg = /^\s*(\S+)(?:\s*$|\s+(\S+)(?:\s*$|\s+(.+$)))/;
                                 let match = reg.exec(chunk);
-                                console.log(name, scope);
                                 if (match) {
                                     directive[0] = {
                                         directive : match[1],
@@ -2504,7 +2497,7 @@ let organs = {
             if (!has(p.f, 'ln') ) {
                 p.f.ln = lineNumberFactory(text, start);
             }
-            let parsed, ret;
+            let ret;
             if (type === 'code') {
                 tracker("parsing code block", {text, start});
                 let len = text.length;
@@ -2604,14 +2597,8 @@ let organs = {
                 ret = pieces;
                 tracker("code block parsed", ret);
             } else if (type === 'transform') {
-                tracker('transform about to be parsed', {text, start});
-                parsed = toTerminator(p, 'pipe', '');
-                ret = {
-                    start,
-                    end: p.f.ln(p.ind-1),
-                    cmd : ['pipe'],
-                    args : parsed.cmds
-                };
+                tracker('transform about to be parsed', p.ind, {text, start});
+                ret = toTerminator(p, '', '');
                 tracker('transform parsed', ret);
             } else if (type === 'args') {
                 tracker('args about to be parsed', {text, start});

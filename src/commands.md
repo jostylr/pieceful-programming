@@ -12,10 +12,21 @@ These commands are always available. Hopefully a small footprint.
 
 
     {
+        //@echo: arg1, arg2, ... -> last arg
+        echo : _"echo",
         //@sub: old,new, old, new, ..
         sub : _"sub"
 
     }
+
+### Echo
+
+Parrots back the last argument. 
+
+    async function echo (...args) {
+        return args[args.length-1];
+    }
+        
 
 ### Sub
 
@@ -27,9 +38,6 @@ A more complicated version allows for array pairs which will call the string
 replace function with the array.
 
     async function sub (text, ...args) {
-        // to be used in error dealing: let {scope, piece} = this;
-        //scope.check(
-        console.log('SUB!!', text, args);
         if (typeof text !== 'string') {
             throw Error('cmd sub: requires text to operate on');
         }

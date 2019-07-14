@@ -92,7 +92,7 @@ For code slicing, we use begin to know where to slice the prior code parts.
         if (!has(p.f, 'ln') ) {
             p.f.ln = lineNumberFactory(text, start);
         }
-        let parsed, ret;
+        let ret;
         if (type === 'code') {
             _"code"
         } else if (type === 'transform') {
@@ -297,14 +297,8 @@ the loop. If there is no underscore, then we are done.
 This is a transform which is a line of pipes and has no terminator. All should
 be consumed. 
 
-    tracker('transform about to be parsed', {text, start});
-    parsed = toTerminator(p, 'pipe', '');
-    ret = {
-        start,
-        end: p.f.ln(p.ind-1),
-        cmd : ['pipe'],
-        args : parsed.cmds
-    };
+    tracker('transform about to be parsed', p.ind, {text, start});
+    ret = toTerminator(p, '', '');
     tracker('transform parsed', ret);
 
 ## Args

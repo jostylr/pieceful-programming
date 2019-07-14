@@ -411,7 +411,6 @@ module.exports = function Weaver (
                 prr = prWeb[name] = makePromise();
             }
             tracker(`storing node promise: ${name}`, {name, node, prr});
-            // console.log('New Node', node);
             if (has(node,'pieces')) {
                 let pieceProms = node.pieces.map( 
                     async function singlePieceProcess (piece, idx) {
@@ -421,9 +420,7 @@ module.exports = function Weaver (
                                 tracking : 'creating piece ' + idx + ' of node ' + name, 
                                 context : node}
                             );
-                            //weaver.full('BEFORE CMD',scope, piece);
                             await runCommand.call(scope, piece);
-                            //weaver.full(scope, piece);
                             if ( (piece.indent) && ( typeof piece.value === 'string') ) {
                                 piece.value = piece.value.replace(/\n/g, piece.indent );
                             }
@@ -435,7 +432,6 @@ module.exports = function Weaver (
                     }
                 );
                 vals = await Promise.all(pieceProms);
-                //  console.log(node.scope.fullname, vals);
             } else {
                 vals = [''];
             }
@@ -443,29 +439,28 @@ module.exports = function Weaver (
             if (vals.every( (el) => (typeof el === 'string') ) ){
                 vals = vals.join('');
             }
-            console.log('HEY', vals);
+            
             if (node.transform && node.transform.length > 0) {
-                weaver.full('TRANSFORM', node.transform);
-                let pt = node.transform;
-                pt.input = vals;
+                let n = node.transform.length;
                 let scope = makeScope({
                     tracking : 'transforming value of ' + name,
-                    context : web[name]}
-                );
-                node.value = (await runCommand.call(scope, pt )).value;
-            } else {
-                node.value = vals;
+                    context : web[name]
+                });
+                for (let i = 0; i < n; i += 1) {
+                    let pipe = node.transform[i];
+                    pipe.args.unshift( {
+                        value : vals
+                    });
+                    vals = (await runCommand.call(scope, pipe )).value;
+                }            
             }
-            // console.log('Hey Done', node.value);
+            node.value = vals;
             prr.resolve(node.value);
             tracker('node ' + name + ' value is computed', {name, value: node.value});
             return node.value;
         });
-        console.log('Waiting proms');
-        console.log(proms);
         let vals = await Promise.all(proms);
         let ret = {};
-        console.log('Proms done', vals);
         names.forEach( (name, idx) => {
             let newNode = web[name];
             if (has(wvWeb, name) ) {
@@ -483,7 +478,6 @@ module.exports = function Weaver (
             ret[name] = vals[idx];
         });
     
-        console.log(Object.keys(web));
         tracker('a web of nodes is done', {web});
         return ret;
     
@@ -522,7 +516,6 @@ module.exports = function Weaver (
             const code = node.code || [];
             node.pieces = code.reduce( (acc, el) => {
                 let {code, start} = el;
-                weaver.full(el);
                 let pieces = codeParser({text:code, type:'code', start});
                 el.pieces = pieces; // in case it is needed as reference
                 return acc.concat(pieces);

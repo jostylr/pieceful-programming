@@ -325,7 +325,6 @@ fullname.
     let chunk = directive[0];
     let reg = /^\s*(\S+)(?:\s*$|\s+(\S+)(?:\s*$|\s+(.+$)))/;
     let match = reg.exec(chunk);
-    console.log(name, scope);
     if (match) {
         directive[0] = {
             directive : match[1],

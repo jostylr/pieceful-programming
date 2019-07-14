@@ -1,5 +1,5 @@
 /*global console */
-var overwrite = function (arr, m, str) {
+var overWrite = function (arr, m, str) {
     var n = arr.length;
     for (i = m-1; i < n; i += m) {
         arr[i] = str;       
@@ -13,8 +13,8 @@ for (i = 0; i < 100; i += 1) {
     numarr[i] = i+1;
 }
 
-overwrite(numarr, 3, "Fizz");
-overwrite(numarr, 5, "Buzz");
-overwrite(numarr, 15, "FizzBuzz");
+overWrite(numarr, 3, "Fuzz");
+overWrite(numarr, 5, "Buzz");
+overWrite(numarr, 15, "FuzzBuzz");
 
 console.log(numarr.join(", "));

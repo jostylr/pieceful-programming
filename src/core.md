@@ -261,17 +261,13 @@ When done, we zip them into an object and return the values. This could be
 useful in an interactive environment, such as a browser, or for debugging to
 see what pieces became what. 
 
-        console.log('Waiting proms');
-        console.log(proms);
         let vals = await Promise.all(proms);
         let ret = {};
-        console.log('Proms done', vals);
         names.forEach( (name, idx) => {
             _":store node"
             ret[name] = vals[idx];
         });
 
-        console.log(Object.keys(web));
         tracker('a web of nodes is done', {web});
         return ret;
 
@@ -312,7 +308,6 @@ throw error if so.
 Here we setup and execute the promising of the pieces. 
 
 
-    // console.log('New Node', node);
     if (has(node,'pieces')) {
         let pieceProms = node.pieces.map( 
             async function singlePieceProcess (piece, idx) {
@@ -322,9 +317,7 @@ Here we setup and execute the promising of the pieces.
                         tracking : 'creating piece ' + idx + ' of node ' + name, 
                         context : node}
                     );
-                    //weaver.full('BEFORE CMD',scope, piece);
                     await runCommand.call(scope, piece);
-                    //weaver.full(scope, piece);
                     _":indent"
                     return piece.value;
                 }
@@ -334,7 +327,6 @@ Here we setup and execute the promising of the pieces.
             }
         );
         vals = await Promise.all(pieceProms);
-        //  console.log(node.scope.fullname, vals);
     } else {
         vals = [''];
     }
@@ -363,27 +355,30 @@ The transform should be a command, probably a pipe of a sequence of commands.
 We start by checking if all the vals are strings. If so, then we concatenate
 them. 
     
+The transform is an array of piped commands. Probably just one, but in
+any case, we loop over it feeding the last value in as an input which should
+become the first argument of each pipe command. 
+
     vals = vals ||  [];
     if (vals.every( (el) => (typeof el === 'string') ) ){
         vals = vals.join('');
     }
-    console.log('HEY', vals);
-
-TODO FIX THIS. NOT RIGHT. TRANSFORM IS AN ARRAY? 
 
     if (node.transform && node.transform.length > 0) {
-        weaver.full('TRANSFORM', node.transform);
-        let pt = node.transform;
-        pt.input = vals;
+        let n = node.transform.length;
         let scope = makeScope({
             tracking : 'transforming value of ' + name,
-            context : web[name]}
-        );
-        node.value = (await runCommand.call(scope, pt )).value;
-    } else {
-        node.value = vals;
+            context : web[name]
+        });
+        for (let i = 0; i < n; i += 1) {
+            let pipe = node.transform[i];
+            pipe.args.unshift( {
+                value : vals
+            });
+            vals = (await runCommand.call(scope, pipe )).value;
+        }            
     }
-    // console.log('Hey Done', node.value);
+    node.value = vals;
 
 ## Parse
 
@@ -423,7 +418,6 @@ bit in the line numbering reporting.
             const code = node.code || [];
             node.pieces = code.reduce( (acc, el) => {
                 let {code, start} = el;
-                weaver.full(el);
                 let pieces = codeParser({text:code, type:'code', start});
                 el.pieces = pieces; // in case it is needed as reference
                 return acc.concat(pieces);
