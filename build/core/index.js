@@ -89,7 +89,7 @@ module.exports = function Weaver (
                         } else {
                             args[idx].value = el.args.map( (arg => input[arg] ));
                         }
-                    } else {
+                    } else { //@ by itself
                         skip = true;
                         args[idx].value = input.value;
                     }
@@ -177,6 +177,72 @@ module.exports = function Weaver (
                 return await runCommand.call(scope, pipes);   
             
             };
+        } else if (cmd === 'compile') {
+            let text = (args[0]) ? args[0].value : '';
+            if ( (typeof text !== 'string' ) || (text === '') ) {
+                ret = ''; 
+                //warn of no text to compile
+            } else {
+                let codeParserName = (args[2]) ? args[2].value : 'up';
+                let codeParser = weaver.v.parsers[codeParserName]; 
+                if (!codeParser) {
+                    let prr = weaver.p.parsers[codeParserName];
+                    if (!prr) {
+                        prr = makePromise();
+                        weaver.p.parsers[codeParserName] = prr;
+                    }
+                    codeParser = await prr.prom;
+                }
+                let parsed = codeParser({text, type:'code', start: piece.start});
+                let fakeFrag = (args[1] ? args[1].value : '#');
+                let fakeName = weaver.syntax.getFullNodeName(fakeFrag, scope.context);
+                let fakeScope = {fullname : fakeName };
+                {
+                    console.log(fakeName);
+                    let bits = fakeName.split('::');
+                    fakeScope.prefix = bits.shift();
+                    bits = bits[0].split('/');
+                    let last = bits.pop();
+                    let lastbits = last.split(':');
+                    bits.push(lastbits.shift()); // put main bit back after colon stripped
+                    fakeScope.lv1only = bits.shift();
+                    fakeScope.lv1 = fakeScope.prefix + '::' + fakeScope.lv1only;
+                    fakeScope.majorname = fakeScope.lv1;
+                    //warn if majorname and fullname are not the same. 
+                }
+            
+                let node = {
+                    pieces : parsed, 
+                    scope : fakeScope
+                };
+                
+                let vals; 
+            
+                let name = 'Fake Compile Name - ' + fakeName;
+                let pieceProms = node.pieces.map( 
+                    async function singlePieceProcess (piece, idx) {
+                        if (has(piece, 'value') ) {return piece.value;}
+                        if  ( has(piece, 'cmd') )   {
+                            let scope = makeScope({
+                                tracking : 'creating piece ' + idx + ' of node ' + name, 
+                                context : node}
+                            );
+                            await runCommand.call(scope, piece);
+                            if ( (piece.indent) && ( typeof piece.value === 'string') ) {
+                                piece.value = piece.value.replace(/\n/g, piece.indent );
+                            }
+                            return piece.value;
+                        }
+                        tracker(`Bad state reached in parsing piece of node ${node.scope.fullname}`); 
+                        piece.value = '';
+                        return piece.value;
+                    }
+                );
+                vals = await Promise.all(pieceProms);
+            
+                ret = vals.join(''); //no transform; if make a nicer version in transform then use that
+            
+            }
         } else { 
             if ( (cmd.length > 1) && (cmd[cmd.length-1] === '*') ) {
                 let f = async function seq (ind) {
@@ -214,8 +280,7 @@ module.exports = function Weaver (
         tracker('command finished', {tracking, cmd, ret, scope});
         if (override) {
             ret = override;
-            tracker('overriding result, using previous pipe input', {tracking,
-                cmd, ret});
+            tracker('overriding result, using previous pipe input', {tracking, cmd, ret});
         } 
         piece.value = ret;
         return piece;
@@ -272,7 +337,7 @@ module.exports = function Weaver (
                 curNode = curNode.scope;
             }
             if (frag === '::') {
-                return curNode.prefix + '^';
+                return curNode.prefix + '::^';
             }
             if (frag === ':') {
                 return curNode.majorname;
@@ -437,6 +502,7 @@ module.exports = function Weaver (
                     }
                 );
                 vals = await Promise.all(pieceProms);
+            
             } else {
                 vals = [''];
             }
@@ -536,7 +602,7 @@ module.exports = function Weaver (
                 el.pieces = pieces;
                 return acc.concat(pieces);
             }, []);
-            if (node.transform.length === 0) { delete node.transform}
+            if (node.transform.length === 0) { delete node.transform;}
         });
         //weaver.full({web, directives});
         return {web, directives};

@@ -307,29 +307,37 @@ throw error if so.
 
 Here we setup and execute the promising of the pieces. 
 
-
     if (has(node,'pieces')) {
-        let pieceProms = node.pieces.map( 
-            async function singlePieceProcess (piece, idx) {
-                if (has(piece, 'value') ) {return piece.value;}
-                if  ( has(piece, 'cmd') )   {
-                    let scope = makeScope({
-                        tracking : 'creating piece ' + idx + ' of node ' + name, 
-                        context : node}
-                    );
-                    await runCommand.call(scope, piece);
-                    _":indent"
-                    return piece.value;
-                }
-                tracker(`Bad state reached in parsing piece of node ${node.scope.fullname}`); 
-                piece.value = '';
-                return piece.value;
-            }
-        );
-        vals = await Promise.all(pieceProms);
+        _":make promise piece"
+
     } else {
         vals = [''];
     }
+
+
+[make promise piece]()
+
+This is split off so compile can just place it there as well. 
+
+    let pieceProms = node.pieces.map( 
+        async function singlePieceProcess (piece, idx) {
+            if (has(piece, 'value') ) {return piece.value;}
+            if  ( has(piece, 'cmd') )   {
+                let scope = makeScope({
+                    tracking : 'creating piece ' + idx + ' of node ' + name, 
+                    context : node}
+                );
+                await runCommand.call(scope, piece);
+                _":indent"
+                return piece.value;
+            }
+            tracker(`Bad state reached in parsing piece of node ${node.scope.fullname}`); 
+            piece.value = '';
+            return piece.value;
+        }
+    );
+    vals = await Promise.all(pieceProms);
+    
 
 
 [indent]()
@@ -436,7 +444,7 @@ bit in the line numbering reporting.
                 el.pieces = pieces;
                 return acc.concat(pieces);
             }, []);
-            if (node.transform.length === 0) { delete node.transform}
+            if (node.transform.length === 0) { delete node.transform;}
         });
         //weaver.full({web, directives});
         return {web, directives};
@@ -568,6 +576,8 @@ then the insertion happens
             _"get"
         } else if ((cmd === 'compose') || (cmd === '*' )) {
             _"compose"
+        } else if (cmd === 'compile') {
+            _"compile"
         } else { 
             if ( (cmd.length > 1) && (cmd[cmd.length-1] === '*') ) {
                 _"sequence"
@@ -584,8 +594,7 @@ then the insertion happens
         tracker('command finished', {tracking, cmd, ret, scope});
         if (override) {
             ret = override;
-            tracker('overriding result, using previous pipe input', {tracking,
-                cmd, ret});
+            tracker('overriding result, using previous pipe input', {tracking, cmd, ret});
         } 
         piece.value = ret;
         return piece;
@@ -669,7 +678,7 @@ This is to allow the previous input to get passed on instead of this one.
                     } else {
                         args[idx].value = el.args.map( (arg => input[arg] ));
                     }
-                } else {
+                } else { //@ by itself
                     skip = true;
                     args[idx].value = input.value;
                 }
@@ -951,7 +960,7 @@ TODO: Probably should convert the curNode name.
             curNode = curNode.scope;
         }
         if (frag === '::') {
-            return curNode.prefix + '^';
+            return curNode.prefix + '::^';
         }
         if (frag === ':') {
             return curNode.majorname;
@@ -983,7 +992,64 @@ TODO: Probably should convert the curNode name.
         return frag; //fits a full name. 
     }
 
+### Compile
 
+This takes the incoming text and compiles it as if it is a piece of code. It
+takes as its argument a name to know the compile by in reference to the gets
+that may be in it, but the compilation itself is not added to the nodes.
+Instead, it produces the return value of compiling it. 
+
+    let text = (args[0]) ? args[0].value : '';
+    if ( (typeof text !== 'string' ) || (text === '') ) {
+        ret = ''; 
+        //warn of no text to compile
+    } else {
+        let codeParserName = (args[2]) ? args[2].value : 'up';
+        _"wait for function | sub name, codeParserName, VNAME, codeParser, TYPE, parsers"
+        let parsed = codeParser({text, type:'code', start: piece.start});
+        let fakeFrag = (args[1] ? args[1].value : '#');
+        let fakeName = weaver.syntax.getFullNodeName(fakeFrag, scope.context);
+        _":make fake scope"
+
+        let node = {
+            pieces : parsed, 
+            scope : fakeScope
+        };
+        
+        let vals; 
+
+        let name = 'Fake Compile Name - ' + fakeName;
+        _"process pieces:make promise piece"
+
+        ret = vals.join(''); //no transform; if make a nicer version in transform then use that
+
+    }
+
+[make fake scope]()
+
+
+TODO Now split it up to assemble the levels. Should be in its own helper function?
+   
+Until it is, we will assume to not care about the lv2 or lv3 stuff or minors
+as the name. Just extracting lv1 and prefix. Why? because that's probably all
+we need and the rest is annoying.
+
+    let fakeScope = {fullname : fakeName };
+    {
+        console.log(fakeName);
+        let bits = fakeName.split('::');
+        fakeScope.prefix = bits.shift();
+        bits = bits[0].split('/');
+        let last = bits.pop();
+        let lastbits = last.split(':');
+        bits.push(lastbits.shift()); // put main bit back after colon stripped
+        fakeScope.lv1only = bits.shift();
+        fakeScope.lv1 = fakeScope.prefix + '::' + fakeScope.lv1only;
+        fakeScope.majorname = fakeScope.lv1;
+        //warn if majorname and fullname are not the same. 
+    }
+
+        
 
 ### NodeKeys
 

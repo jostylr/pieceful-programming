@@ -2,3 +2,13 @@ Exploration here
 --- main :=> save r./out.txt
 
 Hello _"|#3"
+
+_"cool | sub('@','_') | compile "
+
+--- cool
+Bye @"dude"
+
+--- dude
+
+Jack
+
