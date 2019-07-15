@@ -40,7 +40,6 @@ also optional. One can always be explicit and consistent.
 This is just to avoid having to write the symbols since it messes with the
 syntax matching. 
 
-    /* eslint-disable no-console */
     let par = '('; let cpar = ')';
     let bra = '{'; let cbra = '}'; //eslint-disable-line no-unused-vars
     let squ = '['; let csqu = ']'; //eslint-disable-line no-unused-vars

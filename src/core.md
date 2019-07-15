@@ -380,6 +380,9 @@ still just work with the input going in as the first argument.
             });
             vals = (await runCommand.call(scope, pipe )).value;
         }            
+    } else if (typeof vals !== 'string') { //transform should deal with it
+        //give warning of incompatible types
+        vals = vals.join('');
     }
     node.value = vals;
 
@@ -434,6 +437,7 @@ bit in the line numbering reporting.
             }, []);
             if (node.transform.length === 0) { delete node.transform}
         });
+        //weaver.full({web, directives});
         return {web, directives};
     }
 
@@ -476,6 +480,7 @@ contains the actual values.
         tracker('run directive', {tracking, name, actualArgs, scope});
         let ret = await dire.call({env, weaver, scope}, {src, target, args:actualArgs});
         data.value = ret;
+        weaver.full(data);
         tracker('directive done', {tracking, name, result:ret});
         return data;
     }
@@ -858,7 +863,9 @@ We assume this command is given names of sections, typically a single one, but
 possibly an array. 
 
     let arg = args[0].value || '';
-    if (Array.isArray(arg) ) { // list of sections
+    if (arg === '') { // no actual call for anything so empty value return
+        ret = '';
+    } else if (Array.isArray(arg) ) { // list of sections
         let names = [];
         let proms = _":loop through the names"
         let vals = (await Promise.all(proms)).map(el => el.value);

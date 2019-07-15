@@ -132,7 +132,9 @@ module.exports = function Weaver (
             ret = input.value;
         } else if (cmd === 'get') {
             let arg = args[0].value || '';
-            if (Array.isArray(arg) ) { // list of sections
+            if (arg === '') { // no actual call for anything so empty value return
+                ret = '';
+            } else if (Array.isArray(arg) ) { // list of sections
                 let names = [];
                 let proms = arg.map( (arg) => {
                     let nodeName = weaver.syntax.getFullNodeName(arg, scope.context);
@@ -395,6 +397,7 @@ module.exports = function Weaver (
         tracker('run directive', {tracking, name, actualArgs, scope});
         let ret = await dire.call({env, weaver, scope}, {src, target, args:actualArgs});
         data.value = ret;
+        weaver.full(data);
         tracker('directive done', {tracking, name, result:ret});
         return data;
     };
@@ -455,6 +458,9 @@ module.exports = function Weaver (
                     });
                     vals = (await runCommand.call(scope, pipe )).value;
                 }            
+            } else if (typeof vals !== 'string') { //transform should deal with it
+                //give warning of incompatible types
+                vals = vals.join('');
             }
             node.value = vals;
             prr.resolve(node.value);
@@ -531,6 +537,7 @@ module.exports = function Weaver (
             }, []);
             if (node.transform.length === 0) { delete node.transform}
         });
+        //weaver.full({web, directives});
         return {web, directives};
     };
     weaver.getNode = function getNode (nodeName) {

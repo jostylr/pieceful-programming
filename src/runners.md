@@ -185,10 +185,13 @@ TODO
         }, 
         {directive:'load', src: 'R./guess.pfp', target:'guess', args:[], 
             scope: {fullname:'guess scriptedwriting'}
+        },
+        {directive:'load', src: 'R./explore.pfp', target:'explore', args:[], 
+            scope: {fullname:'explore'}
         }
     ];
 
-    loaders.shift(); // get rid of the first one for now. 
+    loaders = loaders.slice(2); // get rid of the first one for now. 
 
 ## Cli Max
 

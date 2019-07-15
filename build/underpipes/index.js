@@ -1,6 +1,5 @@
 let cta;
 {
-    /* eslint-disable no-console */
     let par = '('; let cpar = ')';
     let bra = '{'; let cbra = '}'; //eslint-disable-line no-unused-vars
     let squ = '['; let csqu = ']'; //eslint-disable-line no-unused-vars
