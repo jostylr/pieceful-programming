@@ -397,7 +397,7 @@ module.exports = function Weaver (
         tracker('run directive', {tracking, name, actualArgs, scope});
         let ret = await dire.call({env, weaver, scope}, {src, target, args:actualArgs});
         data.value = ret;
-        weaver.full(data);
+        //weaver.full(data);
         tracker('directive done', {tracking, name, result:ret});
         return data;
     };
@@ -460,6 +460,7 @@ module.exports = function Weaver (
                 }            
             } else if (typeof vals !== 'string') { //transform should deal with it
                 //give warning of incompatible types
+                // or we could give some useful version, such as jsoning for different types. 
                 vals = vals.join('');
             }
             node.value = vals;

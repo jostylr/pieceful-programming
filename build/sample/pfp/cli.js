@@ -853,7 +853,7 @@ const Weaver = function Weaver (
         tracker('run directive', {tracking, name, actualArgs, scope});
         let ret = await dire.call({env, weaver, scope}, {src, target, args:actualArgs});
         data.value = ret;
-        weaver.full(data);
+        //weaver.full(data);
         tracker('directive done', {tracking, name, result:ret});
         return data;
     };
@@ -916,6 +916,7 @@ const Weaver = function Weaver (
                 }            
             } else if (typeof vals !== 'string') { //transform should deal with it
                 //give warning of incompatible types
+                // or we could give some useful version, such as jsoning for different types. 
                 vals = vals.join('');
             }
             node.value = vals;
@@ -2595,6 +2596,9 @@ let organs = {
                         let start = ind-1;
                         let cur = start;
                         while (true) { //eslint-disable-line no-constant-condition
+                            if (text[cur] !== ' ') {
+                                start = cur-1;
+                            }
                             if (cur === 0) {
                                 indent = '\n' + text.slice(cur,start+1);
                                 break;
@@ -2603,11 +2607,7 @@ let organs = {
                                 indent = text.slice(cur, start+1);
                                 break;
                             }
-                            if (text[cur] !== ' ') {
-                                start = cur -= 1;
-                            } else {
-                                cur -= 1;
-                            }
+                            cur -= 1;
                         }
                     }
                     p.ind = ind + 2;

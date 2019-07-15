@@ -706,6 +706,9 @@ let cta;
                     let start = ind-1;
                     let cur = start;
                     while (true) { //eslint-disable-line no-constant-condition
+                        if (text[cur] !== ' ') {
+                            start = cur-1;
+                        }
                         if (cur === 0) {
                             indent = '\n' + text.slice(cur,start+1);
                             break;
@@ -714,11 +717,7 @@ let cta;
                             indent = text.slice(cur, start+1);
                             break;
                         }
-                        if (text[cur] !== ' ') {
-                            start = cur -= 1;
-                        } else {
-                            cur -= 1;
-                        }
+                        cur -= 1;
                     }
                 }
                 p.ind = ind + 2;

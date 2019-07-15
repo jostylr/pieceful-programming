@@ -8,7 +8,7 @@
   },
   "devDependencies": {
     "deep-object-diff": "^1.1.0",
-    "eslint": "^5.16.0",
+    "eslint": "^6.0.1",
     "json-stringify-pretty-compact": "^1.2.0"
   },
   "scripts": {
