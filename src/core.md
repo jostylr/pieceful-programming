@@ -336,8 +336,6 @@ the promise and that allows for some error tracking here.
         const prWeb = weaver.p.web;
         let proms = Promise.all(names.map( async function (name) {
             let node = web[name];
-            tracker(sym, 'beginning to process node', node);
-            let {sym:nSym} = tracker.new(node.scope, 'Processing node', node);
             let vals; // local to piece values
             _":store promise"
             _":promise the pieces"
@@ -376,9 +374,10 @@ check if it already exists. If so, we use it. If not, we set it up.
 
     let prr = prWeb[name];
     if (!prr) {
-        prr = prWeb[name] = makePromise('N?', name);
+        prr = prWeb[name] = makePromise('N', name);
     }
-    tracker(nSym, 'Promising node', prr);
+    let nSym = prr.sym;
+    tracker.self(nSym, 'Starting to process node', node); 
 
 [store node]()
 
