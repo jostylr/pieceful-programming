@@ -112,19 +112,26 @@ unresolved stuff, etc.
         let n = loaders.length;
         for (let i = 0; i < n; i += 1) {
             let loader = loaders[i];
-            let unresolved = await weaver.run(loader);
+            let {report, unresolved} = await weaver.run(loader);
             if (Object.keys(unresolved).length !== 0) {
-                env.log(`Unresolved issues in loader ${loader}:\n` + 
+                env.log(`Unresolved issues in loader ${loader.id}:\n` + 
                 JSON.stringify(unresolved), 'loader', 5,);
+                env.log(
+                    `Failed: ${report.failed.msg || 'none'} \n` +
+                    `Unresolved: ${report.promises.msg || 'none'}`, 
+                    'report', 5
+                );
                 break; 
             }
         }
         //full(weaver.v, weaver.p);
-        env.log('All done. Have a great day!');
+        env.log('All done.');
     };
                
     env.printPriority = 1;
-    main(loaders);
+    main(loaders).catch( (e) => {
+        console.log(e, e.stack);
+    });
 
 
 ## Load batteries
@@ -171,8 +178,9 @@ TODO
 
     //let options = {};
     const util = require('util');
-    let full = (...args) => {console.log(util.inspect(args, {depth:11,
-        colors: true}))};
+    let full = (...args) => {
+        console.log(util.inspect(args, {depth:11, colors: true}));
+    };
     let tracker = full;
     tracker = () => {};
     let loaders = [

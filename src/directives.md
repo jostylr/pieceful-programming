@@ -31,16 +31,16 @@ These are the core common directives that should be included in all versions.
 Here we take the source as an incoming node, process it as needed, and then
 save it to a file. 
 
-    async function save ({src, target, args}) {
+    async function save ({src, target, args}, sym) {
         try{
             const {env, weaver, scope} = this;
             let [f, encoding] = args;
             let name = weaver.syntax.getFullNodeName(src, scope.context.scope);
             env.log(`Waiting for ${src} (as ${name}) for save directive targeting ${target}`, 'save', 1);
-            let data = await weaver.getNode(name);
+            let data = await weaver.getNode(name, sym);
             console.log(`${name} has the following data: ${data}`);
             if (typeof f === 'function') {
-                data = (await f.call(scope, data)).value;
+                data = (await f.call(scope, data, sym)).value;
             } else {
                 encoding = f;
             }
@@ -94,6 +94,7 @@ after the web processing is done.
             extension = extension || 'md';
             env.log(`Initiating compilation of ${src} as ${target}`, 'load', 2);
             let nodes = await weaver.parse(text, target, extension, underpipes);
+            nodes.id = `load:${src}=>${target}`;
             let ret = await weaver.addPieces(nodes);
             if (options.done) {
                 await options.done({env, weaver, scope, src, target, text},

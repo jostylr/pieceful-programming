@@ -20,15 +20,30 @@ function that can be provided that defaults to an empty function. It gets
 called in the command and directive processors. 
 
     function Weaver (
-        organs = {directives:{}, commands:{}, parsers:{}, env:{}},
-        tracker = (...args) => { console.log(args); }  
+        organs = {directives:{}, commands:{}, parsers:{}, env:{}}
     ) {
         if (!organs) {
             throw Error('Weaver requires commands, directives, parsers, etc');
         }
         const weaver = this;
-        weaver.tracker = tracker;
-        const env = organs.env || {};
+        
+        let tracker = weaver.tracker = _"tracker";
+        tracker.log = _"tracker:log";
+        tracker.new = _"tracker:new";
+        tracker.fail = _"tracker:fail";
+        tracker.done = _"tracker:done";
+        tracker.get = _"tracker:get";
+        tracker.add = _"tracker:add";
+        tracker.promises = {};
+        tracker.finished = {};
+        tracker.failed = {};
+        tracker.logs = [];
+        tracker.reporterDepth = 20;
+
+
+        let env = organs.env || {};
+        weaver.changeEnv = (newEnv) => { env = newEnv; };
+
         //the actual values
         weaver.v = {
             web : {},
@@ -37,13 +52,11 @@ called in the command and directive processors.
 These are inlined into run command and are just placeholders here. 
 
                 get : ()=> {}, 
-                array : () => {}, 
                 pipe : () => {},
                 compose : () => {}, 
                 '*' :() => {}, //short version of compose
                 compile :() => {},
-                call : () => {},
-                apply : () => {}
+                log : () => {},
             }, organs.commands || {}),
             directives : organs.directives || {},
             parsers : organs.parsers || {}
@@ -66,18 +79,22 @@ These are inlined into run command and are just placeholders here.
         };
         
         //external api, probably should make read only
+        weaver.waitForFunction = _"wait for function"
         weaver.addCommands = _"add commands";
         weaver.addDirectives =  _"add directives";
         weaver.addParsers = _"add parsers";
         weaver.runDirective = _"run directive";
         weaver.addPieces = _"process pieces";
         weaver.parse = _"parse";
+        weaver.parseTracker = () => {};
         weaver.getNode = _"get node";
         weaver.run = _"run";
         weaver.keyDiff = _"key diff";
         weaver.twoLevelCopy = _"two level copy";
 
         weaver.v.commands.nodekeys = _"nodekeys";
+
+        
 
         return weaver;
     }
@@ -145,10 +162,14 @@ We return all the nodes generated during this time.
 
     async function run (loader) {
         let {directive} = loader;
-        weaver.runDirective(directive, loader);
+        let {sym, scope} = tracker.new({scope:loader.scope}, 'Starting a new run', loader); 
+        weaver.runDirective.call(scope, directive, loader, sym);
         _":orchestrate waiting for being done"
+        tracker.done(sym);
+        _":track undone"
         let unresolved = weaver.keyDiff(weaver.p, weaver.v);
-        return unresolved;
+        console.log(report);
+        return {report, unresolved};
     }
 
 
@@ -183,6 +204,55 @@ promised, but not present
         }
     }
 
+[track undone]()
+
+This will first take a look at the tracker promises. If all is done, then
+there is nothing to report.  We also do failures. 
+
+The main goal here is to get a sense of what is blocking what. So we filter
+out all the ones that are parents to something that is already blocked to get
+to the root causes of not being done or in the case of failures, to see which
+ones have a failure in their history.
+
+    let report = {};
+    ['promises', 'failed'].forEach( (type) => {
+        let tracked = Object.getOwnPropertySymbols(tracker[type]);
+        if (tracked.length > 0) {
+        // should have a connective web of things
+            let parents = tracked.map( 
+                (s) => tracker[type][s].parent 
+            ).filter( (el) => el );
+            let blockers = tracked.filter( (symbol) => {
+                return !parents.includes(symbol);    
+            });
+            let trail = blockers.map( (child) => {
+                let line = [];
+                let cur = child;
+                let count = 0;
+                while (cur && count < tracker.reporterDepth) {
+                    let symObj = tracker.get(cur);
+                    //weaver.full('Blocked', symObj);
+                    line.push([symObj.id || 'No ID', symObj]);
+                    cur = symObj.parent;
+                    count += 1;
+                }
+                return line;
+            });
+            report[type] = {
+                blockers,
+                trail,
+                msg : trail.map( 
+                    (line) => {
+                        return line.
+                            map( (el) => { return el[0].replace(/ /g, '-'); } ).
+                            join(' is blocking ');
+                    }).
+                    join('\n---\n')
+            };
+        } else {
+            report[type] = {} ;
+        }
+    });
 
    
 ### key diff
@@ -238,39 +308,65 @@ operate directly with the nodes as they finish, but this is an alternate route
 to get a perspective. If any nodes fail to process, a rejection is given to
 the promise and that allows for some error tracking here. 
 
-    async function processWeb ({web, directives}) {
-        directives.forEach( (d) => {
-            weaver.runDirective(d.directive, d);
+    async function processWeb (collective) {
+        let {web = {}, directives = [] } = collective; 
+        delete collective.web;
+        delete collective.directives;
+        let {sym} = tracker.new(
+            collective, 
+            'Processing of web and directives started',
+            {web, directives}
+        );
+
+        let dproms = Promise.all( directives.map( async function processDir (d) {
+            tracker(sym, 'Directive called', d);
+            let prom = weaver.runDirective.call(d.scope, d.directive, d, sym);
+            let v = await prom;
+            tracker(sym, 'Directive finished', [d,v]);
+            return [d,v];
+        }));
+        dproms.then( () => {
+            tracker(sym, 'All listed directives called');
+        }).catch( (rej) => {
+            tracker.fail(sym, 'Directive calling went bad', rej);
         });
+
         const names = Object.keys(web);
         const wvWeb = weaver.v.web;
         const prWeb = weaver.p.web;
-        let proms = names.map( async function (name) {
+        let proms = Promise.all(names.map( async function (name) {
             let node = web[name];
+            tracker(sym, 'beginning to process node', node);
+            let {sym:nSym} = tracker.new(node.scope, 'Processing node', node);
             let vals; // local to piece values
             _":store promise"
             _":promise the pieces"
             _":transform the value"
             prr.resolve(node.value);
-            tracker('node ' + name + ' value is computed', {name, value: node.value});
-            return node.value;
+            _":store node"
+            tracker(sym, 'node done', [name, node.value]);
+            return [name, node.value];
+        }));
+        proms.then( () => {
+            tracker(sym, 'All listed nodes processed');
+        }).catch( (rej) => {
+            tracker.fail(sym, 'Node processing went bad', rej);
         });
+
+
 
 The map above generates a lot of promises and the await below waits for them.
-When done, we zip them into an object and return the values. This could be
-useful in an interactive environment, such as a browser, or for debugging to
-see what pieces became what. 
+The return consists of the full object as well as the web and directives
+completed versions. The promise might get rejected by one of the other
+promises. If so, we just return the done tracker. 
 
-        let vals = await Promise.all(proms);
-        let ret = {};
-        names.forEach( (name, idx) => {
-            _":store node"
-            ret[name] = vals[idx];
-        });
-
-        tracker('a web of nodes is done', {web});
-        return ret;
-
+        try {
+            let [dirDone, webDone] = await Promise.all([dproms, proms]);
+            let me = tracker.done(sym, 'Web and directives done');
+            return {tracked:me, directives: dirDone, web: webDone};
+        } catch (e) {
+            return {tracked:tracker.get(sym)};
+        }
     }
     
 [store promise]()
@@ -280,27 +376,26 @@ check if it already exists. If so, we use it. If not, we set it up.
 
     let prr = prWeb[name];
     if (!prr) {
-        prr = prWeb[name] = makePromise();
+        prr = prWeb[name] = makePromise('N?', name);
     }
-    tracker(`storing node promise: ${name}`, {name, node, prr});
+    tracker(nSym, 'Promising node', prr);
 
 [store node]()
 
 Here we need to stash the node. Pretty simple; just check for redundancy and
 throw error if so. 
 
-    let newNode = web[name];
     if (has(wvWeb, name) ) {
         let oldNode = wvWeb[name];
-        if (oldNode.value === newNode.value) {
-            tracker(`redundant node compilation ${name}`, {name, newNode, oldNode}); 
+        if (oldNode.value === node.value) {
+            tracker.done(nSym, 'redundant node compilation', oldNode); 
         } else {
-            tracker(`different nodes with same name: ${name}`, {name, newNode, oldNode});
-            throw new Error("redundant node name " + name);
+            tracker.fail(nSym, 'different node values with same name', oldNode);
+            throw new Error(`Conflicting node values for  ${name}`);
         }
     } else {
-        wvWeb[name] = newNode;
-        tracker(`storing node ${name}`, {name, newNode });
+        wvWeb[name] = node;
+        tracker.done(nSym, `Node stored`);
     }
 
 [promise the pieces]()
@@ -308,10 +403,13 @@ throw error if so.
 Here we setup and execute the promising of the pieces. 
 
     if (has(node,'pieces')) {
+        let sym = nSym; // for make promise piece to use
+        tracker(sym, 'About to start computing values for the code');
         _":make promise piece"
-
+        tracker(sym, 'Node values computed', vals);
     } else {
         vals = [''];
+        tracker(nSym, 'No code pieces to process');
     }
 
 
@@ -325,13 +423,16 @@ This is split off so compile can just place it there as well.
             if  ( has(piece, 'cmd') )   {
                 let scope = makeScope({
                     tracking : 'creating piece ' + idx + ' of node ' + name, 
-                    context : node}
+                    context : node }
                 );
-                await runCommand.call(scope, piece);
+                tracker(sym, 'Calling command on piece', [idx, piece]);
+                let val = await runCommand.call(scope, piece, sym);
                 _":indent"
-                return piece.value;
+                tracker(sym, 'Command finished', [idx, val] ); 
+                piece.value = val;
+                return val;
             }
-            tracker(`Bad state reached in parsing piece of node ${node.scope.fullname}`); 
+            tracker.fail(sym, 'Piece found without a value or cmd property', idx);
             piece.value = '';
             return piece.value;
         }
@@ -351,8 +452,8 @@ the rest. This is not going to cover all possible uses, but it should cover
 all reasonable uses such as `fname = _"function definition"`.
 
 
-    if ( (piece.indent) && ( typeof piece.value === 'string') ) {
-        piece.value = piece.value.replace(/\n/g, piece.indent );
+    if ( (piece.indent) && ( typeof val === 'string') ) {
+        val  = val.replace(/\n/g, piece.indent );
     }
 
 
@@ -370,9 +471,11 @@ become the first argument of each pipe command.
 Note that this need not be a pipe. It can be a single command and it will
 still just work with the input going in as the first argument. 
 
+    tracker(nSym, 'About to transform the values', vals);
     vals = vals ||  [];
     if (vals.every( (el) => (typeof el === 'string') ) ){
         vals = vals.join('');
+        tracker(nSym, 'Concatenated values', vals);
     }
 
     if (node.transform && node.transform.length > 0) {
@@ -386,14 +489,18 @@ still just work with the input going in as the first argument.
             pipe.args.unshift( {
                 value : vals
             });
+            tracker(nSym, 'Calling command in transform', pipe);
             vals = (await runCommand.call(scope, pipe )).value;
+            tracker(nSym, 'Command in transform done', vals);
         }            
     } else if (typeof vals !== 'string') { //transform should deal with it
         //give warning of incompatible types
         // or we could give some useful version, such as jsoning for different types. 
         vals = vals.join('');
     }
+    tracker(nSym, 'Transformation completed', vals);
     node.value = vals;
+
 
 ## Parse
 
@@ -416,19 +523,29 @@ bit in the line numbering reporting.
 
 
     async function parse (text, prefix, textParserName, codeParserName) {
-        _"wait for function | sub name,  textParserName, VNAME, textParser, TYPE, parsers"
-        _"wait for function | sub name, codeParserName, VNAME, codeParser, TYPE, parsers"
-        let {web, directives} = textParser(text, {prefix, tracker : () => {}});
+        let {sym} = tracker.new({id:prefix}, 'Retrieving parsers', [text.slice(0, 100),
+            textParserName, codeParserName] );
+        console.log('checking sym existence', sym);
+        let textParser = await weaver.waitForFunction('parsers', textParserName, sym);
+        let codeParser = await weaver.waitForFunction('parsers', codeParserName, sym);
+
+        tracker(sym, 'About to parse text');
+        let {web, directives} = textParser(text, {prefix, tracker: weaver.parseTracker});
+        tracker(sym, 'Text parsing done', {web, directives});
+
         directives.forEach( (el) => {
             el.rawArgs = el.args;
             if (el.args) {
+                tracker(sym, 'Parsing directive', el);
                 let argPieces = codeParser({text: el.args, type:'args', start : el.scope.sourcepos[0]});
                 el.args = argPieces;
             } else {
                 el.args = [];    
             }
+            tracker(sym, 'Done parsing directive', el.args);
         });
         Object.keys(web).forEach( (name) => {
+            tracker(sym, 'Processing code for node', name);
             const node = web[name];
             const code = node.code || [];
             node.pieces = code.reduce( (acc, el) => {
@@ -437,6 +554,7 @@ bit in the line numbering reporting.
                 el.pieces = pieces; // in case it is needed as reference
                 return acc.concat(pieces);
             }, []);
+            tracker(sym, 'Processing transform for node', node.rawTransform);
             const transform = node.rawTransform || []; 
             node.transform = transform.reduce( (acc, el) => {
                 let [start, text] = el;
@@ -445,8 +563,10 @@ bit in the line numbering reporting.
                 return acc.concat(pieces);
             }, []);
             if (node.transform.length === 0) { delete node.transform;}
+            tracker(sym, 'Done processing node', [node.pieces, node.transform]);
         });
         //weaver.full({web, directives});
+        tracker(sym, 'Done processing text and code');
         return {web, directives};
     }
 
@@ -454,7 +574,6 @@ bit in the line numbering reporting.
 
 Each directive is fed in one at a time. The first argument is a directive
 name, the second is an array of arguments to feed in. 
-
 This is async as the directive may not exist at calling time. The promise
 should return the eventual function.
 
@@ -466,32 +585,43 @@ functions while directives are the messy state-messing procedures.
 The data passed into the directive also includes the scope object from parsing
 which contains the name and location data. 
 
-    async function runDirective (name, data) {
+    async function runDirective (name, data, parSym) {
         let {
             tracking=`directive ${name} from ${data.scope.fullname}`,
             args = [],
             target = '',
             src = ''
         } = data;
-        tracker('directive queued', {tracking, name, data});
-        _"wait for function | sub VNAME, dire, TYPE, directives"
+        const me = tracker.new(data.scope, 'Directive queued', {name, data}, parSym);
+        const {sym} = me;
+        me.id = `${name}:${src}=>${target}`;
+        let dire = await weaver.waitForFunction('directives', name, sym);
+
         let scope = makeScope({tracking, context : data});
-        let argProcessor = makeArgProcessor(scope);
-        tracker('processing directive arguments', {tracking, name, args, scope});
+        let argProcessor = makeArgProcessor(scope, sym);
+        tracker(sym, 'Processing directive arguments');
 
 The map produces potential promises to wait for, but we don't care about the
 values since they resolve to the args anyway. The values get assigned into the
 args under value. We just need to pause to have it all resolved. actualArgs
 contains the actual values. 
 
-        await Promise.all(args.map(argProcessor) );
-        let actualArgs = data.actualArgs = args.map( (el) => el.value); 
-        tracker('run directive', {tracking, name, actualArgs, scope});
-        let ret = await dire.call({env, weaver, scope}, {src, target, args:actualArgs});
-        data.value = ret;
-        //weaver.full(data);
-        tracker('directive done', {tracking, name, result:ret});
-        return data;
+        try {
+            console.log('run diry sym:', sym);
+            let actualArgs = data.actualArgs =
+                (await Promise.all(args.map(argProcessor))).
+                    filter( (el => (typeof el !== 'undefined')  ) ); 
+            tracker(sym, 'Running directive', { actualArgs });
+            let ret = await dire.call({env, weaver, scope, tracker,sym}, {src, target, args:actualArgs});
+            data.value = ret;
+            //weaver.full(data);
+            tracker.done(sym, 'directive done', ret);
+            return ret;
+        } catch (e) {
+            tracker.fail(sym, 'Directive had an error', e);
+            e.message = e.message + `Directive ${name} had an error`;
+            throw e; 
+        }
     }
 
 
@@ -500,14 +630,22 @@ contains the actual values.
 
 This is a generic bit of code that works for both the directives and commands.
 
-    let VNAME = weaver.v.TYPE[name]; 
-    if (!VNAME) {
-        let prr = weaver.p.TYPE[name];
-        if (!prr) {
-            prr = makePromise();
-            weaver.p.TYPE[name] = prr;
+
+    async function waitForFunction ( type, name, sym) {
+        let f = weaver.v[type][name]; 
+        if (!f) {
+            let prr = weaver.p[type][name];
+            if (!prr) {
+                prr = makePromise(type, name);
+                weaver.p[type][name] = prr;
+            }
+            if (typeof sym !== 'undefined') {
+                tracker.add(prr.sym, sym);
+                tracker(sym, `Waiting for definition of ${type}`, name);
+            }
+            f = await prr.prom;
         }
-        VNAME = await prr.prom;
+        return f;
     }
 
 
@@ -522,26 +660,25 @@ Otherwise, we just return the argument.
 We allow arg processors access to a scope which manages values, also in an
 async way. 
    
+Undefined can happen if there is no argument or both value and cmd are not
+present. Undefined gets filtered out afterwards. 
 
-    function makeArgProcessor(state) {
-        return async function argProcessor (arg) {
+    function makeArgProcessor(state, sym) {
+        return async function argProcessor (arg, i) {
+            let ret;
             if (!arg) {
-                return arg;
-            }
-            if (has(arg, 'value') ) {
-                return arg.value;
+                ret = undefined;
+            } else if (has(arg, 'value') ) {
+                ret = arg.value;
             } else if (arg.cmd) {
-                return (await runCommand.call(state, arg)).value;
-            } else {
-
-This can happen if a terminator is found with no value. Undefined seems
-appropriate here. 
-
-                return undefined;
-            }
+                tracker(sym, 'Running command for argument processing', [i, arg.cmd]);
+                ret = await runCommand.call(state, arg, sym);
+            } 
+            tracker(sym, 'Argument processed', [i, ret]); 
+            return ret;
         };
     }
-
+i
 ## Run Command
 
 This runs a specific command. It is similar to running directives, but we have
@@ -553,23 +690,22 @@ This modifies the piece and returns it in a way that it has a value.
 
 If it has an input property, then that becomes the first argument. Pipe is
 generally the input property maker. But if a piece has the bind property,
-then the insertion happens 
+then the insertion happens where the bind specifies.  
 
-    async function runCommand (piece = {}) {
+    async function runCommand (piece = {}, parSym) {
+        if (has(piece, 'value') ) { return piece.value;}
         let scope = this;
-        if (has(piece, 'value') ) { return piece;}
+        let {sym} = tracker.new(scope, 'run command called', piece, parSym);
         if (!piece.cmd) { 
-            tracker('run command called but no command to execute',
-                {piece,scope});
-            piece.value = ''; 
-            return piece;
+            tracker.fail(sym, 'run command called but no command to execute');
+            return piece.value = undefined; 
         }
         let {cmd, args=[]} = piece;
+        let me = tracker(sym, 'command called', cmd);
+        me.id = 'C/' + cmd;
         let override;
         _"pipe:deal with pipe inputs"
-        let {tracking = ''} = scope;
         let ret;
-        tracker('command called', {tracking, cmd, piece});
         if (cmd === 'pipe') {
             _"pipe"
         } else if (cmd === 'get') {
@@ -578,26 +714,30 @@ then the insertion happens
             _"compose"
         } else if (cmd === 'compile') {
             _"compile"
+        } else if (cmd === 'log') {
+            _"log"
         } else { 
             if ( (cmd.length > 1) && (cmd[cmd.length-1] === '*') ) {
                 _"sequence"
             } 
-            _"wait for function | sub VNAME, comm, TYPE, commands, name, cmd"
-            tracker('process command arguments', {tracking, cmd, args, scope});
-            let argProcessor = makeArgProcessor(scope);
+            let comm = await weaver.waitForFunction('commands', cmd, sym);
+            tracker(sym, 'Process command arguments');
+            let argProcessor = makeArgProcessor(scope, sym);
             let processed = (await Promise.all(args.map(argProcessor))).
-                filter( (el => el) ); //filter removes undefined elements
+                filter( (el => (typeof el !== 'undefined')  ) ); 
             piece.actualArgs = processed;
-            tracker('ready to run command', {tracking, cmd, args:processed, piece, scope});
-            ret = await comm.apply({scope, piece }, processed); 
+            tracker(sym, 'Ready to run command', processed);
+            ret = await comm.apply({scope, piece, sym, tracker }, processed); 
         }
-        tracker('command finished', {tracking, cmd, ret, scope});
+        tracker(sym, 'Command finished', ret);
         if (override) {
-            ret = override;
-            tracker('overriding result, using previous pipe input', {tracking, cmd, ret});
+            ret = override.value;
+            tracker(sym, 'Overriding result, using previous pipe input', ret);
         } 
+        console.log(cmd, 'Done', args)
+        tracker.done(sym); // finished above, but possibly overriden.
         piece.value = ret;
-        return piece;
+        return ret;
     }
 
 
@@ -615,23 +755,26 @@ this parent object.
     let input;
     let pipes = args;
     scope.pipe = piece;
-    tracker('pipe started', {tracking, pipes, scope});
+    tracker(sym, 'pipe started');
 
 As this sequential piping, we use a for loop along with the sync. 
+
+Each piece becomes the next input with its value attribute being what will
+eventually be used. 
 
     let pipeVals = [];
     for (let i = 0; i < pipes.length; i += 1) {
         let nxtPiece = pipes[i];
-        if (nxtPiece.value) {
-            input = nxtPiece;
-        } else if (nxtPiece.cmd) {
+        tracker(sym, 'Next pipe', nxtPiece);
+        if (nxtPiece.cmd) {
             nxtPiece.inputs = pipeVals.slice();
-            input = await runCommand.call(scope, nxtPiece);
-        } else {
-            tracker('failed cmd in pipe', {piece, pipe:nxtPiece, i, scope});
-            throw new Error('failed cmd in pipe:' + scope.tracking 
-                + ':pipe ' + i);
+            nxtPiece.value = await runCommand.call(scope, nxtPiece, sym);
+        } else if ( !has(nxtPiece, 'value') ) {
+            tracker.fail('failed cmd in pipe', {nxtPiece, i});
+            nxtPiece.value = undefined;
         }
+        input = nxtPiece;
+        tracker(sym, 'One pipe done', [i, input.value]);
         pipeVals.unshift(input);
     }
     delete scope.pipe;
@@ -713,15 +856,17 @@ where we first execute an argument to decide what other argument to run.
 
     let f = async function seq (ind) {
         let arg = seq.args[ind];
+        let ret; 
         if (arg) {
             if (has(arg, 'value') ) {
-                return arg.value;
+                ret = arg.value;
             } else {
-                return (await runCommand.call(scope, arg)).value; 
+                tracker(sym, 'Running sequence command', [ind, arg]);
+                ret = (await runCommand.call(scope, arg, sym)); 
             }
-        } else {
-            return;
         }
+        tracker(sym,'Sequence value', [ind, ret]); 
+        return ret;  //if no arg, ret is undefined intentionally
     };
     f.args = args;
     args = [{value : f}];
@@ -758,19 +903,20 @@ If the input is undefined from a function (also initial), then we use the
 given arguments. Generally, this is the first one. This is ignored if any
 argument has the special syntax above. 
 
-    tracker('composing', {tracking, args, scope});
+    tracker(sym, 'composing');
     let funs = args;
     let oldScope = scope;
+    let oldSym = sym;
     ret = async function composed (...newArgs) {
 
  If inline, same scope, but if not, `this` will be the scope of caller.
 
-        let scope = this;
+        let {scope, sym} = this;
         
 We need to copy the entire args chain as our run command modifies it. 
 
         funs = JSON.parse(JSON.stringify(funs) );
-        tracker('composed command called', {tracking, functions: funs, args:newArgs, scope, oldScope});
+        tracker(sym, 'composed command called', {oldSym, oldScope, funs});
 
 Next we run through all levels of the args, looking for the special syntax. If
 so, then we slot in the newArgs or, if an oldScope object, that value for it. 
@@ -787,9 +933,10 @@ will need to wrap them up in a value argument.
         let pipes = {
             cmd : 'pipes',
             args : funs,
-            tracking : oldScope.tracking + ' composed into ' + scope.tracking
         };
-        return await runCommand.call(scope, pipes);   
+        let ret = await runCommand.call(scope, pipes, sym);   
+        tracker(sym, 'composed command finished', ret);
+        return ret;
 
     };
 
@@ -878,29 +1025,27 @@ possibly an array.
     } else if (Array.isArray(arg) ) { // list of sections
         let names = [];
         let proms = _":loop through the names"
+        me.id = 'C/get/' + names.join('/');
         let vals = (await Promise.all(proms)).map(el => el.value);
         ret = {};
         _":zip names vals"
     } else {
         _":promise node value"
-        ret = (await prr.prom);
+        me.id = 'C/get/' + nodeName;
+        ret = (await nodeProm);
     }
 
 [promise node value]()
 
     let nodeName = weaver.syntax.getFullNodeName(arg, scope.context);
-    let prr = weaver.p.web[nodeName];
-    if (!prr) {
-        prr = makePromise();
-        weaver.p.web[nodeName] = prr;
-    }
+    let nodeProm = weaver.getNode(nodeName, sym);
 
 [loop through the names]()
 
     arg.map( (arg) => {
         _":promise node value"
         names.push(nodeName);
-        return prr.prom;
+        return nodeProm;
     });
 
 [zip names vals]()
@@ -915,13 +1060,20 @@ possibly an array.
 This is an external function (used by directive save, for example), to grab a
 node. 
 
-    function getNode (nodeName) {
+    function getNode (nodeName, sym) {
         let weaver = this;
         let prr = weaver.p.web[nodeName];
         if (!prr) {
-            prr = makePromise();
+            prr = makePromise('N?', nodeName);
             weaver.p.web[nodeName] = prr;
+            let pSym = prr.sym;
+            prr.prom.
+                then( (res) => { tracker.done(pSym, 'Promise of node resolve', res);}).
+                catch( (rej) => { tracker.fail(pSym, 'Promise failed', rej);});
         }
+        if (sym) {
+            tracker.add(prr.sym, 'New request for node', sym);
+        } 
         return prr.prom;
     }
 
@@ -992,6 +1144,16 @@ TODO: Probably should convert the curNode name.
         return frag; //fits a full name. 
     }
 
+### Log
+
+This command requires seeing the environment env which is not something most
+commands can access. So here is special access. This will log all arguments of
+the function to env.log and pass along the first argument. 
+
+    tracker(sym, 'loggin arguments');
+    env.log('Log:' + args.join('\n---\n') + '\n', 5, args); 
+    ret = args[0];
+
 ### Compile
 
 This takes the incoming text and compiles it as if it is a piece of code. It
@@ -1005,7 +1167,7 @@ Instead, it produces the return value of compiling it.
         //warn of no text to compile
     } else {
         let codeParserName = (args[2]) ? args[2].value : 'up';
-        _"wait for function | sub name, codeParserName, VNAME, codeParser, TYPE, parsers"
+        let codeParser = await weaver.waitForFunction('parsers', codeParserName, sym);
         let parsed = codeParser({text, type:'code', start: piece.start});
         let fakeFrag = (args[1] ? args[1].value : '#');
         let fakeName = weaver.syntax.getFullNodeName(fakeFrag, scope.context);
@@ -1036,7 +1198,6 @@ we need and the rest is annoying.
 
     let fakeScope = {fullname : fakeName };
     {
-        console.log(fakeName);
         let bits = fakeName.split('::');
         fakeScope.prefix = bits.shift();
         bits = bits[0].split('/');
@@ -1282,13 +1443,19 @@ This is a simple utility that allows for the creation of an object consisting
 of a promise, rejection, and resolution. This is intended to be used for when
 requests to an object predates even the notion of its existence. 
 
-    function makePromise () {
+    function makePromise (type, name) {
         let rej, res, prom;
         prom = new Promise ( (resolve, reject) => {
             rej = reject;
             res = resolve;
         });
-        return {reject:rej, resolve:res, prom};
+        prom.id = `${type}/${name}`;
+        let {sym} = tracker.new({id:prom.id}, 'Making new promise', prom);
+        prom.
+            then( (res) => {tracker.done(sym, 'Promise resolved', res);}).
+            catch( (rej) => {tracker.fail(sym, 'Promise failed', rej);});
+
+        return {reject:rej, resolve:res, prom, sym};
     }
 
 ## Make Scope
@@ -1301,8 +1468,172 @@ or a directive data bit.
     function (obj = {}) {
         obj.tracking = obj.tracking || '';
         obj.context = obj.context || {};
+        obj.vars = obj.vars || {}; //for using to store stuff in shared context. 
         return obj;
     }
+
+
+## Tracker
+
+This tracks what is going on with the various pieces. It works by creating a
+symbol, using tracker.new, that points to the relevant data. When it is done,
+it is removed from the promises. 
+
+The basic tracker function takes in a symbol, a log string and possibly other
+stuff. 
+    
+    function trackerShell (sym, str, args) {
+        return tracker.log(sym, str, args);
+    }
+
+[log]() 
+
+This is what tracker calls so that it can be changed. I just enjoy typing only
+tracker. 
+
+    function logTracker (sym, str, args) {
+        let me = tracker.get(sym);
+        let log;
+        log = [str, args];
+        me.logs.push(log);
+        if (me.debug || tracker.debug) {
+            env.log(`DEBUG(${me.id}): ${log[0]}`, 'tracker', 4, log[1]);
+        }
+        if (tracker.logs) {
+            tracker.logs.push([me.id, ...log]); 
+        }
+        return me;
+    }
+
+
+[get]()
+
+This just gets the symbol. Just like in log, except no warning if pulling a
+done or failed one. 
+
+    function getTracker (sym) {
+        let me = tracker.promises[sym] ||
+            tracker.finished[sym] || 
+            tracker.failed[sym];
+        if (!me) {throw Error('no corresponding tracker symbol');}
+        return me;
+    }
+
+[new]() 
+
+This creates the symbol. It expects an object in the first argument that can
+take a sym property for the symbol. It will shallow clone the object if a sym
+is already present and store the old sym as a parent. This then calls the
+tracker on the rest of the argument chain. 
+
+    function newTracker (scope, str = '', args, parent) {
+        let sym = Symbol();
+        let me = { 
+            logs : [], 
+            sym, 
+            type:'promises', 
+            children:[],
+            needsMe : []
+        };
+        _":scope and id"
+        //if (!me.id) { console.log(scope); }
+        console.log(`ID: ${me.id}`, scope);
+        if (parent) { 
+            me.parent = parent;
+            let parMe = tracker.get(parent);
+            parMe.children.push(sym);
+            if (parMe.debug > 1) {
+                me.debug = parMe.debug -1;
+            }
+        }
+        tracker.promises[sym] = me;
+        tracker.log(sym, 'New Symbol Established', scope);
+        tracker.log(sym, str, args);
+        return me;
+    }
+
+[scope and id]()
+
+This is where we try to get the scope or an id for the object. Scopes may be
+scopes or they may be things that contain a context which may be a scope or
+which may contain a scope. There hopefully is an id or a fullname on the
+scope. 
+
+    while (scope) {
+        
+        if (has(scope, "id") ) {
+            me.id = scope.id;
+            break;
+        }
+        
+        if (has(scope, "fullname") ) {
+            me.id = scope.fullname;
+            break;
+        }
+        
+        if (has(scope, "scope") ) {
+            scope = scope.scope;
+            continue;
+        }
+
+        if (has(scope, "context") ) {
+            scope = scope.context;
+            continue;
+        }
+
+        //ran out of possibilities
+        me.id = 'No ID';
+        break;
+    
+    }
+    me.scope = scope;
+
+[add]() 
+
+This adds a dependency to the tracker object. getNode does this. 
+
+    function addTracker (sym, str = '', needy) {
+        let me = tracker.log(sym, str, needy);
+        me.needsMe.push(needy);
+        return me;
+    }
+
+[done]()
+
+Done removes sym from promises and passes along any arguments to tracker. 
+
+    function doneTracker (sym, str, args) {
+        let me = tracker.log(sym, 'DONE: ' + (str || ''), args);
+        tracker.finished[sym] = me;
+        me.type = 'finished';
+        delete tracker.promises[sym];
+        return me;
+    }
+  
+
+[fail]()
+
+The fail option is if something goes wrong. We could throw an error here
+but...
+
+    function failTracker (sym, str, args) {
+        let me = tracker.log(sym, 'FAIL: ' + (str || ''), args);
+        tracker.failed[sym] = me;
+        me.type = 'failed';
+        delete tracker.promises[sym];
+        return me;
+    }
+
+[id]()
+
+This puts an explicit label on the object for tracking purposes.
+
+    function (sym, id) {
+        let me = tracker.log(sym, 'New Identifier: ' + id) ;
+        me.id = id;
+        return me;
+    }
+
 
 ## Sample
 

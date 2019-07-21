@@ -706,7 +706,7 @@ let cta;
                     let start = ind-1;
                     let cur = start;
                     while (true) { //eslint-disable-line no-constant-condition
-                        if (text[cur] !== ' ') {
+                        if ( ( text[cur] !== ' ') && (text[cur] !== "\t" ) ) {
                             start = cur-1;
                         }
                         if (cur === 0) {

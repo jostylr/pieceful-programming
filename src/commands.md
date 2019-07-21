@@ -76,15 +76,26 @@ repeatedly and checked equality.
 This modifies the indent property of the piece affecting how the final indent
 is done. It does nothing to the actual text in the pipe sequence. 
 
+We want to support tabs as well as spaces. For using tabs instead of spaces,
+we will use negative numbers. We will also do a global replace and
+substitution for `\t` if it is a string. 
+
     async function indent (text, space) {
-        console.log(this);
         let pipe = this.scope.pipe;
         if (typeof space === 'number') {
+            let kind = ' ';
+            if (space < 0 ) {
+                kind  = "\t";
+                space = -1*space;
+            }
             let temp = '\n';
             for (let i = 0; i < space; i += 1) {
-                temp += ' ';
+                temp += kind;
             }
             space = temp;
+        } 
+        if (typeof space === 'string') {
+            space = space.split("\\t").join('\t');
         }
         pipe.indent = space;
         return text;
@@ -107,6 +118,35 @@ JavaScript number or expression.
             return num;
         }
     }
+
+### Call
+
+### Apply
+
+### Array
+
+### Object
+
+### Debug
+
+This activates the debugging built into the core tracker. It takes in two
+arguments (ignoring the first which is passed along): depth which says how
+down the child level it should go (1 is current level), and the height which
+scales up the parents.  The debug of height allows us to see logs to the
+parent, but not to the parent's children. Not sure if the parent debugging is
+useful. Infinity is an option for debugging forever.  
+
+    async function debugger (incoming, depth=1, height=0) {
+        let {sym, tracker} = this;
+        sym.debug = depth;
+        let parent = tracker.get(sym).parent;
+        for (let i = 1; i < height; i += 1) {
+            if (!parent) {break;}
+            parent.debug = parent.debug || 1;
+        }
+        return incoming;
+    }
+
 
 ## Full
 
