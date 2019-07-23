@@ -36,6 +36,12 @@ called in the command and directive processors.
         tracker.add = _"tracker add";
         tracker.self = _"tracker self";
         tracker.report = _"tracker report";
+        tracker.report.mapper = _"tracker report:mapper";
+        tracker.report.joiner = _"tracker report:joiner";
+        tracker.report.failed = _"tracker report:failed";
+        tracker.report.blocked = _"tracker report:blocked";
+        
+        
         tracker.promises = {};
         tracker.finished = {};
         tracker.failed = {};
@@ -88,7 +94,7 @@ These are inlined into run command and are just placeholders here.
         };
         
         //external api, probably should make read only
-        weaver.waitForFunction = _"wait for function"
+        weaver.waitForFunction = _"wait for function";
         weaver.addCommands = _"add commands";
         weaver.addDirectives =  _"add directives";
         weaver.addParsers = _"add parsers";
@@ -176,7 +182,7 @@ We return all the nodes generated during this time.
         weaver.runDirective.call(scope, directive, loader, sym);
         _":orchestrate waiting for being done"
         tracker.done(sym);
-        let report = tracker.report()
+        let report = tracker.report();
         let unresolved = weaver.keyDiff(weaver.p, weaver.v);
         return {report, unresolved};
     }
@@ -1469,7 +1475,7 @@ requests to an object predates even the notion of its existence.
             rej = reject;
             res = resolve;
         });
-        let t = weaver.promiseLabels[type] || type
+        let t = weaver.promiseLabels[type] || type;
         prom.id = `${t}/${name}`;
         let {sym} = tracker.new(prom.id, 'Making new promise', prom);
         prom.
@@ -1619,7 +1625,7 @@ overwrites anything that was there (probably an id)
 This adds a dependency to the tracker object. getNode does this. 
 
     function addTracker (sym, str = '', needy) {
-        let me = tracker.log(sym, str, needy);
+        let me = tracker.log(sym, str, tracker.get(needy).id);
         me.needsMe.push(needy);
         return me;
     }
@@ -1643,13 +1649,12 @@ The fail option is if something goes wrong. We could throw an error here
 but...
 
     function failTracker (sym, str, args) {
-        let err = 'FAIL: ' + (str || '');
+        let err = (str || '');
         let me = tracker.log(sym, err, args);
         tracker.failed[sym] = me;
         me.type = 'failed';
         me.failed = [err,  args];
         delete tracker.promises[sym];
-        env.log(err, args);
         return me;
     }
 
@@ -1676,19 +1681,23 @@ the chain of blockers.
 
     function reportTracker (indent = '  ') {
         let report;
+        let self = reportTracker;
+        let mapper = self.mapper.bind(weaver);
+        let joiner = self.joiner.bind(weaver);
+        let failed = self.failed.bind(weaver);
+        let blocked = self.blocked.bind(weaver);
         
-        let mapper = _":mapper";   
-
-        let joiner = _":joiner";
-
         let root = Object.getOwnPropertySymbols(tracker.failed);
 
         if (root.length > 0) {
             let ids = root.map(mapper);
-            report = console.log(ids);
+            let trails = ids.map( (root) => joiner(root, indent) );
+            report = failed(trails, root);
+
         } else {
             let unfinished = Object.getOwnPropertySymbols(tracker.promises);
             if (unfinished.length > 0) {
+
                 let needs = unfinished.reduce( (acc, el) => {
                     let me = tracker.get(el);
                     if (me.needsMe.length > 0 ) {
@@ -1696,11 +1705,12 @@ the chain of blockers.
                     }
                     return acc;
                 }, []);
+                
                 root = unfinished.filter( (el) => !needs.includes(el) );
                 let ids = root.map(mapper);
-                report = 'Did not finish:\n' + 
-                    ids.map( (root) => joiner(root, indent) ).
-                    join('\n');
+                let trails = ids.map( (root) => joiner(root, indent) );
+                report = blocked(trails, root);
+                
             }   
         }
         return report;
@@ -1710,7 +1720,7 @@ the chain of blockers.
 
 This should return a set of arrays with `[id, [...]` structure. 
 
-    (el) => {
+    function mapper (el) {
         let me = tracker.get(el);
         let id = me.id;
         if (!id) { env.log(me); id = 'No-ID'; }
@@ -1727,59 +1737,61 @@ This should return a set of arrays with `[id, [...]` structure.
 
 This creates a string to report. It uses indent.
 
-    function recurse (arr, curIndent) {
+    function recurse (arr = [], indent = '  ', curIndent) {
+        if (typeof curIndent === 'undefined') {
+            curIndent = indent;
+        }
         let id = arr[0];
         let ids = arr[1];
         if ( (Array.isArray(ids) ) && ( ids.length > 0)) {
             let trails = ids.
-                map( (arr) => recurse(arr, curIndent + indent)).
-                map( (str) => id + '\n' + curIndent + str).
-                join( '\n');
-            return trails;
+                map( (arr) => recurse(arr, indent, curIndent + indent)).
+                map( (str) => curIndent + str).
+                join( '\n' + curIndent + '---\n');
+            return id + '\n' + trails;
         } else {
             return id;
         }
     }
         
+[failed]()
 
+This attached more information about the failing root. 
 
-[junk]()
+    function failed (trails, roots) {    
+        let tracker = this.tracker;
 
-    let report = {};
-    ['promises', 'failed'].forEach( (type) => {
-        let tracked = Object.getOwnPropertySymbols(tracker[type]);
-        if (tracked.length > 0) {
-        // should have a connective web of things
-            let parents = tracked.map( 
-                (s) => tracker[type][s].parent 
-            ).filter( (el) => el );
-            let blockers = tracked.filter( (symbol) => {
-                return !parents.includes(symbol);    
-            });
-            let trail = blockers.map( (child) => {
-                let line = [];
-                let cur = child;
-                let symObj = tracker.get(cur);
-                //weaver.full('Blocked', symObj);
-                line.push([symObj.id || 'No ID', symObj]);
-                return line;
-            });
-            report[type] = {
-                blockers,
-                trail,
-                msg : trail.map( 
-                    (line) => {
-                        return line.
-                            map( (el) => { return el[0].replace(/ /g, '-'); } ).
-                            join(' is blocking ');
-                    }).
-                    join('\n---\n')
-            };
-        } else {
-            report[type] = {} ;
-        }
-    });
+        trails = trails.map( (str, idx) => {
+            let err = tracker.get(roots[idx]).failed;
+            return str + 
+            '\nFAILURE REPORT: ' + err[0] + 
+            '\n' + err[1].stack;
+        });
 
+        return 'FAILED:\n' + trails.join('\n---\n');
+    }
+            
+[blocked]()
+
+This reports the logs of the blocked. 
+
+    function blocked (trails, roots) {
+        let tracker = this.tracker;
+
+        trails = trails.map ( (str, idx) => {
+            let logs = tracker.get(roots[idx]).logs;
+            let logstr = logs.map( log => log[0] + 
+                    ( ( typeof log[1] !== 'undefined') ? 
+                        ':' + JSON.stringify(log[1]) :
+                        '' 
+                    )).
+                join('\n');
+            return str + '\n---\n' + logstr;
+        });
+
+        return 'DID NOT FINISH:\n' + 
+            trails.join('\n===\n'); 
+    }
 
 
 ## Sample

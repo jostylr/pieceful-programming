@@ -71,13 +71,12 @@ module.exports = function Weaver (
         return me;
     };
     tracker.fail = function failTracker (sym, str, args) {
-        let err = 'FAIL: ' + (str || '');
+        let err = (str || '');
         let me = tracker.log(sym, err, args);
         tracker.failed[sym] = me;
         me.type = 'failed';
         me.failed = [err,  args];
         delete tracker.promises[sym];
-        env.log(err, args);
         return me;
     };
     tracker.done = function doneTracker (sym, str, args) {
@@ -95,7 +94,7 @@ module.exports = function Weaver (
         return me;
     };
     tracker.add = function addTracker (sym, str = '', needy) {
-        let me = tracker.log(sym, str, needy);
+        let me = tracker.log(sym, str, tracker.get(needy).id);
         me.needsMe.push(needy);
         return me;
     };
@@ -106,41 +105,23 @@ module.exports = function Weaver (
     };
     tracker.report = function reportTracker (indent = '  ') {
         let report;
+        let self = reportTracker;
+        let mapper = self.mapper.bind(weaver);
+        let joiner = self.joiner.bind(weaver);
+        let failed = self.failed.bind(weaver);
+        let blocked = self.blocked.bind(weaver);
         
-        let mapper = (el) => {
-            let me = tracker.get(el);
-            let id = me.id;
-            if (!id) { env.log(me); id = 'No-ID'; }
-            if (me.needsMe.length > 0) {
-                let ids = me.needsMe.map(mapper);    
-                return [id, ids];
-            } else {
-                return [id, []];
-            }
-        };   
-    
-        let joiner = function recurse (arr, curIndent) {
-            let id = arr[0];
-            let ids = arr[1];
-            if ( (Array.isArray(ids) ) && ( ids.length > 0)) {
-                let trails = ids.
-                    map( (arr) => recurse(arr, curIndent + indent)).
-                    map( (str) => id + '\n' + curIndent + str).
-                    join( '\n');
-                return trails;
-            } else {
-                return id;
-            }
-        };
-    
         let root = Object.getOwnPropertySymbols(tracker.failed);
     
         if (root.length > 0) {
             let ids = root.map(mapper);
-            report = console.log(ids);
+            let trails = ids.map( (root) => joiner(root, indent) );
+            report = failed(trails, root);
+    
         } else {
             let unfinished = Object.getOwnPropertySymbols(tracker.promises);
             if (unfinished.length > 0) {
+    
                 let needs = unfinished.reduce( (acc, el) => {
                     let me = tracker.get(el);
                     if (me.needsMe.length > 0 ) {
@@ -148,15 +129,74 @@ module.exports = function Weaver (
                     }
                     return acc;
                 }, []);
+                
                 root = unfinished.filter( (el) => !needs.includes(el) );
                 let ids = root.map(mapper);
-                report = 'Did not finish:\n' + 
-                    ids.map( (root) => joiner(root, indent) ).
-                    join('\n');
+                let trails = ids.map( (root) => joiner(root, indent) );
+                report = blocked(trails, root);
+                
             }   
         }
         return report;
     };
+    tracker.report.mapper = function mapper (el) {
+        let me = tracker.get(el);
+        let id = me.id;
+        if (!id) { env.log(me); id = 'No-ID'; }
+        if (me.needsMe.length > 0) {
+            let ids = me.needsMe.map(mapper);    
+            return [id, ids];
+        } else {
+            return [id, []];
+        }
+    };
+    tracker.report.joiner = function recurse (arr = [], indent = '  ', curIndent) {
+        if (typeof curIndent === 'undefined') {
+            curIndent = indent;
+        }
+        let id = arr[0];
+        let ids = arr[1];
+        if ( (Array.isArray(ids) ) && ( ids.length > 0)) {
+            let trails = ids.
+                map( (arr) => recurse(arr, indent, curIndent + indent)).
+                map( (str) => curIndent + str).
+                join( '\n' + curIndent + '---\n');
+            return id + '\n' + trails;
+        } else {
+            return id;
+        }
+    };
+    tracker.report.failed = function failed (trails, roots) {    
+        let tracker = this.tracker;
+    
+        trails = trails.map( (str, idx) => {
+            let err = tracker.get(roots[idx]).failed;
+            return str + 
+            '\nFAILURE REPORT: ' + err[0] + 
+            '\n' + err[1].stack;
+        });
+    
+        return 'FAILED:\n' + trails.join('\n---\n');
+    };
+    tracker.report.blocked = function blocked (trails, roots) {
+        let tracker = this.tracker;
+    
+        trails = trails.map ( (str, idx) => {
+            let logs = tracker.get(roots[idx]).logs;
+            let logstr = logs.map( log => log[0] + 
+                    ( ( typeof log[1] !== 'undefined') ? 
+                        ':' + JSON.stringify(log[1]) :
+                        '' 
+                    )).
+                join('\n');
+            return str + '\n---\n' + logstr;
+        });
+    
+        return 'DID NOT FINISH:\n' + 
+            trails.join('\n===\n'); 
+    };
+    
+    
     tracker.promises = {};
     tracker.finished = {};
     tracker.failed = {};
@@ -195,7 +235,7 @@ module.exports = function Weaver (
             rej = reject;
             res = resolve;
         });
-        let t = weaver.promiseLabels[type] || type
+        let t = weaver.promiseLabels[type] || type;
         prom.id = `${t}/${name}`;
         let {sym} = tracker.new(prom.id, 'Making new promise', prom);
         prom.
@@ -569,7 +609,7 @@ module.exports = function Weaver (
             f = await prr.prom;
         }
         return f;
-    }
+    };
     weaver.addCommands = function (commands = {}, prefix='') {
         let weCommands = weaver.v.commands;
         let weWait = weaver.p.commands;
@@ -904,7 +944,7 @@ module.exports = function Weaver (
             }
         }
         tracker.done(sym);
-        let report = tracker.report()
+        let report = tracker.report();
         let unresolved = weaver.keyDiff(weaver.p, weaver.v);
         return {report, unresolved};
     };
