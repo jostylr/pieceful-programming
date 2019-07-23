@@ -480,51 +480,45 @@ const Weaver = function Weaver (
         }
         return me;
     };
-    tracker.new = function newTracker (scope, str = '', args, parent) {
+    tracker.new = function newTracker (scope, str = '', args) {
         let sym = Symbol();
         let me = { 
             logs : [], 
             sym, 
             type:'promises', 
-            children:[],
-            needsMe : []
+            needsMe : [], 
+            self : scope
         };
-        while (scope) {
+        if (typeof scope === 'string') {
+            me.id = scope;
+        } else {
+            while (scope) {
+                
+                if (has(scope, "id") ) {
+                    me.id = scope.id;
+                    break;
+                }
+                
+                if (has(scope, "fullname") ) {
+                    me.id = scope.fullname;
+                    break;
+                }
+                
+                if (has(scope, "scope") ) {
+                    scope = scope.scope;
+                    continue;
+                }
             
-            if (has(scope, "id") ) {
-                me.id = scope.id;
+                if (has(scope, "context") ) {
+                    scope = scope.context;
+                    continue;
+                }
+            
+                //ran out of possibilities
+                me.id = 'No ID';
+                console.log(str, args, scope, me);
                 break;
-            }
             
-            if (has(scope, "fullname") ) {
-                me.id = scope.fullname;
-                break;
-            }
-            
-            if (has(scope, "scope") ) {
-                scope = scope.scope;
-                continue;
-            }
-        
-            if (has(scope, "context") ) {
-                scope = scope.context;
-                continue;
-            }
-        
-            //ran out of possibilities
-            me.id = 'No ID';
-            break;
-        
-        }
-        me.scope = scope;
-        //if (!me.id) { console.log(scope); }
-        console.log(`ID: ${me.id}`, scope);
-        if (parent) { 
-            me.parent = parent;
-            let parMe = tracker.get(parent);
-            parMe.children.push(sym);
-            if (parMe.debug > 1) {
-                me.debug = parMe.debug -1;
             }
         }
         tracker.promises[sym] = me;
@@ -533,10 +527,13 @@ const Weaver = function Weaver (
         return me;
     };
     tracker.fail = function failTracker (sym, str, args) {
-        let me = tracker.log(sym, 'FAIL: ' + (str || ''), args);
+        let err = 'FAIL: ' + (str || '');
+        let me = tracker.log(sym, err, args);
         tracker.failed[sym] = me;
         me.type = 'failed';
+        me.failed = [err,  args];
         delete tracker.promises[sym];
+        env.log(err, args);
         return me;
     };
     tracker.done = function doneTracker (sym, str, args) {
@@ -557,6 +554,64 @@ const Weaver = function Weaver (
         let me = tracker.log(sym, str, needy);
         me.needsMe.push(needy);
         return me;
+    };
+    tracker.self = function selfTracker (sym, str = '', self) {
+        let me = tracker.log(sym, str, self);
+        me.self = self;
+        return me;
+    };
+    tracker.report = function reportTracker (indent = '  ') {
+        let report;
+        
+        let mapper = (el) => {
+            let me = tracker.get(el);
+            let id = me.id;
+            if (!id) { env.log(me); id = 'No-ID'; }
+            if (me.needsMe.length > 0) {
+                let ids = me.needsMe.map(mapper);    
+                return [id, ids];
+            } else {
+                return [id, []];
+            }
+        };   
+    
+        let joiner = function recurse (arr, curIndent) {
+            let id = arr[0];
+            let ids = arr[1];
+            if ( (Array.isArray(ids) ) && ( ids.length > 0)) {
+                let trails = ids.
+                    map( (arr) => recurse(arr, curIndent + indent)).
+                    map( (str) => id + '\n' + curIndent + str).
+                    join( '\n');
+                return trails;
+            } else {
+                return id;
+            }
+        };
+    
+        let root = Object.getOwnPropertySymbols(tracker.failed);
+    
+        if (root.length > 0) {
+            let ids = root.map(mapper);
+            report = console.log(ids);
+        } else {
+            let unfinished = Object.getOwnPropertySymbols(tracker.promises);
+            if (unfinished.length > 0) {
+                let needs = unfinished.reduce( (acc, el) => {
+                    let me = tracker.get(el);
+                    if (me.needsMe.length > 0 ) {
+                        acc.push(...me.needsMe);
+                    }
+                    return acc;
+                }, []);
+                root = unfinished.filter( (el) => !needs.includes(el) );
+                let ids = root.map(mapper);
+                report = 'Did not finish:\n' + 
+                    ids.map( (root) => joiner(root, indent) ).
+                    join('\n');
+            }   
+        }
+        return report;
     };
     tracker.promises = {};
     tracker.finished = {};
@@ -596,8 +651,9 @@ const Weaver = function Weaver (
             rej = reject;
             res = resolve;
         });
-        prom.id = `${type}/${name}`;
-        let {sym} = tracker.new({id:prom.id}, 'Making new promise', prom);
+        let t = weaver.promiseLabels[type] || type
+        prom.id = `${t}/${name}`;
+        let {sym} = tracker.new(prom.id, 'Making new promise', prom);
         prom.
             then( (res) => {tracker.done(sym, 'Promise resolved', res);}).
             catch( (rej) => {tracker.fail(sym, 'Promise failed', rej);});
@@ -619,17 +675,19 @@ const Weaver = function Weaver (
             return ret;
         };
     };
-    const runCommand = async function runCommand (piece = {}, parSym) {
-        if (has(piece, 'value') ) { return piece.value;}
+    const runCommand = async function runCommand (piece = {}, sym) {
+        tracker(sym, 'run command called', piece);
+        if (has(piece, 'value') ) { 
+            tracker(sym, 'Run command returned', piece.value);
+            return piece.value;
+        }
         let scope = this;
-        let {sym} = tracker.new(scope, 'run command called', piece, parSym);
         if (!piece.cmd) { 
             tracker.fail(sym, 'run command called but no command to execute');
             return piece.value = undefined; 
         }
         let {cmd, args=[]} = piece;
-        let me = tracker(sym, 'command called', cmd);
-        me.id = 'C/' + cmd;
+        tracker(sym, 'command called', cmd);
         let override;
         if (has(piece, 'inputs') ) {
             let inputs = piece.inputs;
@@ -670,10 +728,13 @@ const Weaver = function Weaver (
             }
         }
         let ret;
+    
+    
+    
+    
         if (cmd === 'pipe') {
             let input;
             let pipes = args;
-            scope.pipe = piece;
             tracker(sym, 'pipe started');
             let pipeVals = [];
             for (let i = 0; i < pipes.length; i += 1) {
@@ -690,7 +751,6 @@ const Weaver = function Weaver (
                 tracker(sym, 'One pipe done', [i, input.value]);
                 pipeVals.unshift(input);
             }
-            delete scope.pipe;
             ret = input.value;
         } else if (cmd === 'get') {
             let arg = args[0].value || '';
@@ -704,7 +764,6 @@ const Weaver = function Weaver (
                     names.push(nodeName);
                     return nodeProm;
                 });
-                me.id = 'C/get/' + names.join('/');
                 let vals = (await Promise.all(proms)).map(el => el.value);
                 ret = {};
                 vals.forEach( (el, idx) => {
@@ -713,23 +772,24 @@ const Weaver = function Weaver (
             } else {
                 let nodeName = weaver.syntax.getFullNodeName(arg, scope.context);
                 let nodeProm = weaver.getNode(nodeName, sym);
-                me.id = 'C/get/' + nodeName;
                 ret = (await nodeProm);
             }
         } else if ((cmd === 'compose') || (cmd === '*' )) {
             tracker(sym, 'composing');
-            let funs = args;
+            let funs = JSON.stringify(args);
             let oldScope = scope;
             let oldSym = sym;
             ret = async function composed (...newArgs) {
                 let {scope, sym} = this;
-                funs = JSON.parse(JSON.stringify(funs) );
+                let localFuns = JSON.parse(funs);
                 tracker(sym, 'composed command called', {oldSym, oldScope, funs});
-                funs = weaver.syntax.descentSpecial(funs, newArgs, oldScope);
+                localFuns = weaver.syntax.descentSpecial(localFuns, newArgs, oldScope);
+                tracker(sym, 'Arguments have been replaced', localFuns);
                 let pipes = {
                     cmd : 'pipes',
                     args : funs,
                 };
+                tracker(sym, 'Running pipe formed by composition');
                 let ret = await runCommand.call(scope, pipes, sym);   
                 tracker(sym, 'composed command finished', ret);
                 return ret;
@@ -738,12 +798,14 @@ const Weaver = function Weaver (
         } else if (cmd === 'compile') {
             let text = (args[0]) ? args[0].value : '';
             if ( (typeof text !== 'string' ) || (text === '') ) {
+                tracker(sym, 'Compile called, but no understandable text', text);
                 ret = ''; 
-                //warn of no text to compile
             } else {
                 let codeParserName = (args[2]) ? args[2].value : 'up';
+                tracker(sym, 'Parsing text for compile', {text, codeParserName});
                 let codeParser = await weaver.waitForFunction('parsers', codeParserName, sym);
                 let parsed = codeParser({text, type:'code', start: piece.start});
+                tracker(sym, 'Text parsed for compile', parsed);
                 let fakeFrag = (args[1] ? args[1].value : '#');
                 let fakeName = weaver.syntax.getFullNodeName(fakeFrag, scope.context);
                 let fakeScope = {fullname : fakeName };
@@ -768,13 +830,23 @@ const Weaver = function Weaver (
                 let vals; 
             
                 let name = 'Fake Compile Name - ' + fakeName;
-                let pieceProms = node.pieces.map( 
-                    async function singlePieceProcess (piece, idx) {
-                        if (has(piece, 'value') ) {return piece.value;}
+                tracker(sym, 'About to start compiling', name);
+                vals = [];
+                { 
+                    let pieces = node.pieces;
+                    let n = pieces.length;
+                    for (let idx = 0; idx < n; idx += 1) {
+                        let piece = pieces[idx];
+                        if (has(piece, 'value') ) {
+                            tracker(sym, 'Piece had value', piece.value);
+                            vals.push(piece.value);
+                            continue;
+                        }
                         if  ( has(piece, 'cmd') )   {
                             let scope = makeScope({
                                 tracking : 'creating piece ' + idx + ' of node ' + name, 
-                                context : node }
+                                context : node, 
+                                top : piece }
                             );
                             tracker(sym, 'Calling command on piece', [idx, piece]);
                             let val = await runCommand.call(scope, piece, sym);
@@ -783,20 +855,22 @@ const Weaver = function Weaver (
                             }
                             tracker(sym, 'Command finished', [idx, val] ); 
                             piece.value = val;
-                            return val;
+                            vals.push(piece.val);
+                            continue;
                         }
                         tracker.fail(sym, 'Piece found without a value or cmd property', idx);
                         piece.value = '';
-                        return piece.value;
+                        vals.push('');
+                        break;
                     }
-                );
-                vals = await Promise.all(pieceProms);
+                }
             
+                tracker(sym, 'Compiling done', vals);
                 ret = vals.join(''); //no transform; if make a nicer version in transform then use that
             
             }
         } else if (cmd === 'log') {
-            tracker(sym, 'loggin arguments');
+            tracker(sym, 'logging arguments');
             env.log('Log:' + args.join('\n---\n') + '\n', 5, args); 
             ret = args[0];
         } else { 
@@ -821,19 +895,22 @@ const Weaver = function Weaver (
             let comm = await weaver.waitForFunction('commands', cmd, sym);
             tracker(sym, 'Process command arguments');
             let argProcessor = makeArgProcessor(scope, sym);
-            let processed = (await Promise.all(args.map(argProcessor))).
-                filter( (el => (typeof el !== 'undefined')  ) ); 
-            piece.actualArgs = processed;
-            tracker(sym, 'Ready to run command', processed);
-            ret = await comm.apply({scope, piece, sym, tracker }, processed); 
+            let actualArgs = [];
+            let n = args.length;
+            for (let i = 0; i < n; i += 1) {
+                let arg = await argProcessor(args[i], i);
+                actualArgs.push(arg);
+            }
+            actualArgs = actualArgs.filter( (el => (typeof el !== 'undefined')  ) ); 
+            piece.actualArgs = actualArgs;
+            tracker(sym, 'Ready to run command', actualArgs);
+            ret = await comm.apply({sym, tracker, scope }, actualArgs ); 
         }
         tracker(sym, 'Command finished', ret);
         if (override) {
             ret = override.value;
             tracker(sym, 'Overriding result, using previous pipe input', ret);
         } 
-        console.log(cmd, 'Done', args)
-        tracker.done(sym); // finished above, but possibly overriden.
         piece.value = ret;
         return ret;
     };
@@ -841,6 +918,7 @@ const Weaver = function Weaver (
         obj.tracking = obj.tracking || '';
         obj.context = obj.context || {};
         obj.vars = obj.vars || {}; //for using to store stuff in shared context. 
+        obj.top = obj.top || {}; //the top piece of a piece chain
         return obj;
     };
     weaver.syntax = {
@@ -919,8 +997,16 @@ const Weaver = function Weaver (
             if (frag.indexOf('::') === -1) {
                 return (curNode.prefix || '') + '::' + frag;
             }
-            return frag; //fits a full name. 
+        
+            return frag;
         }
+    };
+
+    weaver.promiseLabels = {
+        'parsers' : 'P',
+        'directives' : 'D',
+        'commands' : 'C',
+        'nodes' : 'N'
     };
     
     //external api, probably should make read only
@@ -933,7 +1019,7 @@ const Weaver = function Weaver (
                 weaver.p[type][name] = prr;
             }
             if (typeof sym !== 'undefined') {
-                tracker.add(prr.sym, sym);
+                tracker.add(prr.sym, 'Waiting for function', sym);
                 tracker(sym, `Waiting for definition of ${type}`, name);
             }
             f = await prr.prom;
@@ -1013,19 +1099,23 @@ const Weaver = function Weaver (
             target = '',
             src = ''
         } = data;
-        const me = tracker.new(data.scope, 'Directive queued', {name, data}, parSym);
-        const {sym} = me;
-        me.id = `${name}:${src}=>${target}`;
+        let id =`${name}:${src}=>${target}`; 
+        const {sym} = tracker.new(id, 'Directive queued', {name, data});
+        tracker.add(sym, 'Directive needed', parSym);
         let dire = await weaver.waitForFunction('directives', name, sym);
     
         let scope = makeScope({tracking, context : data});
         let argProcessor = makeArgProcessor(scope, sym);
         tracker(sym, 'Processing directive arguments');
         try {
-            console.log('run diry sym:', sym);
-            let actualArgs = data.actualArgs =
-                (await Promise.all(args.map(argProcessor))).
-                    filter( (el => (typeof el !== 'undefined')  ) ); 
+            let actualArgs = [];
+            let n = args.length;
+            for (let i = 0; i < n; i += 1) {
+                let arg = await argProcessor(args[i], i);
+                actualArgs.push(arg);
+            }
+            actualArgs = actualArgs.filter( (el => (typeof el !== 'undefined')  ) ); 
+            data.actualArgs = actualArgs;
             tracker(sym, 'Running directive', { actualArgs });
             let ret = await dire.call({env, weaver, scope, tracker,sym}, {src, target, args:actualArgs});
             data.value = ret;
@@ -1038,7 +1128,7 @@ const Weaver = function Weaver (
             throw e; 
         }
     };
-    weaver.addPieces = async function processWeb (collective) {
+    weaver.addPieces = async function processWeb (collective, parSym) {
         let {web = {}, directives = [] } = collective; 
         delete collective.web;
         delete collective.directives;
@@ -1047,6 +1137,7 @@ const Weaver = function Weaver (
             'Processing of web and directives started',
             {web, directives}
         );
+        tracker.add(sym, 'Web parent', parSym);
     
         let dproms = Promise.all( directives.map( async function processDir (d) {
             tracker(sym, 'Directive called', d);
@@ -1066,24 +1157,32 @@ const Weaver = function Weaver (
         const prWeb = weaver.p.web;
         let proms = Promise.all(names.map( async function (name) {
             let node = web[name];
-            tracker(sym, 'beginning to process node', node);
-            let {sym:nSym} = tracker.new(node.scope, 'Processing node', node);
             let vals; // local to piece values
             let prr = prWeb[name];
             if (!prr) {
-                prr = prWeb[name] = makePromise('N?', name);
+                prr = prWeb[name] = makePromise('nodes', name);
             }
-            tracker(nSym, 'Promising node', prr);
+            let nSym = prr.sym;
+            tracker.self(nSym, 'Starting to process node', node); 
             if (has(node,'pieces')) {
                 let sym = nSym; // for make promise piece to use
                 tracker(sym, 'About to start computing values for the code');
-                let pieceProms = node.pieces.map( 
-                    async function singlePieceProcess (piece, idx) {
-                        if (has(piece, 'value') ) {return piece.value;}
+                vals = [];
+                { 
+                    let pieces = node.pieces;
+                    let n = pieces.length;
+                    for (let idx = 0; idx < n; idx += 1) {
+                        let piece = pieces[idx];
+                        if (has(piece, 'value') ) {
+                            tracker(sym, 'Piece had value', piece.value);
+                            vals.push(piece.value);
+                            continue;
+                        }
                         if  ( has(piece, 'cmd') )   {
                             let scope = makeScope({
                                 tracking : 'creating piece ' + idx + ' of node ' + name, 
-                                context : node }
+                                context : node, 
+                                top : piece }
                             );
                             tracker(sym, 'Calling command on piece', [idx, piece]);
                             let val = await runCommand.call(scope, piece, sym);
@@ -1092,14 +1191,15 @@ const Weaver = function Weaver (
                             }
                             tracker(sym, 'Command finished', [idx, val] ); 
                             piece.value = val;
-                            return val;
+                            vals.push(piece.val);
+                            continue;
                         }
                         tracker.fail(sym, 'Piece found without a value or cmd property', idx);
                         piece.value = '';
-                        return piece.value;
+                        vals.push('');
+                        break;
                     }
-                );
-                vals = await Promise.all(pieceProms);
+                }
                 tracker(sym, 'Node values computed', vals);
             } else {
                 vals = [''];
@@ -1163,59 +1263,64 @@ const Weaver = function Weaver (
             return {tracked:tracker.get(sym)};
         }
     };
-    weaver.parse = async function parse (text, prefix, textParserName, codeParserName) {
-        let {sym} = tracker.new({id:prefix}, 'Retrieving parsers', [text.slice(0, 100),
+    weaver.parse = async function parse (text, prefix, textParserName, codeParserName, parSym) {
+        let {sym} = tracker.new('Parsing:' + prefix, 'Retrieving parsers', [text.slice(0, 100),
             textParserName, codeParserName] );
-        console.log('checking sym existence', sym);
-        let textParser = await weaver.waitForFunction('parsers', textParserName, sym);
-        let codeParser = await weaver.waitForFunction('parsers', codeParserName, sym);
+        tracker.add(sym, 'Parsing begun', parSym);
+        try {
+            let textParser = await weaver.waitForFunction('parsers', textParserName, sym);
+            let codeParser = await weaver.waitForFunction('parsers', codeParserName, sym);
     
-        tracker(sym, 'About to parse text');
-        let {web, directives} = textParser(text, {prefix, tracker: weaver.parseTracker});
-        tracker(sym, 'Text parsing done', {web, directives});
+            tracker(sym, 'About to parse text');
+            let {web, directives} = textParser.call(weaver, text, {prefix, tracker: weaver.parseTracker});
+            tracker(sym, 'Text parsing done', {web, directives});
     
-        directives.forEach( (el) => {
-            el.rawArgs = el.args;
-            if (el.args) {
-                tracker(sym, 'Parsing directive', el);
-                let argPieces = codeParser({text: el.args, type:'args', start : el.scope.sourcepos[0]});
-                el.args = argPieces;
-            } else {
-                el.args = [];    
-            }
-            tracker(sym, 'Done parsing directive', el.args);
-        });
-        Object.keys(web).forEach( (name) => {
-            tracker(sym, 'Processing code for node', name);
-            const node = web[name];
-            const code = node.code || [];
-            node.pieces = code.reduce( (acc, el) => {
-                let {code, start} = el;
-                let pieces = codeParser({text:code, type:'code', start});
-                el.pieces = pieces; // in case it is needed as reference
-                return acc.concat(pieces);
-            }, []);
-            tracker(sym, 'Processing transform for node', node.rawTransform);
-            const transform = node.rawTransform || []; 
-            node.transform = transform.reduce( (acc, el) => {
-                let [start, text] = el;
-                let pieces = codeParser({text, type:'transform', start});
-                el.pieces = pieces;
-                return acc.concat(pieces);
-            }, []);
-            if (node.transform.length === 0) { delete node.transform;}
-            tracker(sym, 'Done processing node', [node.pieces, node.transform]);
-        });
-        //weaver.full({web, directives});
-        tracker(sym, 'Done processing text and code');
-        return {web, directives};
+            directives.forEach( (el) => {
+                el.rawArgs = el.args;
+                if (el.args) {
+                    tracker(sym, 'Parsing directive', el);
+                    let argPieces = codeParser.call(weaver, {text: el.args, type:'args', start : el.scope.sourcepos[0]});
+                    el.args = argPieces;
+                } else {
+                    el.args = [];    
+                }
+                tracker(sym, 'Done parsing directive', el.args);
+            });
+            Object.keys(web).forEach( (name) => {
+                tracker(sym, 'Processing code for node', name);
+                const node = web[name];
+                const code = node.code || [];
+                node.pieces = code.reduce( (acc, el) => {
+                    let {code, start} = el;
+                    let pieces = codeParser.call(weaver, {text:code, type:'code', start});
+                    el.pieces = pieces; // in case it is needed as reference
+                    return acc.concat(pieces);
+                }, []);
+                tracker(sym, 'Processing transform for node', node.rawTransform);
+                const transform = node.rawTransform || []; 
+                node.transform = transform.reduce( (acc, el) => {
+                    let [start, text] = el;
+                    let pieces = codeParser.call(weaver, {text, type:'transform', start});
+                    el.pieces = pieces;
+                    return acc.concat(pieces);
+                }, []);
+                if (node.transform.length === 0) { delete node.transform;}
+                tracker(sym, 'Done processing node', [node.pieces, node.transform]);
+            });
+            //weaver.full({web, directives});
+            tracker.done(sym, 'Done parsing text and code');
+            return {web, directives};
+        } catch (e) {
+            tracker.fail(sym, 'Parsing failed', e);
+            return {web:{}, directives:{}};
+        }
     };
     weaver.parseTracker = () => {};
     weaver.getNode = function getNode (nodeName, sym) {
         let weaver = this;
         let prr = weaver.p.web[nodeName];
         if (!prr) {
-            prr = makePromise('N?', nodeName);
+            prr = makePromise('N', nodeName);
             weaver.p.web[nodeName] = prr;
             let pSym = prr.sym;
             prr.prom.
@@ -1255,47 +1360,8 @@ const Weaver = function Weaver (
             }
         }
         tracker.done(sym);
-        let report = {};
-        ['promises', 'failed'].forEach( (type) => {
-            let tracked = Object.getOwnPropertySymbols(tracker[type]);
-            if (tracked.length > 0) {
-            // should have a connective web of things
-                let parents = tracked.map( 
-                    (s) => tracker[type][s].parent 
-                ).filter( (el) => el );
-                let blockers = tracked.filter( (symbol) => {
-                    return !parents.includes(symbol);    
-                });
-                let trail = blockers.map( (child) => {
-                    let line = [];
-                    let cur = child;
-                    let count = 0;
-                    while (cur && count < tracker.reporterDepth) {
-                        let symObj = tracker.get(cur);
-                        //weaver.full('Blocked', symObj);
-                        line.push([symObj.id || 'No ID', symObj]);
-                        cur = symObj.parent;
-                        count += 1;
-                    }
-                    return line;
-                });
-                report[type] = {
-                    blockers,
-                    trail,
-                    msg : trail.map( 
-                        (line) => {
-                            return line.
-                                map( (el) => { return el[0].replace(/ /g, '-'); } ).
-                                join(' is blocking ');
-                        }).
-                        join('\n---\n')
-                };
-            } else {
-                report[type] = {} ;
-            }
-        });
+        let report = tracker.report()
         let unresolved = weaver.keyDiff(weaver.p, weaver.v);
-        console.log(report);
         return {report, unresolved};
     };
     weaver.keyDiff = function keyDiff (larger, smaller) {
@@ -1319,6 +1385,7 @@ const Weaver = function Weaver (
                 return acc;
             });
     };
+
 
     weaver.v.commands.nodekeys = function nodeKeys (...args) {
         let context = this.context;
@@ -1477,7 +1544,6 @@ let organs = {
         },
         //@indent : text, space -> text [modifies indent on main object]
         indent : async function indent (text, space) {
-            let pipe = this.scope.pipe;
             if (typeof space === 'number') {
                 let kind = ' ';
                 if (space < 0 ) {
@@ -1493,7 +1559,7 @@ let organs = {
             if (typeof space === 'string') {
                 space = space.split("\\t").join('\t');
             }
-            pipe.indent = space;
+            this.top.indent = space;
             return text;
         },
         //@math : type, expression
@@ -1510,38 +1576,48 @@ let organs = {
         }
     },
     directives : {
-        save : async function save ({src, target, args}, sym) {
+        save : async function save ({src, target, args}) {
+            const {env, weaver, scope, tracker, sym} = this;
             try{
-                const {env, weaver, scope} = this;
                 let [f, encoding] = args;
-                let name = weaver.syntax.getFullNodeName(src, scope.context.scope);
-                env.log(`Waiting for ${src} (as ${name}) for save directive targeting ${target}`, 'save', 1);
+                let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
+                tracker(sym, 'Save waiting for node', {src, name, target});
+                console.log('save', src, name, target, tracker.get(sym).id);
                 let data = await weaver.getNode(name, sym);
-                console.log(`${name} has the following data: ${data}`);
+                tracker(sym, 'Node for save received', data);
                 if (typeof f === 'function') {
+                    tracker(sym, 'Transforming save data', f);
                     data = (await f.call(scope, data, sym)).value;
+                    tracker(sym, 'Done transforming save data', data);
                 } else {
                     encoding = f;
                 }
                 encoding = (typeof encoding === 'string') ? encoding : 'utf8';
-                env.log(`Saving ${src} (${name}) to file ${target}`, 'save', 2);
-                return await env.write(target, data, encoding);
+                tracker(sym, 'Saving file', {encoding, target});
+                let out = await env.write(target, data, encoding);
+                tracker.done(sym, 'Successfully saved file', out);
+                return out;
             } catch (e) {
-                env.error(`Failed to save ${src} (as ${name}) into file ${target}. Error message ${e.msg}`, {src, target, args}, e);
+                tracker.fail(sym, 'Save failed', e);
             }
         },
         load : async function load ({src, target, args}) {
+            const {env, weaver, scope, tracker, sym} = this;
             try {
-                const {env, weaver, scope} = this;
+        
                 const options = args[0] || {};
                 const encoding = options.encoding || 'utf8';
                 let extension = options.extension;
                 let underpipes = options.underpipes || 'up';
-                env.log(`Reading in ${src} as ${target}`, 'load', 2);
+        
+                tracker(sym, 'About to read file', {src, encoding});
                 let text = await env.read(src, encoding);
+                tracker(sym, 'Read file', text );
                 if (options.middle) {
+                    tracker(sym, 'Processing middle', options.middle);
                     text = await options.middle.call({env, weaver, scope, src,
                         target}, text);
+                    tracker(sym, 'Middle done', text);
                 }
                 target = target || src;
                 if (!extension) {
@@ -1552,18 +1628,22 @@ let organs = {
                     }
                 }
                 extension = extension || 'md';
-                env.log(`Initiating compilation of ${src} as ${target}`, 'load', 2);
-                let nodes = await weaver.parse(text, target, extension, underpipes);
-                nodes.id = `load:${src}=>${target}`;
-                let ret = await weaver.addPieces(nodes);
+                tracker(sym, 'Extension determined', extension);
+                tracker(sym, 'Initiating parsing', target);
+                let nodes = await weaver.parse(text, target, extension, underpipes, sym);
+                nodes.id = `Web: ${target}`; 
+                tracker(sym, 'Parsed. Will execute', nodes);
+                let ret = await weaver.addPieces(nodes, sym);
+                tracker(sym, 'Pieces Processed', ret);
                 if (options.done) {
-                    await options.done({env, weaver, scope, src, target, text},
-                        ret);
+                    tracker(sym, 'Post-processing started', options.done);
+                    let res = await options.done({env, weaver, scope, src, target, text}, ret);
+                    tracker(sym, 'Post-processing done', res);
                 }
-                env.log(`Finished loading ${src} under name ${target}`, 'load', 2);
                 return ret; // useful for top level loading
             } catch (e) {
-                env.error(`Failed to load ${src} as ${target}.`, null, e);
+                tracker.fail(sym, 'Failed to load', e);
+                return {};
             }
         
         }
@@ -2960,14 +3040,10 @@ let main = async function main (loaders) {
     for (let i = 0; i < n; i += 1) {
         let loader = loaders[i];
         let {report, unresolved} = await weaver.run(loader);
+        if (report) {env.log(report);}
         if (Object.keys(unresolved).length !== 0) {
             env.log(`Unresolved issues in loader ${loader.id}:\n` + 
             JSON.stringify(unresolved), 'loader', 5,);
-            env.log(
-                `Failed: ${report.failed.msg || 'none'} \n` +
-                `Unresolved: ${report.promises.msg || 'none'}`, 
-                'report', 5
-            );
             break; 
         }
     }

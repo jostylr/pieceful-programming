@@ -113,14 +113,10 @@ unresolved stuff, etc.
         for (let i = 0; i < n; i += 1) {
             let loader = loaders[i];
             let {report, unresolved} = await weaver.run(loader);
+            if (report) {env.log(report);}
             if (Object.keys(unresolved).length !== 0) {
                 env.log(`Unresolved issues in loader ${loader.id}:\n` + 
                 JSON.stringify(unresolved), 'loader', 5,);
-                env.log(
-                    `Failed: ${report.failed.msg || 'none'} \n` +
-                    `Unresolved: ${report.promises.msg || 'none'}`, 
-                    'report', 5
-                );
                 break; 
             }
         }

@@ -31,24 +31,29 @@ These are the core common directives that should be included in all versions.
 Here we take the source as an incoming node, process it as needed, and then
 save it to a file. 
 
-    async function save ({src, target, args}, sym) {
+    async function save ({src, target, args}) {
+        const {env, weaver, scope, tracker, sym} = this;
         try{
-            const {env, weaver, scope} = this;
             let [f, encoding] = args;
-            let name = weaver.syntax.getFullNodeName(src, scope.context.scope);
-            env.log(`Waiting for ${src} (as ${name}) for save directive targeting ${target}`, 'save', 1);
+            let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
+            tracker(sym, 'Save waiting for node', {src, name, target});
+            console.log('save', src, name, target, tracker.get(sym).id);
             let data = await weaver.getNode(name, sym);
-            console.log(`${name} has the following data: ${data}`);
+            tracker(sym, 'Node for save received', data);
             if (typeof f === 'function') {
+                tracker(sym, 'Transforming save data', f);
                 data = (await f.call(scope, data, sym)).value;
+                tracker(sym, 'Done transforming save data', data);
             } else {
                 encoding = f;
             }
             encoding = (typeof encoding === 'string') ? encoding : 'utf8';
-            env.log(`Saving ${src} (${name}) to file ${target}`, 'save', 2);
-            return await env.write(target, data, encoding);
+            tracker(sym, 'Saving file', {encoding, target});
+            let out = await env.write(target, data, encoding);
+            tracker.done(sym, 'Successfully saved file', out);
+            return out;
         } catch (e) {
-            env.error(`Failed to save ${src} (as ${name}) into file ${target}. Error message ${e.msg}`, {src, target, args}, e);
+            tracker.fail(sym, 'Save failed', e);
         }
     }
 
@@ -71,17 +76,22 @@ after the web processing is done.
 
 
     async function load ({src, target, args}) {
+        const {env, weaver, scope, tracker, sym} = this;
         try {
-            const {env, weaver, scope} = this;
+
             const options = args[0] || {};
             const encoding = options.encoding || 'utf8';
             let extension = options.extension;
             let underpipes = options.underpipes || 'up';
-            env.log(`Reading in ${src} as ${target}`, 'load', 2);
+
+            tracker(sym, 'About to read file', {src, encoding});
             let text = await env.read(src, encoding);
+            tracker(sym, 'Read file', text );
             if (options.middle) {
+                tracker(sym, 'Processing middle', options.middle);
                 text = await options.middle.call({env, weaver, scope, src,
                     target}, text);
+                tracker(sym, 'Middle done', text);
             }
             target = target || src;
             if (!extension) {
@@ -92,18 +102,22 @@ after the web processing is done.
                 }
             }
             extension = extension || 'md';
-            env.log(`Initiating compilation of ${src} as ${target}`, 'load', 2);
-            let nodes = await weaver.parse(text, target, extension, underpipes);
-            nodes.id = `load:${src}=>${target}`;
-            let ret = await weaver.addPieces(nodes);
+            tracker(sym, 'Extension determined', extension);
+            tracker(sym, 'Initiating parsing', target);
+            let nodes = await weaver.parse(text, target, extension, underpipes, sym);
+            nodes.id = `Web: ${target}`; 
+            tracker(sym, 'Parsed. Will execute', nodes);
+            let ret = await weaver.addPieces(nodes, sym);
+            tracker(sym, 'Pieces Processed', ret);
             if (options.done) {
-                await options.done({env, weaver, scope, src, target, text},
-                    ret);
+                tracker(sym, 'Post-processing started', options.done);
+                let res = await options.done({env, weaver, scope, src, target, text}, ret);
+                tracker(sym, 'Post-processing done', res);
             }
-            env.log(`Finished loading ${src} under name ${target}`, 'load', 2);
             return ret; // useful for top level loading
         } catch (e) {
-            env.error(`Failed to load ${src} as ${target}.`, null, e);
+            tracker.fail(sym, 'Failed to load', e);
+            return {};
         }
 
     }
