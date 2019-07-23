@@ -260,6 +260,7 @@ module.exports = function Weaver (
         };
     };
     const runCommand = async function runCommand (piece = {}, sym) {
+        if (!sym) {weaver.full(piece);}
         tracker(sym, 'run command called', piece);
         if (has(piece, 'value') ) { 
             tracker(sym, 'Run command returned', piece.value);
@@ -439,7 +440,7 @@ module.exports = function Weaver (
                             }
                             tracker(sym, 'Command finished', [idx, val] ); 
                             piece.value = val;
-                            vals.push(piece.val);
+                            vals.push(val);
                             continue;
                         }
                         tracker.fail(sym, 'Piece found without a value or cmd property', idx);
@@ -775,7 +776,7 @@ module.exports = function Weaver (
                             }
                             tracker(sym, 'Command finished', [idx, val] ); 
                             piece.value = val;
-                            vals.push(piece.val);
+                            vals.push(val);
                             continue;
                         }
                         tracker.fail(sym, 'Piece found without a value or cmd property', idx);
@@ -808,7 +809,7 @@ module.exports = function Weaver (
                         value : vals
                     });
                     tracker(nSym, 'Calling command in transform', pipe);
-                    vals = (await runCommand.call(scope, pipe )).value;
+                    vals = await runCommand.call(scope, pipe, nSym );
                     tracker(nSym, 'Command in transform done', vals);
                 }            
             } else if (typeof vals !== 'string') { //transform should deal with it
@@ -825,11 +826,10 @@ module.exports = function Weaver (
                     tracker.done(nSym, 'redundant node compilation', oldNode); 
                 } else {
                     tracker.fail(nSym, 'different node values with same name', oldNode);
-                    throw new Error(`Conflicting node values for  ${name}`);
                 }
             } else {
                 wvWeb[name] = node;
-                tracker.done(nSym, `Node stored`);
+                tracker.done(nSym, `Node stored`, node.value );
             }
             tracker(sym, 'node done', [name, node.value]);
             return [name, node.value];

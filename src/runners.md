@@ -110,24 +110,26 @@ unresolved stuff, etc.
 
     let main = async function main (loaders) {
         let n = loaders.length;
+        let fine = true;
         for (let i = 0; i < n; i += 1) {
             let loader = loaders[i];
             let {report, unresolved} = await weaver.run(loader);
-            if (report) {env.log(report);}
-            if (Object.keys(unresolved).length !== 0) {
-                env.log(`Unresolved issues in loader ${loader.id}:\n` + 
-                JSON.stringify(unresolved), 'loader', 5,);
-                break; 
+            if (report) {
+                env.log(report);
+                fine = false;
+                break; // any problems terminates the flow
             }
         }
         //full(weaver.v, weaver.p);
-        env.log('All done.');
+        if (fine) { 
+            env.log('All done.'); 
+        } else {
+            env.errorExit();
+        }
     };
                
     env.printPriority = 1;
-    main(loaders).catch( (e) => {
-        console.log(e, e.stack);
-    });
+    main(loaders);
 
 
 ## Load batteries
@@ -195,7 +197,7 @@ TODO
         }
     ];
 
-    loaders = loaders.slice(2); // get rid of the first one for now. 
+    loaders = [loaders[1]]; // get rid of the first one for now. 
 
 ## Cli Max
 

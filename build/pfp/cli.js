@@ -170,6 +170,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             }
         },
         errors : [], 
+        errorExit : (code = 1) => {process.exitCode = code},
         paths : {
             'R' : '',
             '~' : '',
@@ -177,6 +178,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             'M' : 'middle',
             'B' : 'build'
         } 
+    
     
     };
     
@@ -716,6 +718,7 @@ const Weaver = function Weaver (
         };
     };
     const runCommand = async function runCommand (piece = {}, sym) {
+        if (!sym) {weaver.full(piece);}
         tracker(sym, 'run command called', piece);
         if (has(piece, 'value') ) { 
             tracker(sym, 'Run command returned', piece.value);
@@ -895,7 +898,7 @@ const Weaver = function Weaver (
                             }
                             tracker(sym, 'Command finished', [idx, val] ); 
                             piece.value = val;
-                            vals.push(piece.val);
+                            vals.push(val);
                             continue;
                         }
                         tracker.fail(sym, 'Piece found without a value or cmd property', idx);
@@ -1231,7 +1234,7 @@ const Weaver = function Weaver (
                             }
                             tracker(sym, 'Command finished', [idx, val] ); 
                             piece.value = val;
-                            vals.push(piece.val);
+                            vals.push(val);
                             continue;
                         }
                         tracker.fail(sym, 'Piece found without a value or cmd property', idx);
@@ -1264,7 +1267,7 @@ const Weaver = function Weaver (
                         value : vals
                     });
                     tracker(nSym, 'Calling command in transform', pipe);
-                    vals = (await runCommand.call(scope, pipe )).value;
+                    vals = await runCommand.call(scope, pipe, nSym );
                     tracker(nSym, 'Command in transform done', vals);
                 }            
             } else if (typeof vals !== 'string') { //transform should deal with it
@@ -1281,11 +1284,10 @@ const Weaver = function Weaver (
                     tracker.done(nSym, 'redundant node compilation', oldNode); 
                 } else {
                     tracker.fail(nSym, 'different node values with same name', oldNode);
-                    throw new Error(`Conflicting node values for  ${name}`);
                 }
             } else {
                 wvWeb[name] = node;
-                tracker.done(nSym, `Node stored`);
+                tracker.done(nSym, `Node stored`, node.value );
             }
             tracker(sym, 'node done', [name, node.value]);
             return [name, node.value];
@@ -1599,7 +1601,7 @@ let organs = {
             if (typeof space === 'string') {
                 space = space.split("\\t").join('\t');
             }
-            this.top.indent = space;
+            this.scope.top.indent = space;
             return text;
         },
         //@math : type, expression
@@ -1623,6 +1625,7 @@ let organs = {
                 let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
                 tracker(sym, 'Save waiting for node', {src, name, target});
                 let data = await weaver.getNode(name, sym);
+                console.log(name, data);
                 tracker(sym, 'Node for save received', data);
                 if (typeof f === 'function') {
                     tracker(sym, 'Transforming save data', f);
@@ -3071,27 +3074,29 @@ let loaders = [
     }
 ];
 
-loaders = loaders.slice(2); // get rid of the first one for now. 
+loaders = [loaders[1]]; // get rid of the first one for now. 
 let weaver = new Weaver(organs, tracker);
 weaver.full = full;
 
 let main = async function main (loaders) {
     let n = loaders.length;
+    let fine = true;
     for (let i = 0; i < n; i += 1) {
         let loader = loaders[i];
         let {report, unresolved} = await weaver.run(loader);
-        if (report) {env.log(report);}
-        if (Object.keys(unresolved).length !== 0) {
-            env.log(`Unresolved issues in loader ${loader.id}:\n` + 
-            JSON.stringify(unresolved), 'loader', 5,);
-            break; 
+        if (report) {
+            env.log(report);
+            fine = false;
+            break; // any problems terminates the flow
         }
     }
     //full(weaver.v, weaver.p);
-    env.log('All done.');
+    if (fine) { 
+        env.log('All done.'); 
+    } else {
+        env.errorExit();
+    }
 };
            
 env.printPriority = 1;
-main(loaders).catch( (e) => {
-    console.log(e, e.stack);
-});
+main(loaders);

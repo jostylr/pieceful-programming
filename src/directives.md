@@ -38,6 +38,7 @@ save it to a file.
             let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
             tracker(sym, 'Save waiting for node', {src, name, target});
             let data = await weaver.getNode(name, sym);
+            console.log(name, data);
             tracker(sym, 'Node for save received', data);
             if (typeof f === 'function') {
                 tracker(sym, 'Transforming save data', f);

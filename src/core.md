@@ -357,11 +357,10 @@ throw error if so.
             tracker.done(nSym, 'redundant node compilation', oldNode); 
         } else {
             tracker.fail(nSym, 'different node values with same name', oldNode);
-            throw new Error(`Conflicting node values for  ${name}`);
         }
     } else {
         wvWeb[name] = node;
-        tracker.done(nSym, `Node stored`);
+        tracker.done(nSym, `Node stored`, node.value );
     }
 
 [promise the pieces]()
@@ -407,7 +406,7 @@ This is a loop so that we process the pieces in a node sequentially.
                 _":indent"
                 tracker(sym, 'Command finished', [idx, val] ); 
                 piece.value = val;
-                vals.push(piece.val);
+                vals.push(val);
                 continue;
             }
             tracker.fail(sym, 'Piece found without a value or cmd property', idx);
@@ -468,7 +467,7 @@ still just work with the input going in as the first argument.
                 value : vals
             });
             tracker(nSym, 'Calling command in transform', pipe);
-            vals = (await runCommand.call(scope, pipe )).value;
+            vals = await runCommand.call(scope, pipe, nSym );
             tracker(nSym, 'Command in transform done', vals);
         }            
     } else if (typeof vals !== 'string') { //transform should deal with it
@@ -677,6 +676,7 @@ generally the input property maker. But if a piece has the bind property,
 then the insertion happens where the bind specifies.  
 
     async function runCommand (piece = {}, sym) {
+        if (!sym) {weaver.full(piece);}
         tracker(sym, 'run command called', piece);
         if (has(piece, 'value') ) { 
             tracker(sym, 'Run command returned', piece.value);

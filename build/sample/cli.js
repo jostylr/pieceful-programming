@@ -170,6 +170,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             }
         },
         errors : [], 
+        errorExit : (code = 1) => {process.exitCode = code},
         paths : {
             'R' : '',
             '~' : '',
@@ -177,6 +178,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             'M' : 'middle',
             'B' : 'build'
         } 
+    
     
     };
     

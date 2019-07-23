@@ -62,7 +62,9 @@ object that will hold and simulate it all.
     let environments = {};
     
     {
+        const process = {}; //sub for node process. 
         _"browser block"
+        
     }
     let env = environments.browser;
 
@@ -144,6 +146,7 @@ The error function stores an error and throws it.
             }
         },
         errors : [], 
+        errorExit : (code = 1) => {process.exitCode = code},
 
 The paths allow for easy and clear targeting of different directories. 
 
@@ -154,6 +157,7 @@ The paths allow for easy and clear targeting of different directories.
             'M' : 'middle',
             'B' : 'build'
         } 
+
 
     };
 

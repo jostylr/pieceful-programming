@@ -96,7 +96,7 @@ substitution for `\t` if it is a string.
         if (typeof space === 'string') {
             space = space.split("\\t").join('\t');
         }
-        this.top.indent = space;
+        this.scope.top.indent = space;
         return text;
     }
 
