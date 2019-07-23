@@ -205,11 +205,12 @@ needed as we just put it where it is.
 
 
     let indent;
-    if (ind === 0) { indent = ''; }
-    {
+    if (ind === 0) { 
+        indent = ''; 
+    } else {
         let start = ind-1;
         let cur = start;
-        while (true) { //eslint-disable-line no-constant-condition
+        while (cur > -1) { 
             if ( ( text[cur] !== ' ') && (text[cur] !== "\t" ) ) {
                 start = cur-1;
             }
