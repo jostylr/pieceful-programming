@@ -96,6 +96,51 @@ should be a middle where extras are loaded and the io is defined.
         organs.parsers.up = cta;
     }
 
+    let fileLoader = _"file loader";
+
+
+### File loader
+
+This uses the `_` object from the option parsing of minimist to figure out the
+files. We also have a default file list which is matched again the directory
+listing.  
+
+    async function fileLoader (files) {
+        if (files.length === 0) {
+            let {files:dir} = await env.ls('R./');
+            console.log(dir);
+            if (dir.includes('R./roots.txt') ) {
+                files = await env.read('R./roots.txt').
+                    split('\n').
+                    map(el => el.trim());
+            } else {
+                files = [
+                    'R./setup.md', 
+                    'R./project.md', 
+                    'R./test.md', 
+                    'R./deploy.md'
+                ];
+                files = files.filter( (file) => dir.includes(file) );
+            }
+        }
+
+Now we compute the loaders. Each file could be of the form `fname:prefix`
+although the prefix is not necessary. If the prefix is not there, then we use
+fname 
+
+
+        let loaders = files.map( (file) => {
+            let [fname, prefix] = file.split(':');
+            if (!prefix) {
+                let path = env.local.path;
+                prefix = path.basename(fname, path.extname(fname));
+            }
+            return { directive:'load', src: fname, target: prefix, 
+                args:[], scope: {fullname: `loader ${prefix}` } };
+        });
+        
+        return loaders; 
+    }
     
 ## Ending
 
@@ -105,15 +150,17 @@ done.
 In between steps, we can take care of logs, compare old and new, deal with
 unresolved stuff, etc. 
 
-    let weaver = new Weaver(organs, tracker);
+    let weaver = new Weaver(organs);
     weaver.full = full;
 
-    let main = async function main (loaders) {
+    let main = async function main (files) {
+        let loaders = await fileLoader(files); 
+
         let n = loaders.length;
         let fine = true;
         for (let i = 0; i < n; i += 1) {
             let loader = loaders[i];
-            let {report, unresolved} = await weaver.run(loader);
+            let {report} = await weaver.run(loader);
             if (report) {
                 env.log(report);
                 fine = false;
@@ -129,7 +176,9 @@ unresolved stuff, etc.
     };
                
     env.printPriority = 1;
-    main(loaders);
+    main(files);
+
+
 
 
 ## Load batteries
@@ -147,7 +196,24 @@ externals are designed to be called in as needed, generally by the dash
 command. 
  
 
- 
+
+## Options
+
+This is where we deal with the options. 
+
+    let options = env.minimist(env.argv(), {
+        boolean : true, // `--name` no equals leads to true
+        alias : {
+            'o' : 'out'
+        }
+    });
+
+    let files = options._;
+
+    if (options.out) {
+        //replace save with out
+        organs.directives.save = organs.directives.out;
+    }
 
 ## Cli Min
 
@@ -159,6 +225,7 @@ version. The lite version uses the command `pfp` while the full one uses
     _"vfs::cli"
     _"beginning"
     _"cli common"
+    _"options"
     _"ending"
 
 
@@ -174,30 +241,20 @@ TODO
 
 ---
 
-    //let options = {};
+
+
+
+
     const util = require('util');
     let full = (...args) => {
         console.log(util.inspect(args, {depth:11, colors: true}));
     };
-    let tracker = full;
-    tracker = () => {};
-    let loaders = [
-        {directive:'load', src: 'R./test.md', target:'test', args:[],
-            scope:{fullname:'test file'},
-            middle : function (text) {
-                console.log(text);
-                return text;
-            }
-        }, 
-        {directive:'load', src: 'R./guess.pfp', target:'guess', args:[], 
-            scope: {fullname:'guess scriptedwriting'}
-        },
-        {directive:'load', src: 'R./explore.pfp', target:'explore', args:[], 
-            scope: {fullname:'explore'}
-        }
-    ];
 
-    loaders = [loaders[1]]; // get rid of the first one for now. 
+    
+
+    
+    
+
 
 ## Cli Max
 

@@ -23,7 +23,8 @@ These are the core common directives that should be included in all versions.
 
     {
         save : _"save",
-        load : _"load"
+        load : _"load",
+        out : _"out"
     }
 
 ### Save
@@ -56,6 +57,38 @@ save it to a file.
             tracker.fail(sym, 'Save failed', e);
         }
     }
+
+### Out
+
+This is the same as save, except we are going to log the data. In the future,
+this should be done by subbing or something. 
+
+    async function out  ({src, target, args}) {
+        const {env, weaver, scope, tracker, sym} = this;
+        try{
+            let [f, encoding] = args;
+            let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
+            tracker(sym, 'Out waiting for node', {src, name, target});
+            let data = await weaver.getNode(name, sym);
+            console.log(name, data);
+            tracker(sym, 'Node for out received', data);
+            if (typeof f === 'function') {
+                tracker(sym, 'Transforming out data', f);
+                data = (await f.call(scope, data, sym)).value;
+                tracker(sym, 'Done transforming out data', data);
+            } else {
+                encoding = f;
+            }
+            encoding = (typeof encoding === 'string') ? encoding : 'utf8';
+            tracker(sym, 'Outputing file', {encoding, target});
+            let out = await env.log(name + '\n---\n' + data, 'out directive', 5);
+            tracker.done(sym, 'Successfully logged out file', out);
+            return out;
+        } catch (e) {
+            tracker.fail(sym, 'Logging out failed', e);
+        }
+    }
+
 
 
 ### Load
