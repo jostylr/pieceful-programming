@@ -49,7 +49,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
                 res(`read: Reading ${target}`);
                 return text;
             } catch (e) {
-                rej(`read: File ${target} failed to be read--${e.msg}`);
+                rej(`read: File ${target} failed to be read--${e.stack}`);
                 return false;
             }
         },
@@ -1978,54 +1978,12 @@ let organs = {
 { 
     let cmparse;
     let commonmark = require('commonmark');
-    let commonParsingDirectives = {
-        eval : function (data) {
-            let webNode = data.webNode;
-            let localContext = this; //eslint-disable-line no-unused-vars
-            let originalCode = webNode.code; //eslint-disable-line no-unused-vars
-            let code = webNode.code.reduce( (acc, next) => {
-                return acc + next[0];
-            }, '');
-            webNode.code = [];
-            localContext.tracker("local directive evaling code", {webNode, code});
-            eval(code);
-        },
-        scope : function ({target, scope}) {
-            let ind = target.indexOf('=');
-            if (ind === -1) {
-                delete scope[target.trim()];
-            } else {
-                let vname = target.slice(0,ind).trim();
-                let val = target.slice(ind+1);
-                scope[vname] = val;
-            }
-        },
-        report : function ({label, scope, webNode}) {
-            this.tracker("commonmark parsing directive report", {label, scope,
-                webNode}); 
-        },
-        prefix : function ({target, scope}) {
-            if (target.slice(-2) === '::') {
-                target = target.slice(0,-2);
-            }
-            if (target) {
-                scope.prefix = target;
-            } else {
-                scope.prefix = this.originalPrefix;
-            }
-        }
-    };
+    cmparse = function cmparse (text, { prefix = '', origin = '' }) {
+        const tracker = cmparse.tracker;
     
-    cmparse = function cmparse (text, {
-        prefix = '',
-        origin = '', //filepath
-        tracker = (...args) => {console.log(args); }, 
-        parsingDirectives = {}} = {})
-    {
         tracker('commonmark parsing about to begin', {prefix, text});
         
-        parsingDirectives = Object.assign({}, commonParsingDirectives,
-            parsingDirectives);
+        const parsingDirectives = cmparse.parsingDirectives;
     
         const originalPrefix = prefix;
         let scope = { prefix, origin};
@@ -2365,6 +2323,46 @@ let organs = {
         return {web, directives};
     
     };
+    
+    
+    cmparse.parsingDirectives = {
+        eval : function (data) {
+            let webNode = data.webNode;
+            let localContext = this; //eslint-disable-line no-unused-vars
+            let originalCode = webNode.code; //eslint-disable-line no-unused-vars
+            let code = webNode.code.reduce( (acc, next) => {
+                return acc + next[0];
+            }, '');
+            webNode.code = [];
+            localContext.tracker("local directive evaling code", {webNode, code});
+            eval(code);
+        },
+        scope : function ({target, scope}) {
+            let ind = target.indexOf('=');
+            if (ind === -1) {
+                delete scope[target.trim()];
+            } else {
+                let vname = target.slice(0,ind).trim();
+                let val = target.slice(ind+1);
+                scope[vname] = val;
+            }
+        },
+        report : function ({label, scope, webNode}) {
+            this.tracker("commonmark parsing directive report", {label, scope,
+                webNode}); 
+        },
+        prefix : function ({target, scope}) {
+            if (target.slice(-2) === '::') {
+                target = target.slice(0,-2);
+            }
+            if (target) {
+                scope.prefix = target;
+            } else {
+                scope.prefix = this.originalPrefix;
+            }
+        }
+    };
+    cmparse.tracker = () => {};
     organs.parsers.md = cmparse;
 }
 

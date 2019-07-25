@@ -80,7 +80,7 @@ should be a middle where extras are loaded and the io is defined.
 
     { 
         let cmparse;
-        _"cm::core";
+        _"cm::core"
         organs.parsers.md = cmparse;
     }
 

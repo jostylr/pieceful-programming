@@ -35,18 +35,15 @@ integrate the script directly.
 The parsing directives get passed in the scope and current webNode as well as
 the link text and title text. They cannot see or affect anything else.
 
-    let commonParsingDirectives = _"common parsing directives";
+Origin is the filepath or other basic identifier. 
 
-    cmparse = function cmparse (text, {
-        prefix = '',
-        origin = '', //filepath
-        tracker = (...args) => {console.log(args); }, 
-        parsingDirectives = {}} = {})
-    {
+
+    cmparse = function cmparse (text, { prefix = '', origin = '' }) {
+        const tracker = cmparse.tracker;
+
         tracker('commonmark parsing about to begin', {prefix, text});
         
-        parsingDirectives = Object.assign({}, commonParsingDirectives,
-            parsingDirectives);
+        const parsingDirectives = cmparse.parsingDirectives;
 
         const originalPrefix = prefix;
         let scope = { prefix, origin};
@@ -98,8 +95,11 @@ The current state
 
         return {web, directives};
 
-    }
+    };
 
+
+    cmparse.parsingDirectives = _"common parsing directives";
+    cmparse.tracker = () => {};
 
 
 # walk the tree

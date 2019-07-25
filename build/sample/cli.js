@@ -49,7 +49,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
                 res(`read: Reading ${target}`);
                 return text;
             } catch (e) {
-                rej(`read: File ${target} failed to be read--${e.msg}`);
+                rej(`read: File ${target} failed to be read--${e.stack}`);
                 return false;
             }
         },

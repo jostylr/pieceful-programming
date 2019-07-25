@@ -217,7 +217,7 @@ This reads a file.
             res(`read: Reading ${target}`);
             return text;
         } catch (e) {
-            rej(`read: File ${target} failed to be read--${e.msg}`);
+            rej(`read: File ${target} failed to be read--${e.stack}`);
             return false;
         }
     }
