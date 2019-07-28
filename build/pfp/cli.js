@@ -13,44 +13,87 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         let key = keys[keys.length - 1];
         return key in o;
     };
+    const fakeTracker = () => {};
+    fakeTracker.action = fakeTracker.fail = fakeTracker.done = () => {};
 
     const env = {
         //@ write: target, text, encoding -> true when done
         write : async function write (originalTarget, text, encoding ='utf8') {
+            const tracker = this.tracker || fakeTracker;
+            const sym = this.sym || '';
             const target = env.path(originalTarget, 'B');
-            let {res, rej} = env.promiseStarts('write', target);
+            let {res} = env.promiseStarts('write', target);
+            let hash = await env.hash(text);
+            let oldHash = env.cache.write[originalTarget];
+            if (oldHash === hash) {
+                tracker.action(sym, `UNCHANGED: ${originalTarget}`, '');
+                res(true);
+                return true;
+            }
             try {
                 await fsp.writeFile(target, text, encoding); 
-                res();
+                if (!oldHash) {
+                    tracker.action(sym, `NEW: ${originalTarget}`);
+                } else {
+                    tracker.action(sym, `UPDATED file ${originalTarget}`);
+                }
+                env.cache.write[originalTarget] = hash;
+                res(true);
+                return true; //writefile does not return a value other than resolution
             } catch (e) {
+                let dir = env.path.dirname(originalTarget);
                 try {
-                    await env.mkdir(originalTarget);
+                    await env.mkdir.call({tracker, sym}, dir);
                 } catch (e) {
-                    env.error(`write: failed to create directory for writing ${target}`, e);
+                    tracker.fail(sym, `Failed to create directory for writing ${originalTarget}`, e); 
+                    res(false);
+                    return false;
                 }
                 try {
                     await fsp.writeFile(target, text, encoding); 
-                    res();
-                    env.log(`write: File ${target} written`, 'write', 1);
+                    if (!oldHash) {
+                        tracker.action(sym, `NEW: ${originalTarget}`);
+                    } else {
+                        tracker.action(sym, `UPDATED file ${originalTarget}`);
+                    }
+                    env.cache.write[originalTarget] = hash;
+                    res(true);
                     return true; //writefile does not return a value other than resolution
                 } catch (e) {
-                    rej(`write: File ${target} failed to be written--${e.msg}`);
+                    tracker.fail(sym, `Did not write file ${originalTarget}`, e);  
+                    res(false);
                     return false;
                 }
             }
         }, 
         //@ read: target, encoding -> file contents
         read : async function read (originalTarget, encoding = 'utf8') {
+            const tracker = this.tracker || fakeTracker;
+            const sym = this.sym || '';
             const target = env.path(originalTarget, 'S');
-            let {res, rej} = env.promiseStarts('read', target);
+            tracker(sym, `Reading ${target}`, {originalTarget, target});
+            let cached = env.cache.read[target];
+            let text;
+            let firstOne = false;
             try {
-                env.log(`read: Reading ${target}`, 'read', 1);
-                let text = await fsp.readFile(target, {encoding} );
-                res(`read: Reading ${target}`);
+                if (cached) {
+                    text = await cached.prom;
+                } else {
+                    firstOne = true;
+                    cached = env.promiseStarts('read', target);
+                    env.cache.read[target] = cached;
+                    text = await fsp.readFile(target, {encoding} );
+                    cached.res(text);
+                }
+                tracker.action(sym, `Read ${originalTarget}`, {target,
+                    originalTarget, text:text.slice(0,100)});
                 return text;
             } catch (e) {
-                rej(`read: File ${target} failed to be read--${e.stack}`);
-                return false;
+                if (firstOne) {
+                    cached.prom.catch( () => {} );
+                    cached.rej(`Failed to read: ${target}\n ${e.stack}\n---\n`);
+                }
+                return '';
             }
         },
         //@ fetch: url, local file destination, url options, response type -> file saved or data returned
@@ -71,20 +114,31 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         },
         //@ mkdir: target -> true
         mkdir : async function mkdir (originalTarget) {
+            const tracker = this.tracker || fakeTracker;
+            const sym = this.sym || '';
             const target = env.path(originalTarget, 'B');
-            env.log(`mkdir: Creating ${path.dirname(target)}`, 'write', 3);
+            tracker(sym, 'Creating directory', target);
             try {
-                await fsp.mkdir(path.dirname(target), {recursive: true});
-                env.log(`mkdir: Directory ${path.dirname(target)} now exists`, 'write', 3);
+                await fsp.mkdir(target, {recursive: true});
+                tracker.action(sym, `Directory ${target} created`, target);
                 return true;
             } catch (e) {
-                env.error(`mkdir: Failed to create directory ${target}`, e);
+                tracker.fail(sym, 'Failed to create directory', {target, error:e});
             }
         },
         //@ ls: target -> {files, dir}
         ls : async function ls (originalTarget) {
+            const tracker = this.tracker || fakeTracker;
+            const sym = this.sym || '';
             let target = env.path(originalTarget, 'S');
-            let list = await fsp.readdir(target, {withFileTypes:true});
+            let list;
+            try {
+                tracker(sym, 'Listing directory', target);
+                list = await fsp.readdir(target, {withFileTypes:true});
+            } catch (e) {
+                tracker.fail(sym, `Failed to list directory ${target}`, e);
+                return {files:[], dir:[]};
+            }
             let files = [];
             let dirs = [];
             list.forEach( (dirent) => {
@@ -95,7 +149,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
                     dirs.push(path.join(originalTarget, dirent.name) );
                 }
             });
-            env.log(`ls: Directory ${target} read`, 'read', 1, {files, dirs});
+            tracker.action(sym, `Directory ${target} listed`, {target, files, dirs});
             return {files, dirs};
         },
         //@ info: target -> ms time {access, modified, change, birth}
@@ -426,35 +480,55 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         url : {}
     };
     
-    env.saveCache = async function saveCache (target) {
+    env.saveCache = async function saveCache (target, exclude = ['read']) {
         target = target || 'b./.cache';
         let cache = {...env.cache};
-        delete cache.read;
+        exclude.forEach( (el) => {
+            delete cache[el];
+        });
         let str = JSON.stringify(cache);
-        env.write(target, str);
+    
+        try {
+            let actual = env.path(target);
+            await fsp.writeFile(actual, str, 'utf8'); 
+        } catch (e) {
+            env.log('could not save cache file ' + target + '\n' + e.stack);
+        }
     };
     
     env.loadCache = async function loadCache (target) {
-        target = target || 'b./.cache';
+        if (!target) {
+            await env.clearCache(); //creates an empty cache
+            return;
+        }
         try {
-            let data = await env.read(target);
+            target = env.path(target);
+            let data = await fsp.readFile(target, {encoding:'utf8'} );
             env.cache = JSON.parse(data);
             if (!env.cache.read) {
                 env.cache.read = {};
             }
         } catch (e) {
-            env.log(`Failed to load cache ${target}`, 'cache', 3, e);
+            env.cache = {
+                write : {},
+                read : {}, 
+                url : {}
+            };
         }
     };
-    
-    env.checkCache  = async function checkCache (target, data, type='write') {
-        const hashed = env.cache[type][target];
-        if (hashed) {
-            const newHash = env.hash(data);
-            return ( (hashed === newHash) ? 'same' : 'different');
-        } 
-        return 'new';
-    };
+    env.clearCache = async function clearCache(key, name) {
+        if (name) {
+            delete env.cache[key][name];
+        } else if (key) {
+            env.cache[key] = {};
+        } else {
+            env.cache = {
+                write : {},
+                url : {},
+                read : {}
+            };
+        }
+    }
     env.local = { path }; //so as to access those commands directly
     return env;
 };
@@ -816,6 +890,11 @@ const Weaver = function Weaver (
         me.self = self;
         return me;
     };
+    tracker.action = function actionTracker (sym, str, args) {
+        let me = tracker.log(sym, str, args);
+        tracker.actions.push( `${str} (${me.id ? me.id  : ''})` );
+        console.log(tracker.actions[tracker.actions.length -1]);
+    };
     tracker.report = function reportTracker (indent = '  ') {
         let report;
         let self = reportTracker;
@@ -914,6 +993,7 @@ const Weaver = function Weaver (
     tracker.finished = {};
     tracker.failed = {};
     tracker.logs = [];
+    tracker.actions = [];
     tracker.reporterDepth = 20;
 
 
@@ -1397,7 +1477,7 @@ const Weaver = function Weaver (
             target = '',
             src = ''
         } = data;
-        let id =`${name}:${src}=>${target}`; 
+        let id =`${name}:${src}=>${target} at ${data.scope.fullname}`; 
         const {sym} = tracker.new(id, 'Directive queued', {name, data});
         tracker.add(sym, 'Directive needed', parSym);
         let dire = await weaver.waitForFunction('directives', name, sym);
@@ -1629,9 +1709,10 @@ const Weaver = function Weaver (
         } 
         return prr.prom;
     };
-    weaver.run = async function run (loader) {
+    weaver.run = async function run (loader, options = {}) {
         let {directive} = loader;
         let {sym, scope} = tracker.new({scope:loader.scope}, 'Starting a new run', loader); 
+        await env.loadCache(options.readCache);
         weaver.runDirective.call(scope, directive, loader, sym);
         let proms = env.promises;
         let n = 0;
@@ -1647,19 +1728,25 @@ const Weaver = function Weaver (
             return Promise.all(proms);
         };
         while ( (n < proms.length) || count < limit) {
-            if (n < proms.length) {
-                await promiseDone();
-                continue;
-            }
-            if (count < limit) {
-                await repeat();
-                continue;
+            try {
+                if (n < proms.length) {
+                    await promiseDone();
+                    continue;
+                }
+                if (count < limit) {
+                    await repeat();
+                    continue;
+                }
+            } catch (e) {
+                env.log(e);
+                break;
             }
         }
+        await env.saveCache(options.writeCache); 
         tracker.done(sym);
         let report = tracker.report();
         let unresolved = weaver.keyDiff(weaver.p, weaver.v);
-        return {report, unresolved};
+        return {report, unresolved, actions:tracker.actions};
     };
     weaver.keyDiff = function keyDiff (larger, smaller) {
         return Object.keys(larger).
@@ -1880,7 +1967,6 @@ let organs = {
                 let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
                 tracker(sym, 'Save waiting for node', {src, name, target});
                 let data = await weaver.getNode(name, sym);
-                console.log(name, data);
                 tracker(sym, 'Node for save received', data);
                 if (typeof f === 'function') {
                     tracker(sym, 'Transforming save data', f);
@@ -1891,7 +1977,7 @@ let organs = {
                 }
                 encoding = (typeof encoding === 'string') ? encoding : 'utf8';
                 tracker(sym, 'Saving file', {encoding, target});
-                let out = await env.write(target, data, encoding);
+                let out = await env.write.call({tracker, sym}, target, data, encoding);
                 tracker.done(sym, 'Successfully saved file', out);
                 return out;
             } catch (e) {
@@ -1909,6 +1995,10 @@ let organs = {
         
                 tracker(sym, 'About to read file', {src, encoding});
                 let text = await env.read(src, encoding);
+                if (text === '') { 
+                    tracker.fail(sym, 'No text to parse from', {stack : src});
+                    return {};
+                }
                 tracker(sym, 'Read file', text );
                 if (options.middle) {
                     tracker(sym, 'Processing middle', options.middle);
@@ -3333,9 +3423,9 @@ let organs = {
 let fileLoader = async function fileLoader (files) {
     if (files.length === 0) {
         let {files:dir} = await env.ls('R./');
-        console.log(dir);
-        if (dir.includes('R./roots.txt') ) {
-            files = await env.read('R./roots.txt').
+        let roots = options.roots;
+        if (dir.includes(roots) ) {
+            files = await env.read(roots).
                 split('\n').
                 map(el => el.trim());
         } else {
@@ -3367,15 +3457,34 @@ let full = (...args) => {
 let options = env.minimist(env.argv(), {
     boolean : true, // `--name` no equals leads to true
     alias : {
-        'o' : 'out'
+        o : 'out',
+        rf : 'roots'
+
+    }, 
+    default : {
+        roots : 'R./roots.txt',
+        readCache : 'R./.cache',
+        writeCache : 'R./.cache'
     }
 });
 
 let files = options._;
+let leadReg = /^[^.]+\.\//; 
+files = files.map ( (el) => {
+    if (!leadReg.test(el) ) {
+        return 'R./' + el;
+    } else {
+        return el;
+    }
+});
 
 if (options.out) {
     //replace save with out
     organs.directives.save = organs.directives.out;
+}
+
+if (has(options,'cache')) {
+    options.readCache = options.writeCache = options.cache;
 }
 let weaver = new Weaver(organs);
 weaver.full = full;
@@ -3387,7 +3496,7 @@ let main = async function main (files) {
     let fine = true;
     for (let i = 0; i < n; i += 1) {
         let loader = loaders[i];
-        let {report} = await weaver.run(loader);
+        let {report} = await weaver.run(loader, options);
         if (report) {
             env.log(report);
             fine = false;

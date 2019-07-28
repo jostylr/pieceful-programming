@@ -39,7 +39,6 @@ save it to a file.
             let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
             tracker(sym, 'Save waiting for node', {src, name, target});
             let data = await weaver.getNode(name, sym);
-            console.log(name, data);
             tracker(sym, 'Node for save received', data);
             if (typeof f === 'function') {
                 tracker(sym, 'Transforming save data', f);
@@ -50,7 +49,7 @@ save it to a file.
             }
             encoding = (typeof encoding === 'string') ? encoding : 'utf8';
             tracker(sym, 'Saving file', {encoding, target});
-            let out = await env.write(target, data, encoding);
+            let out = await env.write.call({tracker, sym}, target, data, encoding);
             tracker.done(sym, 'Successfully saved file', out);
             return out;
         } catch (e) {
@@ -119,6 +118,10 @@ after the web processing is done.
 
             tracker(sym, 'About to read file', {src, encoding});
             let text = await env.read(src, encoding);
+            if (text === '') { 
+                tracker.fail(sym, 'No text to parse from', {stack : src});
+                return {};
+            }
             tracker(sym, 'Read file', text );
             if (options.middle) {
                 tracker(sym, 'Processing middle', options.middle);

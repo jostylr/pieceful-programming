@@ -98,6 +98,8 @@ outputs an interface for doing file stuff.
     function envMaker (fsp, path, exec, rest = {}) {
         const isNumber = _"minimist:isNumber";
         const hasKey = _"minimist:hasKey";
+        const fakeTracker = () => {};
+        fakeTracker.action = fakeTracker.fail = fakeTracker.done = () => {};
 
         _"core env"
         env.local = { path }; //so as to access those commands directly
@@ -172,6 +174,14 @@ The paths allow for easy and clear targeting of different directories.
 
     _"cache"
 
+### tracker 
+
+This is a small two line segment that goes in the beginning of most of these
+functions to enable tracking. It is replacing env.log
+
+    const tracker = this.tracker || fakeTracker;
+    const sym = this.sym || '';
+
 
 ### write 
 
@@ -181,44 +191,85 @@ to create a directory. Probably could use some more error logic for writing.
 By default, files go under the build directory. 
 
     async function write (originalTarget, text, encoding ='utf8') {
+        _"tracker"
         const target = env.path(originalTarget, 'B');
-        let {res, rej} = env.promiseStarts('write', target);
+        let {res} = env.promiseStarts('write', target);
+        let hash = await env.hash(text);
+        let oldHash = env.cache.write[originalTarget];
+        if (oldHash === hash) {
+            tracker.action(sym, `UNCHANGED: ${originalTarget}`, '');
+            res(true);
+            return true;
+        }
         try {
             await fsp.writeFile(target, text, encoding); 
-            res();
+            _":success"
         } catch (e) {
+            let dir = env.path.dirname(originalTarget);
             try {
-                await env.mkdir(originalTarget);
+                await env.mkdir.call({tracker, sym}, dir);
             } catch (e) {
-                env.error(`write: failed to create directory for writing ${target}`, e);
+                tracker.fail(sym, `Failed to create directory for writing ${originalTarget}`, e); 
+                res(false);
+                return false;
             }
             try {
                 await fsp.writeFile(target, text, encoding); 
-                res();
-                env.log(`write: File ${target} written`, 'write', 1);
-                return true; //writefile does not return a value other than resolution
+                _":success"
             } catch (e) {
-                rej(`write: File ${target} failed to be written--${e.msg}`);
+                tracker.fail(sym, `Did not write file ${originalTarget}`, e);  
+                res(false);
                 return false;
             }
         }
     }
+
+[success]()
+
+This deals with a successful write by resolving the promise (confirming the io
+is done as needed in core::run), reporting the action and returning. The
+action distinguishes between new vs different. 
+
+    if (!oldHash) {
+        tracker.action(sym, `NEW: ${originalTarget}`);
+    } else {
+        tracker.action(sym, `UPDATED file ${originalTarget}`);
+    }
+    env.cache.write[originalTarget] = hash;
+    res(true);
+    return true; //writefile does not return a value other than resolution
+
 
 ### read 
 
 This reads a file. 
 
     async function read (originalTarget, encoding = 'utf8') {
+        _"tracker"
         const target = env.path(originalTarget, 'S');
-        let {res, rej} = env.promiseStarts('read', target);
+        tracker(sym, `Reading ${target}`, {originalTarget, target});
+        let cached = env.cache.read[target];
+        let text;
+        let firstOne = false;
         try {
-            env.log(`read: Reading ${target}`, 'read', 1);
-            let text = await fsp.readFile(target, {encoding} );
-            res(`read: Reading ${target}`);
+            if (cached) {
+                text = await cached.prom;
+            } else {
+                firstOne = true;
+                cached = env.promiseStarts('read', target);
+                env.cache.read[target] = cached;
+                text = await fsp.readFile(target, {encoding} );
+                cached.res(text);
+            }
+            tracker.action(sym, `Read ${originalTarget}`, {target,
+                originalTarget, text:text.slice(0,100)});
             return text;
         } catch (e) {
-            rej(`read: File ${target} failed to be read--${e.stack}`);
-            return false;
+            if (firstOne) {
+                cached.prom.catch( () => {} );
+                cached.rej(`Failed to read: ${target}\n ${e.stack}\n---\n`);
+            }
+            return '';
         }
     }
 
@@ -253,14 +304,15 @@ Our attitude is to simply make everything we want to make and hope for the
 best. This is a good function to overwrite if one wants more caution. 
 
     async function mkdir (originalTarget) {
+        _"tracker"
         const target = env.path(originalTarget, 'B');
-        env.log(`mkdir: Creating ${path.dirname(target)}`, 'write', 3);
+        tracker(sym, 'Creating directory', target);
         try {
-            await fsp.mkdir(path.dirname(target), {recursive: true});
-            env.log(`mkdir: Directory ${path.dirname(target)} now exists`, 'write', 3);
+            await fsp.mkdir(target, {recursive: true});
+            tracker.action(sym, `Directory ${target} created`, target);
             return true;
         } catch (e) {
-            env.error(`mkdir: Failed to create directory ${target}`, e);
+            tracker.fail(sym, 'Failed to create directory', {target, error:e});
         }
     }
 
@@ -271,8 +323,16 @@ directories, ignoring anything else. We return the listing with the original
 target form, allowing for smooth use in later calls.  
 
     async function ls (originalTarget) {
+        _"tracker"
         let target = env.path(originalTarget, 'S');
-        let list = await fsp.readdir(target, {withFileTypes:true});
+        let list;
+        try {
+            tracker(sym, 'Listing directory', target);
+            list = await fsp.readdir(target, {withFileTypes:true});
+        } catch (e) {
+            tracker.fail(sym, `Failed to list directory ${target}`, e);
+            return {files:[], dir:[]};
+        }
         let files = [];
         let dirs = [];
         list.forEach( (dirent) => {
@@ -283,7 +343,7 @@ target form, allowing for smooth use in later calls.
                 dirs.push(path.join(originalTarget, dirent.name) );
             }
         });
-        env.log(`ls: Directory ${target} read`, 'read', 1, {files, dirs});
+        tracker.action(sym, `Directory ${target} listed`, {target, files, dirs});
         return {files, dirs};
     }
 
@@ -406,35 +466,60 @@ expanding a target first.
         url : {}
     };
 
-    env.saveCache = async function saveCache (target) {
+    env.saveCache = async function saveCache (target, exclude = ['read']) {
         target = target || 'b./.cache';
         let cache = {...env.cache};
-        delete cache.read;
+        exclude.forEach( (el) => {
+            delete cache[el];
+        });
         let str = JSON.stringify(cache);
-        env.write(target, str);
+    
+        try {
+            let actual = env.path(target);
+            await fsp.writeFile(actual, str, 'utf8'); 
+        } catch (e) {
+            env.log('could not save cache file ' + target + '\n' + e.stack);
+        }
     };
 
     env.loadCache = async function loadCache (target) {
-        target = target || 'b./.cache';
+        if (!target) {
+            await env.clearCache(); //creates an empty cache
+            return;
+        }
         try {
-            let data = await env.read(target);
+            target = env.path(target);
+            let data = await fsp.readFile(target, {encoding:'utf8'} );
             env.cache = JSON.parse(data);
             if (!env.cache.read) {
                 env.cache.read = {};
             }
         } catch (e) {
-            env.log(`Failed to load cache ${target}`, 'cache', 3, e);
+            env.cache = {
+                write : {},
+                read : {}, 
+                url : {}
+            };
         }
     };
 
-    env.checkCache  = async function checkCache (target, data, type='write') {
-        const hashed = env.cache[type][target];
-        if (hashed) {
-            const newHash = env.hash(data);
-            return ( (hashed === newHash) ? 'same' : 'different');
-        } 
-        return 'new';
-    };
+    
+This clears the cache of a specific key:name or the entire key level or
+everything. 
+
+    env.clearCache = async function clearCache(key, name) {
+        if (name) {
+            delete env.cache[key][name];
+        } else if (key) {
+            env.cache[key] = {};
+        } else {
+            env.cache = {
+                write : {},
+                url : {},
+                read : {}
+            };
+        }
+    }
         
 
 ### Node crypto hash
@@ -818,7 +903,6 @@ This is a sample file for the client
 
         let text = 'hey dude';
         env.cache.write['b./dude.txt'] = await env.hash(text);
-        env.checkCache('b./dude.txt', text, 'write');
         await env.saveCache('b./.cache');
         let oldcache = env.cache;
         env.cache = {}; //don't do this, just testing that loading is really loading

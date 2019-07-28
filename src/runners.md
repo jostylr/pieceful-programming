@@ -108,9 +108,9 @@ listing.
     async function fileLoader (files) {
         if (files.length === 0) {
             let {files:dir} = await env.ls('R./');
-            console.log(dir);
-            if (dir.includes('R./roots.txt') ) {
-                files = await env.read('R./roots.txt').
+            let roots = options.roots;
+            if (dir.includes(roots) ) {
+                files = await env.read(roots).
                     split('\n').
                     map(el => el.trim());
             } else {
@@ -160,7 +160,7 @@ unresolved stuff, etc.
         let fine = true;
         for (let i = 0; i < n; i += 1) {
             let loader = loaders[i];
-            let {report} = await weaver.run(loader);
+            let {report} = await weaver.run(loader, options);
             if (report) {
                 env.log(report);
                 fine = false;
@@ -204,15 +204,34 @@ This is where we deal with the options.
     let options = env.minimist(env.argv(), {
         boolean : true, // `--name` no equals leads to true
         alias : {
-            'o' : 'out'
+            o : 'out',
+            rf : 'roots'
+
+        }, 
+        default : {
+            roots : 'R./roots.txt',
+            readCache : 'R./.cache',
+            writeCache : 'R./.cache'
         }
     });
 
     let files = options._;
+    let leadReg = /^[^.]+\.\//; 
+    files = files.map ( (el) => {
+        if (!leadReg.test(el) ) {
+            return 'R./' + el;
+        } else {
+            return el;
+        }
+    });
 
     if (options.out) {
         //replace save with out
         organs.directives.save = organs.directives.out;
+    }
+
+    if (has(options,'cache')) {
+        options.readCache = options.writeCache = options.cache;
     }
 
 ## Cli Min

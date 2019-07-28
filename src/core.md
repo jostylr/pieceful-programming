@@ -35,6 +35,7 @@ called in the command and directive processors.
         tracker.get = _"tracker get";
         tracker.add = _"tracker add";
         tracker.self = _"tracker self";
+        tracker.action = _"tracker action";
         tracker.report = _"tracker report";
         tracker.report.mapper = _"tracker report:mapper";
         tracker.report.joiner = _"tracker report:joiner";
@@ -46,6 +47,7 @@ called in the command and directive processors.
         tracker.finished = {};
         tracker.failed = {};
         tracker.logs = [];
+        tracker.actions = [];
         tracker.reporterDepth = 20;
 
 
@@ -176,15 +178,21 @@ file. Target is the prefix.
 
 We return all the nodes generated during this time. 
 
-    async function run (loader) {
+We also do the cache loading and saving, based on the options. If either is
+empty, then we ignore the operation.
+
+
+    async function run (loader, options = {}) {
         let {directive} = loader;
         let {sym, scope} = tracker.new({scope:loader.scope}, 'Starting a new run', loader); 
+        await env.loadCache(options.readCache);
         weaver.runDirective.call(scope, directive, loader, sym);
         _":orchestrate waiting for being done"
+        await env.saveCache(options.writeCache); 
         tracker.done(sym);
         let report = tracker.report();
         let unresolved = weaver.keyDiff(weaver.p, weaver.v);
-        return {report, unresolved};
+        return {report, unresolved, actions:tracker.actions};
     }
 
 
@@ -209,13 +217,18 @@ promised, but not present
         return Promise.all(proms);
     };
     while ( (n < proms.length) || count < limit) {
-        if (n < proms.length) {
-            await promiseDone();
-            continue;
-        }
-        if (count < limit) {
-            await repeat();
-            continue;
+        try {
+            if (n < proms.length) {
+                await promiseDone();
+                continue;
+            }
+            if (count < limit) {
+                await repeat();
+                continue;
+            }
+        } catch (e) {
+            env.log(e);
+            break;
         }
     }
 
@@ -574,7 +587,7 @@ which contains the name and location data.
             target = '',
             src = ''
         } = data;
-        let id =`${name}:${src}=>${target}`; 
+        let id =`${name}:${src}=>${target} at ${data.scope.fullname}`; 
         const {sym} = tracker.new(id, 'Directive queued', {name, data});
         tracker.add(sym, 'Directive needed', parSym);
         let dire = await weaver.waitForFunction('directives', name, sym);
@@ -1669,6 +1682,16 @@ This puts an explicit label on the object for tracking purposes.
     }
 
 
+### Tracker Action
+
+This is something that should get reported as a successful action taken, such
+as writing to a file. 
+
+    function actionTracker (sym, str, args) {
+        let me = tracker.log(sym, str, args);
+        tracker.actions.push( `${str} (${me.id ? me.id  : ''})` );
+        console.log(tracker.actions[tracker.actions.length -1]);
+    }
 
 ### Tracker report 
 
@@ -1792,6 +1815,7 @@ This reports the logs of the blocked.
         return 'DID NOT FINISH:\n' + 
             trails.join('\n===\n'); 
     }
+
 
 
 ## Sample

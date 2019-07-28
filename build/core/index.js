@@ -103,6 +103,11 @@ module.exports = function Weaver (
         me.self = self;
         return me;
     };
+    tracker.action = function actionTracker (sym, str, args) {
+        let me = tracker.log(sym, str, args);
+        tracker.actions.push( `${str} (${me.id ? me.id  : ''})` );
+        console.log(tracker.actions[tracker.actions.length -1]);
+    };
     tracker.report = function reportTracker (indent = '  ') {
         let report;
         let self = reportTracker;
@@ -201,6 +206,7 @@ module.exports = function Weaver (
     tracker.finished = {};
     tracker.failed = {};
     tracker.logs = [];
+    tracker.actions = [];
     tracker.reporterDepth = 20;
 
 
@@ -684,7 +690,7 @@ module.exports = function Weaver (
             target = '',
             src = ''
         } = data;
-        let id =`${name}:${src}=>${target}`; 
+        let id =`${name}:${src}=>${target} at ${data.scope.fullname}`; 
         const {sym} = tracker.new(id, 'Directive queued', {name, data});
         tracker.add(sym, 'Directive needed', parSym);
         let dire = await weaver.waitForFunction('directives', name, sym);
@@ -916,9 +922,10 @@ module.exports = function Weaver (
         } 
         return prr.prom;
     };
-    weaver.run = async function run (loader) {
+    weaver.run = async function run (loader, options = {}) {
         let {directive} = loader;
         let {sym, scope} = tracker.new({scope:loader.scope}, 'Starting a new run', loader); 
+        await env.loadCache(options.readCache);
         weaver.runDirective.call(scope, directive, loader, sym);
         let proms = env.promises;
         let n = 0;
@@ -934,19 +941,25 @@ module.exports = function Weaver (
             return Promise.all(proms);
         };
         while ( (n < proms.length) || count < limit) {
-            if (n < proms.length) {
-                await promiseDone();
-                continue;
-            }
-            if (count < limit) {
-                await repeat();
-                continue;
+            try {
+                if (n < proms.length) {
+                    await promiseDone();
+                    continue;
+                }
+                if (count < limit) {
+                    await repeat();
+                    continue;
+                }
+            } catch (e) {
+                env.log(e);
+                break;
             }
         }
+        await env.saveCache(options.writeCache); 
         tracker.done(sym);
         let report = tracker.report();
         let unresolved = weaver.keyDiff(weaver.p, weaver.v);
-        return {report, unresolved};
+        return {report, unresolved, actions:tracker.actions};
     };
     weaver.keyDiff = function keyDiff (larger, smaller) {
         return Object.keys(larger).
