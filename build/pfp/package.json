@@ -1,0 +1,30 @@
+{
+  "name": "pfp-cli",
+  "version": "0.1.0",
+  "description": "The pieceful way to develop a program -- lite style",
+  "main": "cli.js",
+  "bin": {
+    "pfp" : "bin/pfp"
+  },
+  "dependencies": {
+    "commonmark": "^0.29.0",
+    "node-fetch": "^2.6.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jostylr/pieceful-programming.git"
+  },
+  "keywords": [
+    "literate-programming"
+  ],
+  "author": "James Taylor",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jostylr/pieceful-programming/issues"
+  },
+  "homepage": "https://github.com/jostylr/pieceful-programming#readme"
+}

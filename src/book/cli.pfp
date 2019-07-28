@@ -1,0 +1,7 @@
+This is the command line documentation for pieceful programming
+---main :=> save book/cli.md
+# The Command Line 
+
+The program comes in two flavors: `pfp` is the lite version with minimal dependencies and minimal commands, hopefully the most useful commands common to most uses of this approach; `pieceful-programming` is the full version and contains the kitchen sink, one heavily skewed to web development. 
+
+The most basic way to 

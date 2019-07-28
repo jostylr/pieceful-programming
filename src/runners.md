@@ -13,12 +13,11 @@ Sample version:
 * [sample/pfp/cli.js](#cli-min "save:") This runs the command line client
 * [sample/pfp/test.md](#test-md "save:") This is a very basic test file
 
-
 Minimalist version 
 
 * [pfp/](# "cd:save")  Changing save directory to pieceful
 * [index.js](#min-index "ave:") This is for being included by require
-* [cli.js](#cli-min "save:") This runs the command line client
+* [bin/pfp](#pfp-cli "save:") This runs the command line client
 * [browser.js](#min-browser "ave:") This has the browser version
 * [browser.min.js](#min-browser "ave:|minify") Minified version
 
@@ -32,6 +31,11 @@ Batteries included version
 * [browser.js](#max-browser "ave:") This has the browser version
 * [browser.min.js](#max-browser "ave:|minify") Minified version
 * [](# "cd:save")
+
+### PFP Cli
+
+    #! /usr/bin/env node
+    _"cli min"
 
 
 ## Loaders
@@ -239,7 +243,6 @@ This is where we deal with the options.
 The command line client comes in two flavors, a minimal version and full
 version. The lite version uses the command `pfp` while the full one uses
 `pieceful`.  
-
 
     _"vfs::cli"
     _"beginning"
