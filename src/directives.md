@@ -69,7 +69,6 @@ this should be done by subbing or something.
             let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
             tracker(sym, 'Out waiting for node', {src, name, target});
             let data = await weaver.getNode(name, sym);
-            console.log(name, data);
             tracker(sym, 'Node for out received', data);
             if (typeof f === 'function') {
                 tracker(sym, 'Transforming out data', f);
@@ -80,7 +79,7 @@ this should be done by subbing or something.
             }
             encoding = (typeof encoding === 'string') ? encoding : 'utf8';
             tracker(sym, 'Outputing file', {encoding, target});
-            let out = await env.log(name + '\n---\n' + data, 'out directive', 5);
+            let out = await env.log(name + `\n--- ${src} :=> ${target}\n` +  data, 'out directive', 5);
             tracker.done(sym, 'Successfully logged out file', out);
             return out;
         } catch (e) {

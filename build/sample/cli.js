@@ -41,7 +41,8 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
                 res(true);
                 return true; //writefile does not return a value other than resolution
             } catch (e) {
-                let dir = env.path.dirname(originalTarget);
+                let dir = path.dirname(originalTarget) + '/';
+                console.log(dir);
                 try {
                     await env.mkdir.call({tracker, sym}, dir);
                 } catch (e) {

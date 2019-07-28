@@ -108,6 +108,7 @@ These are inlined into run command and are just placeholders here.
         weaver.run = _"run";
         weaver.keyDiff = _"key diff";
         weaver.twoLevelCopy = _"two level copy";
+        weaver.ignoreLanguages = ['ignore'];
 
 
         weaver.v.commands.nodekeys = _"nodekeys";
@@ -397,35 +398,51 @@ This is split off so compile can just place it there as well.
 
 This is a loop so that we process the pieces in a node sequentially. 
 
+The array of node.pieces is an array of an array of pieces. This is to
+facilitate joining the overall completion units with newlines. 
+
     vals = [];
     { 
         let pieces = node.pieces;
         let n = pieces.length;
+        pieceLoop:
         for (let idx = 0; idx < n; idx += 1) {
             let piece = pieces[idx];
-            if (has(piece, 'value') ) {
-                tracker(sym, 'Piece had value', piece.value);
-                vals.push(piece.value);
-                continue;
+            let bn = piece.length;
+            let bvals = [];
+            for (let bidx = 0; bidx < bn; bidx += 1 ) {
+                let brokenCode = piece[bidx];
+                if (has(brokenCode, 'value') ) {
+                    tracker(sym, 'Piece had value', brokenCode.value);
+                    bvals.push(brokenCode.value);
+                    continue;
+                }
+                if  ( has(brokenCode, 'cmd') )   {
+                    let scope = makeScope({
+                        tracking : 'creating piece ' + idx + ' of node ' + name, 
+                        context : node, 
+                        top : brokenCode }
+                    );
+                    tracker(sym, 'Calling command on piece', [idx, piece, bidx, brokenCode]);
+                    let val = await runCommand.call(scope, brokenCode, sym);
+                    _":indent"
+                    tracker(sym, 'Command finished', [idx, val] ); 
+                    brokenCode.value = val;
+                    bvals.push(val);
+                    continue;
+                }
+                tracker.fail(sym, 'Piece found without a value or cmd property', idx);
+                piece.value = '';
+                bvals.push('');
+                break pieceLoop;
             }
-            if  ( has(piece, 'cmd') )   {
-                let scope = makeScope({
-                    tracking : 'creating piece ' + idx + ' of node ' + name, 
-                    context : node, 
-                    top : piece }
-                );
-                tracker(sym, 'Calling command on piece', [idx, piece]);
-                let val = await runCommand.call(scope, piece, sym);
-                _":indent"
-                tracker(sym, 'Command finished', [idx, val] ); 
-                piece.value = val;
-                vals.push(val);
-                continue;
+            if (bvals.every( (el) => typeof el === 'string') ) {
+                vals.push(bvals.join('')); 
+            } else if (bvals.length === 1) { //unpacking special object
+                vals.push(bvals[0]);
+            } else {
+                vals.push(bvals);
             }
-            tracker.fail(sym, 'Piece found without a value or cmd property', idx);
-            piece.value = '';
-            vals.push('');
-            break;
         }
     }
     
@@ -442,8 +459,8 @@ the rest. This is not going to cover all possible uses, but it should cover
 all reasonable uses such as `fname = _"function definition"`.
 
 
-    if ( (piece.indent) && ( typeof val === 'string') ) {
-        val  = val.replace(/\n/g, piece.indent );
+    if ( (brokenCode.indent) && ( typeof val === 'string') ) {
+        val  = val.replace(/\n/g, brokenCode.indent );
     }
 
 
@@ -464,8 +481,10 @@ still just work with the input going in as the first argument.
     tracker(nSym, 'About to transform the values', vals);
     vals = vals ||  [];
     if (vals.every( (el) => (typeof el === 'string') ) ){
-        vals = vals.join('');
+        vals = vals.join('\n');
         tracker(nSym, 'Concatenated values', vals);
+    } else if (vals.length === 1) {
+        vals = vals[0];
     }
 
     if (node.transform && node.transform.length > 0) {
@@ -483,11 +502,8 @@ still just work with the input going in as the first argument.
             vals = await runCommand.call(scope, pipe, nSym );
             tracker(nSym, 'Command in transform done', vals);
         }            
-    } else if (typeof vals !== 'string') { //transform should deal with it
-        //give warning of incompatible types
-        // or we could give some useful version, such as jsoning for different types. 
-        vals = vals.join('');
-    }
+    } 
+    
     tracker(nSym, 'Transformation completed', vals);
     node.value = vals;
 
@@ -523,7 +539,6 @@ bit in the line numbering reporting.
             tracker(sym, 'About to parse text');
             let {web, directives} = textParser.call(weaver, text, {prefix, tracker: weaver.parseTracker});
             tracker(sym, 'Text parsing done', {web, directives});
-
             directives.forEach( (el) => {
                 el.rawArgs = el.args;
                 if (el.args) {
@@ -538,12 +553,13 @@ bit in the line numbering reporting.
             Object.keys(web).forEach( (name) => {
                 tracker(sym, 'Processing code for node', name);
                 const node = web[name];
-                const code = node.code || [];
-                node.pieces = code.reduce( (acc, el) => {
+                let code = node.code || [];
+                node.code = code 
+                    = code.filter( (el) => !weaver.ignoreLanguages.includes(el.lang));
+                node.pieces = code.map( (el) => {
                     let {code, start} = el;
                     let pieces = codeParser.call(weaver, {text:code, type:'code', start});
-                    el.pieces = pieces; // in case it is needed as reference
-                    return acc.concat(pieces);
+                    return pieces;
                 }, []);
                 tracker(sym, 'Processing transform for node', node.rawTransform);
                 const transform = node.rawTransform || []; 
@@ -1537,7 +1553,7 @@ tracker.
         let log;
         log = [str, args];
         me.logs.push(log);
-        if (me.debug || tracker.debug) {
+        if (me.debug || tracker.debug ) {
             env.log(`DEBUG(${me.id}): ${log[0]}`, 'tracker', 4, log[1]);
         }
         if (tracker.logs) {

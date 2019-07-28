@@ -41,7 +41,8 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
                 res(true);
                 return true; //writefile does not return a value other than resolution
             } catch (e) {
-                let dir = env.path.dirname(originalTarget);
+                let dir = path.dirname(originalTarget) + '/';
+                console.log(dir);
                 try {
                     await env.mkdir.call({tracker, sym}, dir);
                 } catch (e) {
@@ -803,7 +804,7 @@ const Weaver = function Weaver (
         let log;
         log = [str, args];
         me.logs.push(log);
-        if (me.debug || tracker.debug) {
+        if (me.debug || tracker.debug ) {
             env.log(`DEBUG(${me.id}): ${log[0]}`, 'tracker', 4, log[1]);
         }
         if (tracker.logs) {
@@ -1213,33 +1214,46 @@ const Weaver = function Weaver (
                 { 
                     let pieces = node.pieces;
                     let n = pieces.length;
+                    pieceLoop:
                     for (let idx = 0; idx < n; idx += 1) {
                         let piece = pieces[idx];
-                        if (has(piece, 'value') ) {
-                            tracker(sym, 'Piece had value', piece.value);
-                            vals.push(piece.value);
-                            continue;
-                        }
-                        if  ( has(piece, 'cmd') )   {
-                            let scope = makeScope({
-                                tracking : 'creating piece ' + idx + ' of node ' + name, 
-                                context : node, 
-                                top : piece }
-                            );
-                            tracker(sym, 'Calling command on piece', [idx, piece]);
-                            let val = await runCommand.call(scope, piece, sym);
-                            if ( (piece.indent) && ( typeof val === 'string') ) {
-                                val  = val.replace(/\n/g, piece.indent );
+                        let bn = piece.length;
+                        let bvals = [];
+                        for (let bidx = 0; bidx < bn; bidx += 1 ) {
+                            let brokenCode = piece[bidx];
+                            if (has(brokenCode, 'value') ) {
+                                tracker(sym, 'Piece had value', brokenCode.value);
+                                bvals.push(brokenCode.value);
+                                continue;
                             }
-                            tracker(sym, 'Command finished', [idx, val] ); 
-                            piece.value = val;
-                            vals.push(val);
-                            continue;
+                            if  ( has(brokenCode, 'cmd') )   {
+                                let scope = makeScope({
+                                    tracking : 'creating piece ' + idx + ' of node ' + name, 
+                                    context : node, 
+                                    top : brokenCode }
+                                );
+                                tracker(sym, 'Calling command on piece', [idx, piece, bidx, brokenCode]);
+                                let val = await runCommand.call(scope, brokenCode, sym);
+                                if ( (brokenCode.indent) && ( typeof val === 'string') ) {
+                                    val  = val.replace(/\n/g, brokenCode.indent );
+                                }
+                                tracker(sym, 'Command finished', [idx, val] ); 
+                                brokenCode.value = val;
+                                bvals.push(val);
+                                continue;
+                            }
+                            tracker.fail(sym, 'Piece found without a value or cmd property', idx);
+                            piece.value = '';
+                            bvals.push('');
+                            break pieceLoop;
                         }
-                        tracker.fail(sym, 'Piece found without a value or cmd property', idx);
-                        piece.value = '';
-                        vals.push('');
-                        break;
+                        if (bvals.every( (el) => typeof el === 'string') ) {
+                            vals.push(bvals.join('')); 
+                        } else if (bvals.length === 1) { //unpacking special object
+                            vals.push(bvals[0]);
+                        } else {
+                            vals.push(bvals);
+                        }
                     }
                 }
             
@@ -1549,33 +1563,46 @@ const Weaver = function Weaver (
                 { 
                     let pieces = node.pieces;
                     let n = pieces.length;
+                    pieceLoop:
                     for (let idx = 0; idx < n; idx += 1) {
                         let piece = pieces[idx];
-                        if (has(piece, 'value') ) {
-                            tracker(sym, 'Piece had value', piece.value);
-                            vals.push(piece.value);
-                            continue;
-                        }
-                        if  ( has(piece, 'cmd') )   {
-                            let scope = makeScope({
-                                tracking : 'creating piece ' + idx + ' of node ' + name, 
-                                context : node, 
-                                top : piece }
-                            );
-                            tracker(sym, 'Calling command on piece', [idx, piece]);
-                            let val = await runCommand.call(scope, piece, sym);
-                            if ( (piece.indent) && ( typeof val === 'string') ) {
-                                val  = val.replace(/\n/g, piece.indent );
+                        let bn = piece.length;
+                        let bvals = [];
+                        for (let bidx = 0; bidx < bn; bidx += 1 ) {
+                            let brokenCode = piece[bidx];
+                            if (has(brokenCode, 'value') ) {
+                                tracker(sym, 'Piece had value', brokenCode.value);
+                                bvals.push(brokenCode.value);
+                                continue;
                             }
-                            tracker(sym, 'Command finished', [idx, val] ); 
-                            piece.value = val;
-                            vals.push(val);
-                            continue;
+                            if  ( has(brokenCode, 'cmd') )   {
+                                let scope = makeScope({
+                                    tracking : 'creating piece ' + idx + ' of node ' + name, 
+                                    context : node, 
+                                    top : brokenCode }
+                                );
+                                tracker(sym, 'Calling command on piece', [idx, piece, bidx, brokenCode]);
+                                let val = await runCommand.call(scope, brokenCode, sym);
+                                if ( (brokenCode.indent) && ( typeof val === 'string') ) {
+                                    val  = val.replace(/\n/g, brokenCode.indent );
+                                }
+                                tracker(sym, 'Command finished', [idx, val] ); 
+                                brokenCode.value = val;
+                                bvals.push(val);
+                                continue;
+                            }
+                            tracker.fail(sym, 'Piece found without a value or cmd property', idx);
+                            piece.value = '';
+                            bvals.push('');
+                            break pieceLoop;
                         }
-                        tracker.fail(sym, 'Piece found without a value or cmd property', idx);
-                        piece.value = '';
-                        vals.push('');
-                        break;
+                        if (bvals.every( (el) => typeof el === 'string') ) {
+                            vals.push(bvals.join('')); 
+                        } else if (bvals.length === 1) { //unpacking special object
+                            vals.push(bvals[0]);
+                        } else {
+                            vals.push(bvals);
+                        }
                     }
                 }
                 tracker(sym, 'Node values computed', vals);
@@ -1586,8 +1613,10 @@ const Weaver = function Weaver (
             tracker(nSym, 'About to transform the values', vals);
             vals = vals ||  [];
             if (vals.every( (el) => (typeof el === 'string') ) ){
-                vals = vals.join('');
+                vals = vals.join('\n');
                 tracker(nSym, 'Concatenated values', vals);
+            } else if (vals.length === 1) {
+                vals = vals[0];
             }
             
             if (node.transform && node.transform.length > 0) {
@@ -1605,11 +1634,8 @@ const Weaver = function Weaver (
                     vals = await runCommand.call(scope, pipe, nSym );
                     tracker(nSym, 'Command in transform done', vals);
                 }            
-            } else if (typeof vals !== 'string') { //transform should deal with it
-                //give warning of incompatible types
-                // or we could give some useful version, such as jsoning for different types. 
-                vals = vals.join('');
-            }
+            } 
+            
             tracker(nSym, 'Transformation completed', vals);
             node.value = vals;
             prr.resolve(node.value);
@@ -1651,7 +1677,6 @@ const Weaver = function Weaver (
             tracker(sym, 'About to parse text');
             let {web, directives} = textParser.call(weaver, text, {prefix, tracker: weaver.parseTracker});
             tracker(sym, 'Text parsing done', {web, directives});
-    
             directives.forEach( (el) => {
                 el.rawArgs = el.args;
                 if (el.args) {
@@ -1666,12 +1691,13 @@ const Weaver = function Weaver (
             Object.keys(web).forEach( (name) => {
                 tracker(sym, 'Processing code for node', name);
                 const node = web[name];
-                const code = node.code || [];
-                node.pieces = code.reduce( (acc, el) => {
+                let code = node.code || [];
+                node.code = code 
+                    = code.filter( (el) => !weaver.ignoreLanguages.includes(el.lang));
+                node.pieces = code.map( (el) => {
                     let {code, start} = el;
                     let pieces = codeParser.call(weaver, {text:code, type:'code', start});
-                    el.pieces = pieces; // in case it is needed as reference
-                    return acc.concat(pieces);
+                    return pieces;
                 }, []);
                 tracker(sym, 'Processing transform for node', node.rawTransform);
                 const transform = node.rawTransform || []; 
@@ -1769,6 +1795,7 @@ const Weaver = function Weaver (
                 return acc;
             });
     };
+    weaver.ignoreLanguages = ['ignore'];
 
 
     weaver.v.commands.nodekeys = function nodeKeys (...args) {
@@ -2041,7 +2068,6 @@ let organs = {
                 let name = weaver.syntax.getFullNodeName(src, scope.context.scope, sym);
                 tracker(sym, 'Out waiting for node', {src, name, target});
                 let data = await weaver.getNode(name, sym);
-                console.log(name, data);
                 tracker(sym, 'Node for out received', data);
                 if (typeof f === 'function') {
                     tracker(sym, 'Transforming out data', f);
@@ -2052,7 +2078,7 @@ let organs = {
                 }
                 encoding = (typeof encoding === 'string') ? encoding : 'utf8';
                 tracker(sym, 'Outputing file', {encoding, target});
-                let out = await env.log(name + '\n---\n' + data, 'out directive', 5);
+                let out = await env.log(name + `\n--- ${src} :=> ${target}\n` +  data, 'out directive', 5);
                 tracker.done(sym, 'Successfully logged out file', out);
                 return out;
             } catch (e) {
@@ -2421,11 +2447,15 @@ let organs = {
             let localContext = this; //eslint-disable-line no-unused-vars
             let originalCode = webNode.code; //eslint-disable-line no-unused-vars
             let code = webNode.code.reduce( (acc, next) => {
-                return acc + next[0];
-            }, '');
+                return acc.push(next[0]);
+            }, []).join('\n');
             webNode.code = [];
             localContext.tracker("local directive evaling code", {webNode, code});
+            let ret;
             eval(code);
+            if (ret && ret.code) {
+                webNode.code.push(ret);
+            }
         },
         scope : function ({target, scope}) {
             let ind = target.indexOf('=');

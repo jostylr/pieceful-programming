@@ -4,4 +4,6 @@ This is the command line documentation for pieceful programming
 
 The program comes in two flavors: `pfp` is the lite version with minimal dependencies and minimal commands, hopefully the most useful commands common to most uses of this approach; `pieceful-programming` is the full version and contains the kitchen sink, one heavily skewed to web development. 
 
-The most basic way to 
+The most basic way to use this is `pfp fname1 fname2 ...` where the fnames are filenames with extensions of `.md` for markdown processing via commonmark or `.pfp` for processing via splitting on three dashed lines to get the code pieces. 
+
+    

@@ -529,16 +529,24 @@ node and that's it. It then removes the code from the node from the web being ge
 Both localContext and originalCode are there simply to be referenced by the
 evaling code if it wants. 
 
+We have a special variable ret that the code can set to a value that gets put
+in for the code. The ret object should have at least the code property.  
+
+
     function (data) {
         let webNode = data.webNode;
         let localContext = this; //eslint-disable-line no-unused-vars
         let originalCode = webNode.code; //eslint-disable-line no-unused-vars
         let code = webNode.code.reduce( (acc, next) => {
-            return acc + next[0];
-        }, '');
+            return acc.push(next[0]);
+        }, []).join('\n');
         webNode.code = [];
         localContext.tracker("local directive evaling code", {webNode, code});
+        let ret;
         eval(code);
+        if (ret && ret.code) {
+            webNode.code.push(ret);
+        }
     }
 
 ### scope

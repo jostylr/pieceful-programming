@@ -355,11 +355,15 @@ cmparse.parsingDirectives = {
         let localContext = this; //eslint-disable-line no-unused-vars
         let originalCode = webNode.code; //eslint-disable-line no-unused-vars
         let code = webNode.code.reduce( (acc, next) => {
-            return acc + next[0];
-        }, '');
+            return acc.push(next[0]);
+        }, []).join('\n');
         webNode.code = [];
         localContext.tracker("local directive evaling code", {webNode, code});
+        let ret;
         eval(code);
+        if (ret && ret.code) {
+            webNode.code.push(ret);
+        }
     },
     scope : function ({target, scope}) {
         let ind = target.indexOf('=');

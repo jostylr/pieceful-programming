@@ -205,7 +205,8 @@ By default, files go under the build directory.
             await fsp.writeFile(target, text, encoding); 
             _":success"
         } catch (e) {
-            let dir = env.path.dirname(originalTarget);
+            let dir = path.dirname(originalTarget) + '/';
+            console.log(dir);
             try {
                 await env.mkdir.call({tracker, sym}, dir);
             } catch (e) {

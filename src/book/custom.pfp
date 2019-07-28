@@ -1,0 +1,18 @@
+This is where we specify how to do custom commands, directives, and parsers
+
+--- main :=> save book/custom.md
+
+# Customizing #
+
+## Commands
+
+Commands are basically just functions in JavaScript. Typically, they are part of a pipe process which means the first argument, typically, is the incoming text or object. The return value should be the stuff that gets passed on to the next command. 
+
+The functions can be async functions with the customary awaits allowed for waiting for something else to happen. Most probably have no need for such things, but it is not a problem if it is needed. Just be sure to handle the errors. 
+
+The `this` context object consists of the `scope` object, which in this context generally has access to the node that the command is part of. Scope also is a shared variable scope across commands if needed, but typically that is done at the command piping level. We prefer purish functions. 
+
+It also has access to the `tracker` function and the corresponding `sym` that identifies the trail that this command is part of. If the function errors, `tracker.fail(sym, string, error)` is a convenient form for passing that along. To record something noteworthy, one can just use `tracker(sym, string, stuff)`. See tracker for more detail. 
+
+
+
