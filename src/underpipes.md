@@ -268,6 +268,7 @@ number or 0, then we have no prefix.
         }
         let txt = p.text.slice(begin,backind) + prefix + p.u + quote;
         ind +=2;
+        begin = p.ind = ind;
         pieces.push({
             start : p.f.ln(begin),
             end : p.f.ln(ind-1),

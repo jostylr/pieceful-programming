@@ -154,7 +154,7 @@ done.
 In between steps, we can take care of logs, compare old and new, deal with
 unresolved stuff, etc. 
 
-    let weaver = new Weaver(organs);
+    let weaver = new Weaver(organs, options);
     weaver.full = full;
 
     let main = async function main (files) {
@@ -171,7 +171,9 @@ unresolved stuff, etc.
                 break; // any problems terminates the flow
             }
         }
-        //full(weaver.v, weaver.p);
+        if (options.full) {
+            full(weaver.v);
+        }
         if (fine) { 
             env.log('All done.'); 
         } else {

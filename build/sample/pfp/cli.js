@@ -789,7 +789,8 @@ const has = function (obj, key) {
 };
 
 const Weaver = function Weaver (
-    organs = {directives:{}, commands:{}, parsers:{}, env:{}}
+    organs = {directives:{}, commands:{}, parsers:{}, env:{}},
+    options = {}
 ) {
     if (!organs) {
         throw Error('Weaver requires commands, directives, parsers, etc');
@@ -804,8 +805,12 @@ const Weaver = function Weaver (
         let log;
         log = [str, args];
         me.logs.push(log);
-        if (me.debug || tracker.debug ) {
-            env.log(`DEBUG(${me.id}): ${log[0]}`, 'tracker', 4, log[1]);
+        let debug = me.debug || tracker.debug;
+        if (debug ) {
+            env.log(`DEBUG(${me.id}): ${log[0]}`);
+            if (debug === 2) {
+                weaver.full(log[1]);
+            }
         }
         if (tracker.logs) {
             tracker.logs.push([me.id, ...log]); 
@@ -997,6 +1002,9 @@ const Weaver = function Weaver (
     tracker.actions = [];
     tracker.reporterDepth = 20;
 
+    if (options.debug) {
+        tracker.debug = options.debug;
+    }
 
     let env = organs.env || {};
     weaver.changeEnv = (newEnv) => { env = newEnv; };
@@ -3367,6 +3375,7 @@ let organs = {
                             }
                             let txt = p.text.slice(begin,backind) + prefix + p.u + quote;
                             ind +=2;
+                            begin = p.ind = ind;
                             pieces.push({
                                 start : p.f.ln(begin),
                                 end : p.f.ln(ind-1),
@@ -3516,7 +3525,7 @@ if (options.out) {
 if (has(options,'cache')) {
     options.readCache = options.writeCache = options.cache;
 }
-let weaver = new Weaver(organs);
+let weaver = new Weaver(organs, options);
 weaver.full = full;
 
 let main = async function main (files) {
@@ -3533,7 +3542,9 @@ let main = async function main (files) {
             break; // any problems terminates the flow
         }
     }
-    //full(weaver.v, weaver.p);
+    if (options.full) {
+        full(weaver.v);
+    }
     if (fine) { 
         env.log('All done.'); 
     } else {

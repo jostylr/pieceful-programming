@@ -20,7 +20,8 @@ function that can be provided that defaults to an empty function. It gets
 called in the command and directive processors. 
 
     function Weaver (
-        organs = {directives:{}, commands:{}, parsers:{}, env:{}}
+        organs = {directives:{}, commands:{}, parsers:{}, env:{}},
+        options = {}
     ) {
         if (!organs) {
             throw Error('Weaver requires commands, directives, parsers, etc');
@@ -50,6 +51,9 @@ called in the command and directive processors.
         tracker.actions = [];
         tracker.reporterDepth = 20;
 
+        if (options.debug) {
+            tracker.debug = options.debug;
+        }
 
         let env = organs.env || {};
         weaver.changeEnv = (newEnv) => { env = newEnv; };
@@ -1553,8 +1557,12 @@ tracker.
         let log;
         log = [str, args];
         me.logs.push(log);
-        if (me.debug || tracker.debug ) {
-            env.log(`DEBUG(${me.id}): ${log[0]}`, 'tracker', 4, log[1]);
+        let debug = me.debug || tracker.debug;
+        if (debug ) {
+            env.log(`DEBUG(${me.id}): ${log[0]}`);
+            if (debug === 2) {
+                weaver.full(log[1]);
+            }
         }
         if (tracker.logs) {
             tracker.logs.push([me.id, ...log]); 
