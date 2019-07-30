@@ -1744,7 +1744,7 @@ the chain of blockers.
         } else {
             let unfinished = Object.getOwnPropertySymbols(tracker.promises);
             if (unfinished.length > 0) {
-
+                _":detect cycle"
                 let needs = unfinished.reduce( (acc, el) => {
                     let me = tracker.get(el);
                     if (me.needsMe.length > 0 ) {
@@ -1762,6 +1762,29 @@ the chain of blockers.
         }
         return report;
     }
+
+[detect cycle]()
+
+It is possible for two blocks to both need each other. This is a cycle and we
+need to specifically look for it. If we find it, we end our search. 
+
+    let n = unfinished.length;
+    for (let i = 0; i < n; i += 1) {
+        const base = unfinished[i];
+        let toCheck = [base];
+        while (toCheck.length) {
+            let cur = tracker.get(toCheck.shift());
+            if ( (!cur.needsMe) || (cur.needsMe.length === 0) ) {
+                continue;
+            }
+            if (cur.needsMe.includes(base)) {
+                return 'Cycle found ' + cur.id +
+                    ' needs ' + tracker.get(base).id;
+            }
+            toCheck.push(...cur.needsMe);
+        }
+    }
+
 
 [mapper]()
 

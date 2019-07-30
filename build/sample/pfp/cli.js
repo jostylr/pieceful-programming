@@ -919,7 +919,22 @@ const Weaver = function Weaver (
         } else {
             let unfinished = Object.getOwnPropertySymbols(tracker.promises);
             if (unfinished.length > 0) {
-    
+                let n = unfinished.length;
+                for (let i = 0; i < n; i += 1) {
+                    const base = unfinished[i];
+                    let toCheck = [base];
+                    while (toCheck.length) {
+                        let cur = tracker.get(toCheck.shift());
+                        if ( (!cur.needsMe) || (cur.needsMe.length === 0) ) {
+                            continue;
+                        }
+                        if (cur.needsMe.includes(base)) {
+                            return 'Cycle found ' + cur.id +
+                                ' needs ' + tracker.get(base).id;
+                        }
+                        toCheck.push(...cur.needsMe);
+                    }
+                }
                 let needs = unfinished.reduce( (acc, el) => {
                     let me = tracker.get(el);
                     if (me.needsMe.length > 0 ) {
