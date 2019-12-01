@@ -273,6 +273,7 @@ module.exports = function Weaver (
     
         return {reject:rej, resolve:res, prom, sym};
     };
+    env.makePromise = makePromise; // so that path can wait
     const makeArgProcessor = function makeArgProcessor(state, sym) {
         return async function argProcessor (arg, i) {
             let ret;
@@ -731,7 +732,7 @@ module.exports = function Weaver (
         tracker.add(sym, 'Directive needed', parSym);
         let dire = await weaver.waitForFunction('directives', name, sym);
     
-        let scope = makeScope({tracking, context : data});
+        let scope = makeScope({tracking, context : data, weaver});
         let argProcessor = makeArgProcessor(scope, sym);
         tracker(sym, 'Processing directive arguments');
         try {
@@ -858,7 +859,8 @@ module.exports = function Weaver (
                 let n = node.transform.length;
                 let scope = makeScope({
                     tracking : 'transforming value of ' + name,
-                    context : web[name]
+                    context : web[name],
+                    weaver
                 });
                 for (let i = 0; i < n; i += 1) {
                     let pipe = node.transform[i];

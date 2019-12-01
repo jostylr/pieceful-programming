@@ -84,6 +84,7 @@ These are inlined into run command and are just placeholders here.
         };
 
         const makePromise = _"make promise";
+        env.makePromise = makePromise; // so that path can wait
         const makeArgProcessor = _"arg processor";
         const runCommand = _"run command";
         const makeScope = _"make scope";
@@ -495,7 +496,8 @@ still just work with the input going in as the first argument.
         let n = node.transform.length;
         let scope = makeScope({
             tracking : 'transforming value of ' + name,
-            context : web[name]
+            context : web[name],
+            weaver
         });
         for (let i = 0; i < n; i += 1) {
             let pipe = node.transform[i];
@@ -612,7 +614,7 @@ which contains the name and location data.
         tracker.add(sym, 'Directive needed', parSym);
         let dire = await weaver.waitForFunction('directives', name, sym);
 
-        let scope = makeScope({tracking, context : data});
+        let scope = makeScope({tracking, context : data, weaver});
         let argProcessor = makeArgProcessor(scope, sym);
         tracker(sym, 'Processing directive arguments');
 
@@ -694,7 +696,7 @@ present. Undefined gets filtered out afterwards.
             return ret;
         };
     }
-i
+
 ## Run Command
 
 This runs a specific command. It is similar to running directives, but we have

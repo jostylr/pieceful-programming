@@ -21,7 +21,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         write : async function write (originalTarget, text, encoding ='utf8') {
             const tracker = this.tracker || fakeTracker;
             const sym = this.sym || '';
-            const target = env.path(originalTarget, 'B');
+            const target = await env.path(originalTarget, 'B');
             let {res} = env.promiseStarts('write', target);
             let hash = await env.hash(text);
             let oldHash = env.cache.write[originalTarget];
@@ -71,7 +71,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         read : async function read (originalTarget, encoding = 'utf8') {
             const tracker = this.tracker || fakeTracker;
             const sym = this.sym || '';
-            const target = env.path(originalTarget, 'S');
+            const target = await env.path(originalTarget, 'S');
             tracker(sym, `Reading ${target}`, {originalTarget, target});
             let cached = env.cache.read[target];
             let text;
@@ -101,8 +101,9 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         fetch : async function fetchUrl (url, local, options = {method:'GET'}, type='text') {
             let fetch =  (rest.fetch ?  rest.fetch : window.fetch);  
             if (local && rest.fs) {
+                let p = await env.path(local, 'B')
                 return fetch(url, options).then(res => {
-                    const dest = rest.fs.createWriteStream(env.path(local, 'B'));
+                    const dest = rest.fs.createWriteStream(p);
                     res.body.pipe(dest);
                 }); 
             } 
@@ -117,7 +118,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         mkdir : async function mkdir (originalTarget) {
             const tracker = this.tracker || fakeTracker;
             const sym = this.sym || '';
-            const target = env.path(originalTarget, 'B');
+            const target = await env.path(originalTarget, 'B');
             tracker(sym, 'Creating directory', target);
             try {
                 await fsp.mkdir(target, {recursive: true});
@@ -131,7 +132,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         ls : async function ls (originalTarget) {
             const tracker = this.tracker || fakeTracker;
             const sym = this.sym || '';
-            let target = env.path(originalTarget, 'S');
+            let target = await env.path(originalTarget, 'S');
             let list;
             try {
                 tracker(sym, 'Listing directory', target);
@@ -155,7 +156,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         },
         //@ info: target -> ms time {access, modified, change, birth}
         info : async function info (target) {
-            target = env.path(target, 'S');
+            target = await env.path(target, 'S');
             let b = await fsp.lstat(target);
             return {
                 access: b.atimeMs,
@@ -165,22 +166,30 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             };
         }, 
         //@path : short path, default lead of path ->  long path
-        path : function pathProxy (originalTarget, defaultLead) {
+        path : async function pathProxy (originalTarget, defaultLead) {
             let target = path.normalize(originalTarget);
-            let ind = target.indexOf('./');
+            let reg = /^([^.]+)\.\/(.*)$/; //start of non-dots then dot slash
+            let match  = target.match(reg);
             let lead;
-            if (ind !== -1) {
-                lead = target.slice(0,ind).toUpperCase();
-                target = target.slice(ind+2).trim();
+            if (match) {
+                lead = match[1].toUpperCase().trim();
+                target = match[2].trim();
             } else {
                 lead = defaultLead || 'B';
             }
             let paths = env.paths;
+            let pv; //for path string or promise
             if (has(paths, lead) ) {
-                target = path.join(env.base, paths[lead], target);
+                pv = paths[lead]; //string or promise
+                if (typeof pv !== 'string') {
+                    pv = await pv.prom;
+                }
             } else {
-                env.error(`Base ${lead} not a valid path toggle. Target: ${target} with default ${env.paths[defaultLead]}`);  
+                pv = env.makePromise('PATH', lead);
+                paths[lead] = pv;
+                pv = await pv.prom;
             }
+            target = path.join(env.base, pv, target);
             return target;
         },
         //@exec : command name, options for the command, options for exec -> stdout from command line (stderror is logged) 
@@ -191,7 +200,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             }  
             let cmdString = env.cmds[cmd](cmdLineOptions);
             if (execOptions.cwd) {
-                execOptions.cwd = env.path(execOptions.cwd, 'M');
+                execOptions.cwd = await env.path(execOptions.cwd, 'M');
             }
             let obj = await exec(cmdString, execOptions);
             if (obj.stderror) {
@@ -200,10 +209,10 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             return obj.stdout; // stderr, stdout as properties
         },
         cmds : {
-            tex2pdf : function (options ) {
+            tex2pdf : async function (options ) {
                 let osrc = options.src;
-                let src = env.path( options.src + '.tex', 'M');
-                let out = env.path( ( options.out || options.src) + '.pdf', 'B');
+                let src = await env.path( options.src + '.tex', 'M');
+                let out = await env.path( ( options.out || options.src) + '.pdf', 'B');
                 let str = `latex ${src} && dvips ${osrc}.dvi; && ps2pdf ${osrc} ${out}`;
                 return str;
             } 
@@ -490,7 +499,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
         let str = JSON.stringify(cache);
     
         try {
-            let actual = env.path(target);
+            let actual = await env.path(target);
             await fsp.writeFile(actual, str, 'utf8'); 
         } catch (e) {
             env.log('could not save cache file ' + target + '\n' + e.stack);
@@ -503,7 +512,7 @@ let envMaker = function envMaker (fsp, path, exec, rest = {}) {
             return;
         }
         try {
-            target = env.path(target);
+            target = await env.path(target);
             let data = await fsp.readFile(target, {encoding:'utf8'} );
             env.cache = JSON.parse(data);
             if (!env.cache.read) {

@@ -1,0 +1,995 @@
+DEBUG(loader cycle): New Symbol Established
+[ { fullname: [32m'loader cycle'[39m } ]
+DEBUG(loader cycle): Starting a new run
+[
+  {
+    directive: [32m'load'[39m,
+    src: [32m'S./cycle.md'[39m,
+    target: [32m'cycle'[39m,
+    args: [],
+    scope: { fullname: [32m'loader cycle'[39m }
+  }
+]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): New Symbol Established
+[ [32m'load:S./cycle.md=>cycle at loader cycle'[39m ]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): Directive queued
+[
+  {
+    name: [32m'load'[39m,
+    data: {
+      directive: [32m'load'[39m,
+      src: [32m'S./cycle.md'[39m,
+      target: [32m'cycle'[39m,
+      args: [],
+      scope: { fullname: [32m'loader cycle'[39m }
+    }
+  }
+]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): Directive needed
+[ [32m'loader cycle'[39m ]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): Processing directive arguments
+[ [90mundefined[39m ]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): Running directive
+[ { actualArgs: [] } ]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): About to read file
+[ { src: [32m'S./cycle.md'[39m, encoding: [32m'utf8'[39m } ]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): Read file
+[
+  [32m'# Cycle\n'[39m +
+    [32m'\n'[39m +
+    [32m'What happens if we have blocks that point to each other? Hopefully nothing.  \n'[39m +
+    [32m'\n'[39m +
+    [32m'\n'[39m +
+    [32m'    _"block"\n'[39m +
+    [32m'\n'[39m +
+    [32m'## Block\n'[39m +
+    [32m'\n'[39m +
+    [32m'    _"cycle"  _"block:switch" _"block"\n'[39m +
+    [32m'\n'[39m +
+    [32m'[switch]()\n'[39m +
+    [32m'\n'[39m +
+    [32m'    _"cycle"'[39m
+]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): Extension determined
+[ [32m'md'[39m ]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): Initiating parsing
+[ [32m'cycle'[39m ]
+DEBUG(Parsing:cycle): New Symbol Established
+[ [32m'Parsing:cycle'[39m ]
+DEBUG(Parsing:cycle): Retrieving parsers
+[
+  [
+    [32m'# Cycle\n'[39m +
+      [32m'\n'[39m +
+      [32m'What happens if we have blocks that point to each other? Hopefully nothing.  \n'[39m +
+      [32m'\n'[39m +
+      [32m'\n'[39m +
+      [32m'    _"block'[39m,
+    [32m'md'[39m,
+    [32m'up'[39m
+  ]
+]
+DEBUG(Parsing:cycle): Parsing begun
+[ [32m'load:S./cycle.md=>cycle at loader cycle'[39m ]
+DEBUG(Parsing:cycle): About to parse text
+[ [90mundefined[39m ]
+DEBUG(Parsing:cycle): Text parsing done
+[
+  {
+    web: {
+      [32m'cycle::^'[39m: {
+        name: [32m'^'[39m,
+        heading: [32m'^'[39m,
+        raw: [ [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [32m''[39m, [ [33m1[39m, [33m1[39m, [33m0[39m ] ] ],
+        code: [],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [ [33m14[39m, [33m12[39m, [33m176[39m ] ],
+          lv1: [32m'cycle::^'[39m,
+          majorname: [32m'cycle::^'[39m,
+          fullname: [32m'cycle::^'[39m,
+          lv1only: [32m'^'[39m
+        }
+      },
+      [32m'cycle::cycle'[39m: {
+        name: [32m'cycle'[39m,
+        heading: [32m'Cycle'[39m,
+        raw: [
+          [
+            [ [33m1[39m, [33m1[39m, [33m0[39m ],
+            [32m'# Cycle\n'[39m +
+              [32m'\n'[39m +
+              [32m'What happens if we have blocks that point to each other? Hopefully nothing.  \n'[39m +
+              [32m'\n'[39m +
+              [32m'\n'[39m +
+              [32m'    _"block"\n'[39m +
+              [32m'\n'[39m,
+            [ [33m8[39m, [33m1[39m, [33m103[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"block"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m6[39m, [33m5[39m, [33m93[39m ],
+            end: [ [33m7[39m, [33m0[39m, [33m101[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [ [33m1[39m, [33m7[39m, [33m6[39m ] ],
+          lv1: [32m'cycle::cycle'[39m,
+          majorname: [32m'cycle::cycle'[39m,
+          fullname: [32m'cycle::cycle'[39m,
+          lv1only: [32m'cycle'[39m
+        }
+      },
+      [32m'cycle::block'[39m: {
+        name: [32m'block'[39m,
+        heading: [32m'Block'[39m,
+        raw: [
+          [
+            [ [33m8[39m, [33m1[39m, [33m103[39m ],
+            [32m'## Block\n\n    _"cycle"  _"block:switch" _"block"\n\n'[39m,
+            [ [33m12[39m, [33m1[39m, [33m153[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"cycle"  _"block:switch" _"block"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m10[39m, [33m5[39m, [33m117[39m ],
+            end: [ [33m11[39m, [33m0[39m, [33m151[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m8[39m, [33m1[39m, [33m103[39m ], [ [33m8[39m, [33m8[39m, [33m110[39m ] ],
+          lv1: [32m'cycle::block'[39m,
+          majorname: [32m'cycle::block'[39m,
+          fullname: [32m'cycle::block'[39m,
+          lv1only: [32m'block'[39m
+        }
+      },
+      [32m'cycle::block:switch'[39m: {
+        name: [32m'switch'[39m,
+        raw: [
+          [
+            [ [33m12[39m, [33m1[39m, [33m153[39m ],
+            [32m'[switch]()\n\n    _"cycle'[39m,
+            [ [33m14[39m, [33m12[39m, [33m176[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"cycle"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m14[39m, [33m5[39m, [33m169[39m ],
+            end: [ [33m14[39m, [33m12[39m, [33m176[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m12[39m, [33m1[39m, [33m153[39m ], [ [33m12[39m, [33m10[39m, [33m162[39m ] ],
+          lv1: [32m'cycle::block'[39m,
+          majorname: [32m'cycle::block'[39m,
+          fullname: [32m'cycle::block:switch'[39m,
+          lv1only: [32m'block'[39m,
+          minor: [32m'switch'[39m
+        }
+      }
+    },
+    directives: []
+  }
+]
+DEBUG(Parsing:cycle): Processing code for node
+[ [32m'cycle::^'[39m ]
+DEBUG(Parsing:cycle): Processing transform for node
+[ [90mundefined[39m ]
+DEBUG(Parsing:cycle): Done processing node
+[ [ [], [90mundefined[39m ] ]
+DEBUG(Parsing:cycle): Processing code for node
+[ [32m'cycle::cycle'[39m ]
+DEBUG(Parsing:cycle): Processing transform for node
+[ [90mundefined[39m ]
+DEBUG(Parsing:cycle): Done processing node
+[
+  [
+    [
+      [
+        {
+          start: [ [33m6[39m, [33m7[39m, [33m95[39m ],
+          end: [ [33m6[39m, [33m11[39m, [33m99[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'block'[39m } ],
+          indent: [32m''[39m
+        }
+      ]
+    ],
+    [90mundefined[39m
+  ]
+]
+DEBUG(Parsing:cycle): Processing code for node
+[ [32m'cycle::block'[39m ]
+DEBUG(Parsing:cycle): Processing transform for node
+[ [90mundefined[39m ]
+DEBUG(Parsing:cycle): Done processing node
+[
+  [
+    [
+      [
+        {
+          start: [ [33m10[39m, [33m7[39m, [33m119[39m ],
+          end: [ [33m10[39m, [33m11[39m, [33m123[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'cycle'[39m } ],
+          indent: [32m''[39m
+        },
+        { start: [ [33m10[39m, [33m13[39m, [33m125[39m ], end: [ [33m10[39m, [33m14[39m, [33m126[39m ], value: [32m'  '[39m },
+        {
+          start: [ [33m10[39m, [33m17[39m, [33m129[39m ],
+          end: [ [33m10[39m, [33m28[39m, [33m140[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'block:switch'[39m } ],
+          indent: [32m'\n'[39m
+        },
+        { start: [ [33m10[39m, [33m30[39m, [33m142[39m ], end: [ [33m10[39m, [33m30[39m, [33m142[39m ], value: [32m' '[39m },
+        {
+          start: [ [33m10[39m, [33m33[39m, [33m145[39m ],
+          end: [ [33m10[39m, [33m37[39m, [33m149[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'block'[39m } ],
+          indent: [32m'\n'[39m
+        }
+      ]
+    ],
+    [90mundefined[39m
+  ]
+]
+DEBUG(Parsing:cycle): Processing code for node
+[ [32m'cycle::block:switch'[39m ]
+DEBUG(Parsing:cycle): Processing transform for node
+[ [90mundefined[39m ]
+DEBUG(Parsing:cycle): Done processing node
+[
+  [
+    [
+      [
+        {
+          start: [ [33m14[39m, [33m7[39m, [33m171[39m ],
+          end: [ [33m14[39m, [33m11[39m, [33m175[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'cycle'[39m } ],
+          indent: [32m''[39m
+        }
+      ]
+    ],
+    [90mundefined[39m
+  ]
+]
+DEBUG(Parsing:cycle): DONE: Done parsing text and code
+[ [90mundefined[39m ]
+DEBUG(load:S./cycle.md=>cycle at loader cycle): Parsed. Will execute
+[
+  {
+    web: {
+      [32m'cycle::^'[39m: {
+        name: [32m'^'[39m,
+        heading: [32m'^'[39m,
+        raw: [ [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [32m''[39m, [ [33m1[39m, [33m1[39m, [33m0[39m ] ] ],
+        code: [],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [ [33m14[39m, [33m12[39m, [33m176[39m ] ],
+          lv1: [32m'cycle::^'[39m,
+          majorname: [32m'cycle::^'[39m,
+          fullname: [32m'cycle::^'[39m,
+          lv1only: [32m'^'[39m
+        },
+        pieces: []
+      },
+      [32m'cycle::cycle'[39m: {
+        name: [32m'cycle'[39m,
+        heading: [32m'Cycle'[39m,
+        raw: [
+          [
+            [ [33m1[39m, [33m1[39m, [33m0[39m ],
+            [32m'# Cycle\n'[39m +
+              [32m'\n'[39m +
+              [32m'What happens if we have blocks that point to each other? Hopefully nothing.  \n'[39m +
+              [32m'\n'[39m +
+              [32m'\n'[39m +
+              [32m'    _"block"\n'[39m +
+              [32m'\n'[39m,
+            [ [33m8[39m, [33m1[39m, [33m103[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"block"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m6[39m, [33m5[39m, [33m93[39m ],
+            end: [ [33m7[39m, [33m0[39m, [33m101[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [ [33m1[39m, [33m7[39m, [33m6[39m ] ],
+          lv1: [32m'cycle::cycle'[39m,
+          majorname: [32m'cycle::cycle'[39m,
+          fullname: [32m'cycle::cycle'[39m,
+          lv1only: [32m'cycle'[39m
+        },
+        pieces: [
+          [
+            {
+              start: [ [33m6[39m, [33m7[39m, [33m95[39m ],
+              end: [ [33m6[39m, [33m11[39m, [33m99[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'block'[39m } ],
+              indent: [32m''[39m
+            }
+          ]
+        ]
+      },
+      [32m'cycle::block'[39m: {
+        name: [32m'block'[39m,
+        heading: [32m'Block'[39m,
+        raw: [
+          [
+            [ [33m8[39m, [33m1[39m, [33m103[39m ],
+            [32m'## Block\n\n    _"cycle"  _"block:switch" _"block"\n\n'[39m,
+            [ [33m12[39m, [33m1[39m, [33m153[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"cycle"  _"block:switch" _"block"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m10[39m, [33m5[39m, [33m117[39m ],
+            end: [ [33m11[39m, [33m0[39m, [33m151[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m8[39m, [33m1[39m, [33m103[39m ], [ [33m8[39m, [33m8[39m, [33m110[39m ] ],
+          lv1: [32m'cycle::block'[39m,
+          majorname: [32m'cycle::block'[39m,
+          fullname: [32m'cycle::block'[39m,
+          lv1only: [32m'block'[39m
+        },
+        pieces: [
+          [
+            {
+              start: [ [33m10[39m, [33m7[39m, [33m119[39m ],
+              end: [ [33m10[39m, [33m11[39m, [33m123[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'cycle'[39m } ],
+              indent: [32m''[39m
+            },
+            {
+              start: [ [33m10[39m, [33m13[39m, [33m125[39m ],
+              end: [ [33m10[39m, [33m14[39m, [33m126[39m ],
+              value: [32m'  '[39m
+            },
+            {
+              start: [ [33m10[39m, [33m17[39m, [33m129[39m ],
+              end: [ [33m10[39m, [33m28[39m, [33m140[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'block:switch'[39m } ],
+              indent: [32m'\n'[39m
+            },
+            {
+              start: [ [33m10[39m, [33m30[39m, [33m142[39m ],
+              end: [ [33m10[39m, [33m30[39m, [33m142[39m ],
+              value: [32m' '[39m
+            },
+            {
+              start: [ [33m10[39m, [33m33[39m, [33m145[39m ],
+              end: [ [33m10[39m, [33m37[39m, [33m149[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'block'[39m } ],
+              indent: [32m'\n'[39m
+            }
+          ]
+        ]
+      },
+      [32m'cycle::block:switch'[39m: {
+        name: [32m'switch'[39m,
+        raw: [
+          [
+            [ [33m12[39m, [33m1[39m, [33m153[39m ],
+            [32m'[switch]()\n\n    _"cycle'[39m,
+            [ [33m14[39m, [33m12[39m, [33m176[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"cycle"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m14[39m, [33m5[39m, [33m169[39m ],
+            end: [ [33m14[39m, [33m12[39m, [33m176[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m12[39m, [33m1[39m, [33m153[39m ], [ [33m12[39m, [33m10[39m, [33m162[39m ] ],
+          lv1: [32m'cycle::block'[39m,
+          majorname: [32m'cycle::block'[39m,
+          fullname: [32m'cycle::block:switch'[39m,
+          lv1only: [32m'block'[39m,
+          minor: [32m'switch'[39m
+        },
+        pieces: [
+          [
+            {
+              start: [ [33m14[39m, [33m7[39m, [33m171[39m ],
+              end: [ [33m14[39m, [33m11[39m, [33m175[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'cycle'[39m } ],
+              indent: [32m''[39m
+            }
+          ]
+        ]
+      }
+    },
+    directives: [],
+    id: [32m'Web: cycle'[39m
+  }
+]
+DEBUG(Web: cycle): New Symbol Established
+[ { id: [32m'Web: cycle'[39m } ]
+DEBUG(Web: cycle): Processing of web and directives started
+[
+  {
+    web: {
+      [32m'cycle::^'[39m: {
+        name: [32m'^'[39m,
+        heading: [32m'^'[39m,
+        raw: [ [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [32m''[39m, [ [33m1[39m, [33m1[39m, [33m0[39m ] ] ],
+        code: [],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [ [33m14[39m, [33m12[39m, [33m176[39m ] ],
+          lv1: [32m'cycle::^'[39m,
+          majorname: [32m'cycle::^'[39m,
+          fullname: [32m'cycle::^'[39m,
+          lv1only: [32m'^'[39m
+        },
+        pieces: []
+      },
+      [32m'cycle::cycle'[39m: {
+        name: [32m'cycle'[39m,
+        heading: [32m'Cycle'[39m,
+        raw: [
+          [
+            [ [33m1[39m, [33m1[39m, [33m0[39m ],
+            [32m'# Cycle\n'[39m +
+              [32m'\n'[39m +
+              [32m'What happens if we have blocks that point to each other? Hopefully nothing.  \n'[39m +
+              [32m'\n'[39m +
+              [32m'\n'[39m +
+              [32m'    _"block"\n'[39m +
+              [32m'\n'[39m,
+            [ [33m8[39m, [33m1[39m, [33m103[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"block"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m6[39m, [33m5[39m, [33m93[39m ],
+            end: [ [33m7[39m, [33m0[39m, [33m101[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [ [33m1[39m, [33m7[39m, [33m6[39m ] ],
+          lv1: [32m'cycle::cycle'[39m,
+          majorname: [32m'cycle::cycle'[39m,
+          fullname: [32m'cycle::cycle'[39m,
+          lv1only: [32m'cycle'[39m
+        },
+        pieces: [
+          [
+            {
+              start: [ [33m6[39m, [33m7[39m, [33m95[39m ],
+              end: [ [33m6[39m, [33m11[39m, [33m99[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'block'[39m } ],
+              indent: [32m''[39m
+            }
+          ]
+        ]
+      },
+      [32m'cycle::block'[39m: {
+        name: [32m'block'[39m,
+        heading: [32m'Block'[39m,
+        raw: [
+          [
+            [ [33m8[39m, [33m1[39m, [33m103[39m ],
+            [32m'## Block\n\n    _"cycle"  _"block:switch" _"block"\n\n'[39m,
+            [ [33m12[39m, [33m1[39m, [33m153[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"cycle"  _"block:switch" _"block"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m10[39m, [33m5[39m, [33m117[39m ],
+            end: [ [33m11[39m, [33m0[39m, [33m151[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m8[39m, [33m1[39m, [33m103[39m ], [ [33m8[39m, [33m8[39m, [33m110[39m ] ],
+          lv1: [32m'cycle::block'[39m,
+          majorname: [32m'cycle::block'[39m,
+          fullname: [32m'cycle::block'[39m,
+          lv1only: [32m'block'[39m
+        },
+        pieces: [
+          [
+            {
+              start: [ [33m10[39m, [33m7[39m, [33m119[39m ],
+              end: [ [33m10[39m, [33m11[39m, [33m123[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'cycle'[39m } ],
+              indent: [32m''[39m
+            },
+            {
+              start: [ [33m10[39m, [33m13[39m, [33m125[39m ],
+              end: [ [33m10[39m, [33m14[39m, [33m126[39m ],
+              value: [32m'  '[39m
+            },
+            {
+              start: [ [33m10[39m, [33m17[39m, [33m129[39m ],
+              end: [ [33m10[39m, [33m28[39m, [33m140[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'block:switch'[39m } ],
+              indent: [32m'\n'[39m
+            },
+            {
+              start: [ [33m10[39m, [33m30[39m, [33m142[39m ],
+              end: [ [33m10[39m, [33m30[39m, [33m142[39m ],
+              value: [32m' '[39m
+            },
+            {
+              start: [ [33m10[39m, [33m33[39m, [33m145[39m ],
+              end: [ [33m10[39m, [33m37[39m, [33m149[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'block'[39m } ],
+              indent: [32m'\n'[39m
+            }
+          ]
+        ]
+      },
+      [32m'cycle::block:switch'[39m: {
+        name: [32m'switch'[39m,
+        raw: [
+          [
+            [ [33m12[39m, [33m1[39m, [33m153[39m ],
+            [32m'[switch]()\n\n    _"cycle'[39m,
+            [ [33m14[39m, [33m12[39m, [33m176[39m ]
+          ]
+        ],
+        code: [
+          {
+            code: [32m'_"cycle"'[39m,
+            lang: [32m''[39m,
+            start: [ [33m14[39m, [33m5[39m, [33m169[39m ],
+            end: [ [33m14[39m, [33m12[39m, [33m176[39m ]
+          }
+        ],
+        scope: {
+          prefix: [32m'cycle'[39m,
+          origin: [32m''[39m,
+          sourcepos: [ [ [33m12[39m, [33m1[39m, [33m153[39m ], [ [33m12[39m, [33m10[39m, [33m162[39m ] ],
+          lv1: [32m'cycle::block'[39m,
+          majorname: [32m'cycle::block'[39m,
+          fullname: [32m'cycle::block:switch'[39m,
+          lv1only: [32m'block'[39m,
+          minor: [32m'switch'[39m
+        },
+        pieces: [
+          [
+            {
+              start: [ [33m14[39m, [33m7[39m, [33m171[39m ],
+              end: [ [33m14[39m, [33m11[39m, [33m175[39m ],
+              cmd: [32m'get'[39m,
+              bind: [33mtrue[39m,
+              args: [ { value: [32m'cycle'[39m } ],
+              indent: [32m''[39m
+            }
+          ]
+        ]
+      }
+    },
+    directives: []
+  }
+]
+DEBUG(Web: cycle): Web parent
+[ [32m'load:S./cycle.md=>cycle at loader cycle'[39m ]
+DEBUG(N/cycle::^): New Symbol Established
+[ [32m'N/cycle::^'[39m ]
+DEBUG(N/cycle::^): Making new promise
+[ Promise { [36m<pending>[39m, id: [32m'N/cycle::^'[39m } ]
+DEBUG(N/cycle::^): Starting to process node
+[
+  {
+    name: [32m'^'[39m,
+    heading: [32m'^'[39m,
+    raw: [ [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [32m''[39m, [ [33m1[39m, [33m1[39m, [33m0[39m ] ] ],
+    code: [],
+    scope: {
+      prefix: [32m'cycle'[39m,
+      origin: [32m''[39m,
+      sourcepos: [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [ [33m14[39m, [33m12[39m, [33m176[39m ] ],
+      lv1: [32m'cycle::^'[39m,
+      majorname: [32m'cycle::^'[39m,
+      fullname: [32m'cycle::^'[39m,
+      lv1only: [32m'^'[39m
+    },
+    pieces: []
+  }
+]
+DEBUG(N/cycle::^): About to start computing values for the code
+[ [90mundefined[39m ]
+DEBUG(N/cycle::^): Node values computed
+[ [] ]
+DEBUG(N/cycle::^): About to transform the values
+[ [] ]
+DEBUG(N/cycle::^): Concatenated values
+[ [32m''[39m ]
+DEBUG(N/cycle::^): Transformation completed
+[ [32m''[39m ]
+DEBUG(N/cycle::^): DONE: Node stored
+[ [32m''[39m ]
+DEBUG(Web: cycle): node done
+[ [ [32m'cycle::^'[39m, [32m''[39m ] ]
+DEBUG(N/cycle::cycle): New Symbol Established
+[ [32m'N/cycle::cycle'[39m ]
+DEBUG(N/cycle::cycle): Making new promise
+[ Promise { [36m<pending>[39m, id: [32m'N/cycle::cycle'[39m } ]
+DEBUG(N/cycle::cycle): Starting to process node
+[
+  {
+    name: [32m'cycle'[39m,
+    heading: [32m'Cycle'[39m,
+    raw: [
+      [
+        [ [33m1[39m, [33m1[39m, [33m0[39m ],
+        [32m'# Cycle\n'[39m +
+          [32m'\n'[39m +
+          [32m'What happens if we have blocks that point to each other? Hopefully nothing.  \n'[39m +
+          [32m'\n'[39m +
+          [32m'\n'[39m +
+          [32m'    _"block"\n'[39m +
+          [32m'\n'[39m,
+        [ [33m8[39m, [33m1[39m, [33m103[39m ]
+      ]
+    ],
+    code: [
+      {
+        code: [32m'_"block"'[39m,
+        lang: [32m''[39m,
+        start: [ [33m6[39m, [33m5[39m, [33m93[39m ],
+        end: [ [33m7[39m, [33m0[39m, [33m101[39m ]
+      }
+    ],
+    scope: {
+      prefix: [32m'cycle'[39m,
+      origin: [32m''[39m,
+      sourcepos: [ [ [33m1[39m, [33m1[39m, [33m0[39m ], [ [33m1[39m, [33m7[39m, [33m6[39m ] ],
+      lv1: [32m'cycle::cycle'[39m,
+      majorname: [32m'cycle::cycle'[39m,
+      fullname: [32m'cycle::cycle'[39m,
+      lv1only: [32m'cycle'[39m
+    },
+    pieces: [
+      [
+        {
+          start: [ [33m6[39m, [33m7[39m, [33m95[39m ],
+          end: [ [33m6[39m, [33m11[39m, [33m99[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'block'[39m } ],
+          indent: [32m''[39m
+        }
+      ]
+    ]
+  }
+]
+DEBUG(N/cycle::cycle): About to start computing values for the code
+[ [90mundefined[39m ]
+DEBUG(N/cycle::cycle): Calling command on piece
+[
+  [
+    [33m0[39m,
+    [
+      {
+        start: [ [33m6[39m, [33m7[39m, [33m95[39m ],
+        end: [ [33m6[39m, [33m11[39m, [33m99[39m ],
+        cmd: [32m'get'[39m,
+        bind: [33mtrue[39m,
+        args: [ { value: [32m'block'[39m } ],
+        indent: [32m''[39m
+      }
+    ],
+    [33m0[39m,
+    {
+      start: [ [33m6[39m, [33m7[39m, [33m95[39m ],
+      end: [ [33m6[39m, [33m11[39m, [33m99[39m ],
+      cmd: [32m'get'[39m,
+      bind: [33mtrue[39m,
+      args: [ { value: [32m'block'[39m } ],
+      indent: [32m''[39m
+    }
+  ]
+]
+DEBUG(N/cycle::cycle): run command called
+[
+  {
+    start: [ [33m6[39m, [33m7[39m, [33m95[39m ],
+    end: [ [33m6[39m, [33m11[39m, [33m99[39m ],
+    cmd: [32m'get'[39m,
+    bind: [33mtrue[39m,
+    args: [ { value: [32m'block'[39m } ],
+    indent: [32m''[39m
+  }
+]
+DEBUG(N/cycle::cycle): command called
+[ [32m'get'[39m ]
+DEBUG(N/cycle::block): New Symbol Established
+[ [32m'N/cycle::block'[39m ]
+DEBUG(N/cycle::block): Making new promise
+[ Promise { [36m<pending>[39m, id: [32m'N/cycle::block'[39m } ]
+DEBUG(N/cycle::block): New request for node
+[ [32m'N/cycle::cycle'[39m ]
+DEBUG(N/cycle::block): Starting to process node
+[
+  {
+    name: [32m'block'[39m,
+    heading: [32m'Block'[39m,
+    raw: [
+      [
+        [ [33m8[39m, [33m1[39m, [33m103[39m ],
+        [32m'## Block\n\n    _"cycle"  _"block:switch" _"block"\n\n'[39m,
+        [ [33m12[39m, [33m1[39m, [33m153[39m ]
+      ]
+    ],
+    code: [
+      {
+        code: [32m'_"cycle"  _"block:switch" _"block"'[39m,
+        lang: [32m''[39m,
+        start: [ [33m10[39m, [33m5[39m, [33m117[39m ],
+        end: [ [33m11[39m, [33m0[39m, [33m151[39m ]
+      }
+    ],
+    scope: {
+      prefix: [32m'cycle'[39m,
+      origin: [32m''[39m,
+      sourcepos: [ [ [33m8[39m, [33m1[39m, [33m103[39m ], [ [33m8[39m, [33m8[39m, [33m110[39m ] ],
+      lv1: [32m'cycle::block'[39m,
+      majorname: [32m'cycle::block'[39m,
+      fullname: [32m'cycle::block'[39m,
+      lv1only: [32m'block'[39m
+    },
+    pieces: [
+      [
+        {
+          start: [ [33m10[39m, [33m7[39m, [33m119[39m ],
+          end: [ [33m10[39m, [33m11[39m, [33m123[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'cycle'[39m } ],
+          indent: [32m''[39m
+        },
+        { start: [ [33m10[39m, [33m13[39m, [33m125[39m ], end: [ [33m10[39m, [33m14[39m, [33m126[39m ], value: [32m'  '[39m },
+        {
+          start: [ [33m10[39m, [33m17[39m, [33m129[39m ],
+          end: [ [33m10[39m, [33m28[39m, [33m140[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'block:switch'[39m } ],
+          indent: [32m'\n'[39m
+        },
+        { start: [ [33m10[39m, [33m30[39m, [33m142[39m ], end: [ [33m10[39m, [33m30[39m, [33m142[39m ], value: [32m' '[39m },
+        {
+          start: [ [33m10[39m, [33m33[39m, [33m145[39m ],
+          end: [ [33m10[39m, [33m37[39m, [33m149[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'block'[39m } ],
+          indent: [32m'\n'[39m
+        }
+      ]
+    ]
+  }
+]
+DEBUG(N/cycle::block): About to start computing values for the code
+[ [90mundefined[39m ]
+DEBUG(N/cycle::block): Calling command on piece
+[
+  [
+    [33m0[39m,
+    [
+      {
+        start: [ [33m10[39m, [33m7[39m, [33m119[39m ],
+        end: [ [33m10[39m, [33m11[39m, [33m123[39m ],
+        cmd: [32m'get'[39m,
+        bind: [33mtrue[39m,
+        args: [ { value: [32m'cycle'[39m } ],
+        indent: [32m''[39m
+      },
+      { start: [ [33m10[39m, [33m13[39m, [33m125[39m ], end: [ [33m10[39m, [33m14[39m, [33m126[39m ], value: [32m'  '[39m },
+      {
+        start: [ [33m10[39m, [33m17[39m, [33m129[39m ],
+        end: [ [33m10[39m, [33m28[39m, [33m140[39m ],
+        cmd: [32m'get'[39m,
+        bind: [33mtrue[39m,
+        args: [ { value: [32m'block:switch'[39m } ],
+        indent: [32m'\n'[39m
+      },
+      { start: [ [33m10[39m, [33m30[39m, [33m142[39m ], end: [ [33m10[39m, [33m30[39m, [33m142[39m ], value: [32m' '[39m },
+      {
+        start: [ [33m10[39m, [33m33[39m, [33m145[39m ],
+        end: [ [33m10[39m, [33m37[39m, [33m149[39m ],
+        cmd: [32m'get'[39m,
+        bind: [33mtrue[39m,
+        args: [ { value: [32m'block'[39m } ],
+        indent: [32m'\n'[39m
+      }
+    ],
+    [33m0[39m,
+    {
+      start: [ [33m10[39m, [33m7[39m, [33m119[39m ],
+      end: [ [33m10[39m, [33m11[39m, [33m123[39m ],
+      cmd: [32m'get'[39m,
+      bind: [33mtrue[39m,
+      args: [ { value: [32m'cycle'[39m } ],
+      indent: [32m''[39m
+    }
+  ]
+]
+DEBUG(N/cycle::block): run command called
+[
+  {
+    start: [ [33m10[39m, [33m7[39m, [33m119[39m ],
+    end: [ [33m10[39m, [33m11[39m, [33m123[39m ],
+    cmd: [32m'get'[39m,
+    bind: [33mtrue[39m,
+    args: [ { value: [32m'cycle'[39m } ],
+    indent: [32m''[39m
+  }
+]
+DEBUG(N/cycle::block): command called
+[ [32m'get'[39m ]
+DEBUG(N/cycle::cycle): New request for node
+[ [32m'N/cycle::block'[39m ]
+DEBUG(N/cycle::block:switch): New Symbol Established
+[ [32m'N/cycle::block:switch'[39m ]
+DEBUG(N/cycle::block:switch): Making new promise
+[ Promise { [36m<pending>[39m, id: [32m'N/cycle::block:switch'[39m } ]
+DEBUG(N/cycle::block:switch): Starting to process node
+[
+  {
+    name: [32m'switch'[39m,
+    raw: [
+      [ [ [33m12[39m, [33m1[39m, [33m153[39m ], [32m'[switch]()\n\n    _"cycle'[39m, [ [33m14[39m, [33m12[39m, [33m176[39m ] ]
+    ],
+    code: [
+      {
+        code: [32m'_"cycle"'[39m,
+        lang: [32m''[39m,
+        start: [ [33m14[39m, [33m5[39m, [33m169[39m ],
+        end: [ [33m14[39m, [33m12[39m, [33m176[39m ]
+      }
+    ],
+    scope: {
+      prefix: [32m'cycle'[39m,
+      origin: [32m''[39m,
+      sourcepos: [ [ [33m12[39m, [33m1[39m, [33m153[39m ], [ [33m12[39m, [33m10[39m, [33m162[39m ] ],
+      lv1: [32m'cycle::block'[39m,
+      majorname: [32m'cycle::block'[39m,
+      fullname: [32m'cycle::block:switch'[39m,
+      lv1only: [32m'block'[39m,
+      minor: [32m'switch'[39m
+    },
+    pieces: [
+      [
+        {
+          start: [ [33m14[39m, [33m7[39m, [33m171[39m ],
+          end: [ [33m14[39m, [33m11[39m, [33m175[39m ],
+          cmd: [32m'get'[39m,
+          bind: [33mtrue[39m,
+          args: [ { value: [32m'cycle'[39m } ],
+          indent: [32m''[39m
+        }
+      ]
+    ]
+  }
+]
+DEBUG(N/cycle::block:switch): About to start computing values for the code
+[ [90mundefined[39m ]
+DEBUG(N/cycle::block:switch): Calling command on piece
+[
+  [
+    [33m0[39m,
+    [
+      {
+        start: [ [33m14[39m, [33m7[39m, [33m171[39m ],
+        end: [ [33m14[39m, [33m11[39m, [33m175[39m ],
+        cmd: [32m'get'[39m,
+        bind: [33mtrue[39m,
+        args: [ { value: [32m'cycle'[39m } ],
+        indent: [32m''[39m
+      }
+    ],
+    [33m0[39m,
+    {
+      start: [ [33m14[39m, [33m7[39m, [33m171[39m ],
+      end: [ [33m14[39m, [33m11[39m, [33m175[39m ],
+      cmd: [32m'get'[39m,
+      bind: [33mtrue[39m,
+      args: [ { value: [32m'cycle'[39m } ],
+      indent: [32m''[39m
+    }
+  ]
+]
+DEBUG(N/cycle::block:switch): run command called
+[
+  {
+    start: [ [33m14[39m, [33m7[39m, [33m171[39m ],
+    end: [ [33m14[39m, [33m11[39m, [33m175[39m ],
+    cmd: [32m'get'[39m,
+    bind: [33mtrue[39m,
+    args: [ { value: [32m'cycle'[39m } ],
+    indent: [32m''[39m
+  }
+]
+DEBUG(N/cycle::block:switch): command called
+[ [32m'get'[39m ]
+DEBUG(N/cycle::cycle): New request for node
+[ [32m'N/cycle::block:switch'[39m ]
+DEBUG(Web: cycle): All listed directives called
+[ [90mundefined[39m ]
+DEBUG(N/cycle::^): DONE: Promise resolved
+[ [32m''[39m ]
+DEBUG(loader cycle): DONE: 
+[ [90mundefined[39m ]
+DID NOT FINISH:
+Web: cycle
+  load:S./cycle.md=>cycle at loader cycle
+    loader cycle
+---
+New Symbol Established:{"id":"Web: cycle"}
+Processing of web and directives started:{"web":{"cycle::^":{"name":"^","heading":"^","raw":[[[1,1,0],"",[1,1,0]]],"code":[],"scope":{"prefix":"cycle","origin":"","sourcepos":[[1,1,0],[14,12,176]],"lv1":"cycle::^","majorname":"cycle::^","fullname":"cycle::^","lv1only":"^"},"pieces":[],"value":""},"cycle::cycle":{"name":"cycle","heading":"Cycle","raw":[[[1,1,0],"# Cycle\n\nWhat happens if we have blocks that point to each other? Hopefully nothing.  \n\n\n    _\"block\"\n\n",[8,1,103]]],"code":[{"code":"_\"block\"","lang":"","start":[6,5,93],"end":[7,0,101]}],"scope":{"prefix":"cycle","origin":"","sourcepos":[[1,1,0],[1,7,6]],"lv1":"cycle::cycle","majorname":"cycle::cycle","fullname":"cycle::cycle","lv1only":"cycle"},"pieces":[[{"start":[6,7,95],"end":[6,11,99],"cmd":"get","bind":true,"args":[{"value":"block"}],"indent":""}]]},"cycle::block":{"name":"block","heading":"Block","raw":[[[8,1,103],"## Block\n\n    _\"cycle\"  _\"block:switch\" _\"block\"\n\n",[12,1,153]]],"code":[{"code":"_\"cycle\"  _\"block:switch\" _\"block\"","lang":"","start":[10,5,117],"end":[11,0,151]}],"scope":{"prefix":"cycle","origin":"","sourcepos":[[8,1,103],[8,8,110]],"lv1":"cycle::block","majorname":"cycle::block","fullname":"cycle::block","lv1only":"block"},"pieces":[[{"start":[10,7,119],"end":[10,11,123],"cmd":"get","bind":true,"args":[{"value":"cycle"}],"indent":""},{"start":[10,13,125],"end":[10,14,126],"value":"  "},{"start":[10,17,129],"end":[10,28,140],"cmd":"get","bind":true,"args":[{"value":"block:switch"}],"indent":"\n"},{"start":[10,30,142],"end":[10,30,142],"value":" "},{"start":[10,33,145],"end":[10,37,149],"cmd":"get","bind":true,"args":[{"value":"block"}],"indent":"\n"}]]},"cycle::block:switch":{"name":"switch","raw":[[[12,1,153],"[switch]()\n\n    _\"cycle",[14,12,176]]],"code":[{"code":"_\"cycle\"","lang":"","start":[14,5,169],"end":[14,12,176]}],"scope":{"prefix":"cycle","origin":"","sourcepos":[[12,1,153],[12,10,162]],"lv1":"cycle::block","majorname":"cycle::block","fullname":"cycle::block:switch","lv1only":"block","minor":"switch"},"pieces":[[{"start":[14,7,171],"end":[14,11,175],"cmd":"get","bind":true,"args":[{"value":"cycle"}],"indent":""}]]}},"directives":[]}
+Web parent:"load:S./cycle.md=>cycle at loader cycle"
+node done:["cycle::^",""]
+All listed directives called

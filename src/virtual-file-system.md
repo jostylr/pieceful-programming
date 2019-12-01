@@ -192,7 +192,7 @@ By default, files go under the build directory.
 
     async function write (originalTarget, text, encoding ='utf8') {
         _"tracker"
-        const target = env.path(originalTarget, 'B');
+        const target = await env.path(originalTarget, 'B');
         let {res} = env.promiseStarts('write', target);
         let hash = await env.hash(text);
         let oldHash = env.cache.write[originalTarget];
@@ -247,7 +247,7 @@ This reads a file.
 
     async function read (originalTarget, encoding = 'utf8') {
         _"tracker"
-        const target = env.path(originalTarget, 'S');
+        const target = await env.path(originalTarget, 'S');
         tracker(sym, `Reading ${target}`, {originalTarget, target});
         let cached = env.cache.read[target];
         let text;
@@ -283,8 +283,9 @@ have a files object in the environment.
     async function fetchUrl (url, local, options = {method:'GET'}, type='text') {
         let fetch =  (rest.fetch ?  rest.fetch : window.fetch);  
         if (local && rest.fs) {
+            let p = await env.path(local, 'B')
             return fetch(url, options).then(res => {
-                const dest = rest.fs.createWriteStream(env.path(local, 'B'));
+                const dest = rest.fs.createWriteStream(p);
                 res.body.pipe(dest);
             }); 
         } 
@@ -306,7 +307,7 @@ best. This is a good function to overwrite if one wants more caution.
 
     async function mkdir (originalTarget) {
         _"tracker"
-        const target = env.path(originalTarget, 'B');
+        const target = await env.path(originalTarget, 'B');
         tracker(sym, 'Creating directory', target);
         try {
             await fsp.mkdir(target, {recursive: true});
@@ -325,7 +326,7 @@ target form, allowing for smooth use in later calls.
 
     async function ls (originalTarget) {
         _"tracker"
-        let target = env.path(originalTarget, 'S');
+        let target = await env.path(originalTarget, 'S');
         let list;
         try {
             tracker(sym, 'Listing directory', target);
@@ -356,7 +357,7 @@ This takes in a file name and gives out when it was last accessed (read), modifi
 changed (read or write), and created. 
 
     async function info (target) {
-        target = env.path(target, 'S');
+        target = await env.path(target, 'S');
         let b = await fsp.lstat(target);
         return {
             access: b.atimeMs,
@@ -375,23 +376,33 @@ toggle to be indicated by `./`. The toggle is converted to uppercase.
 
 Example: `B./stuff/to/build`
 
+This will wait for the alias to be defined. Hence, the async.
 
-    function pathProxy (originalTarget, defaultLead) {
+
+    async function pathProxy (originalTarget, defaultLead) {
         let target = path.normalize(originalTarget);
-        let ind = target.indexOf('./');
+        let reg = /^([^.]+)\.\/(.*)$/; //start of non-dots then dot slash
+        let match  = target.match(reg);
         let lead;
-        if (ind !== -1) {
-            lead = target.slice(0,ind).toUpperCase();
-            target = target.slice(ind+2).trim();
+        if (match) {
+            lead = match[1].toUpperCase().trim();
+            target = match[2].trim();
         } else {
             lead = defaultLead || 'B';
         }
         let paths = env.paths;
+        let pv; //for path string or promise
         if (has(paths, lead) ) {
-            target = path.join(env.base, paths[lead], target);
+            pv = paths[lead]; //string or promise
+            if (typeof pv !== 'string') {
+                pv = await pv.prom;
+            }
         } else {
-            env.error(`Base ${lead} not a valid path toggle. Target: ${target} with default ${env.paths[defaultLead]}`);  
+            pv = env.makePromise('PATH', lead);
+            paths[lead] = pv;
+            pv = await pv.prom;
         }
+        target = path.join(env.base, pv, target);
         return target;
     }
 
@@ -415,7 +426,7 @@ provided, using the 'middle' directory as a default.
         }  
         let cmdString = env.cmds[cmd](cmdLineOptions);
         if (execOptions.cwd) {
-            execOptions.cwd = env.path(execOptions.cwd, 'M');
+            execOptions.cwd = await env.path(execOptions.cwd, 'M');
         }
         let obj = await exec(cmdString, execOptions);
         if (obj.stderror) {
@@ -476,7 +487,7 @@ expanding a target first.
         let str = JSON.stringify(cache);
     
         try {
-            let actual = env.path(target);
+            let actual = await env.path(target);
             await fsp.writeFile(actual, str, 'utf8'); 
         } catch (e) {
             env.log('could not save cache file ' + target + '\n' + e.stack);
@@ -489,7 +500,7 @@ expanding a target first.
             return;
         }
         try {
-            target = env.path(target);
+            target = await env.path(target);
             let data = await fsp.readFile(target, {encoding:'utf8'} );
             env.cache = JSON.parse(data);
             if (!env.cache.read) {
@@ -567,10 +578,10 @@ specified cwd or in the middle directory. The input and output can be in
 different directories from the middle build step files. 
 
 
-    function (options ) {
+    async function (options ) {
         let osrc = options.src;
-        let src = env.path( options.src + '.tex', 'M');
-        let out = env.path( ( options.out || options.src) + '.pdf', 'B');
+        let src = await env.path( options.src + '.tex', 'M');
+        let out = await env.path( ( options.out || options.src) + '.pdf', 'B');
         let str = `latex ${src} && dvips ${osrc}.dvi; && ps2pdf ${osrc} ${out}`;
         return str;
     }

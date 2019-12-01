@@ -24,7 +24,8 @@ These are the core common directives that should be included in all versions.
     {
         save : _"save",
         load : _"load",
-        out : _"out"
+        out : _"out",
+        paths : _"paths"
     }
 
 ### Save
@@ -157,6 +158,30 @@ after the web processing is done.
 
     }
 
+### Paths
+
+This sets a path alias up. One alias per run should be all that ever happens. 
+
+The src is new alias, the target is alias: `[D](B./desired "paths:")` 
+
+    async function paths ( {src, target} ) {
+        const {env, tracker, sym} = this;
+        src = env.paths[src];
+        if (has(env.paths, target) ) {
+            let pv = env.paths[target]; 
+            if (typeof pv === 'string') {
+                env.paths[target] = src;
+                tracker(sym, `Replacing path alias: ${target} was ${pv} but now is ${src}`);
+            } else {
+                env.paths[target].res(src);
+                tracker(sym, `Assigning path alias: ${target} becomes ${src}`);
+            }
+        } else {
+            env.paths[target] = src;
+            tracker(sym, `Creating path alias: ${target} becomes ${src}`);
+        }
+    }
+        
 
 ### Read
 
@@ -165,9 +190,26 @@ node.
     
 
 
+
 ### Fetch 
 
 This fetches a file from the internet. 
+
+
+### Files
+
+This takes in as src a directory and returns all the files in it, possibly
+subjected to a filter function. This is hard to figure out how much
+functionality or not.
+
+It will return an object with the filenames as keys and the properties as the
+text files. 
+
+It could have functions that act on each of the files and produces something.
+Thinking about the action of loading. It sounds like we need directive
+functions that we can compose together and then make a directive umbrella to
+handle them. 
+
 
 
 ## Full

@@ -40,4 +40,4 @@ and jill came tumbling down after
 ```
 
 
-[jack-jill.txt](# "save:")
+[jack-jill.txt](# "save: sub(jack, j, k)")
