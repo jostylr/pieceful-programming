@@ -8,8 +8,8 @@
   },
   "devDependencies": {
     "deep-object-diff": "^1.1.0",
-    "eslint": "^6.0.1",
-    "json-stringify-pretty-compact": "^1.2.0"
+    "eslint": "^6.7.2",
+    "json-stringify-pretty-compact": "^2.0.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
