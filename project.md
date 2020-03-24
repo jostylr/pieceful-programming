@@ -15,12 +15,13 @@ does not get bumped. Plugins may or may not change. But they will bump global
 version as well if they need a new version. Basically, this ensures that any
 current code will be okay with any version of the code from the listed version
 on. So if the plugin is at 1.4 and the core is at 1.6, then the plug works for
-1.4, 1.5, 1.6. But if the plugin updates to 1.61, then only core 1.6 is
-guaranteed to work with 1.61 plugin. The contract is that nothing gets pushed
+1.4, 1.5, 1.6. But if the plugin updates to 1.6.1, then only core 1.6 is
+guaranteed to work with 1.6.1 plugin. The contract is that nothing gets pushed
 until everything in the current state passes all tests. If they fail, then
 a change is needed, whether in the tests or the code itself, depending. 
 
-## [Core](commonmark.md "load:")
+
+## [Core](core.md "load:")
 
 This is the core of the process, that which handles the fundamental
 asynchronous, unordered compiling of a web of pieces. 
@@ -98,6 +99,25 @@ arguments can be written as usual, but the command function will not receive
 them as processed. Instead, it will receive a function that, given an index,
 will provide back the value of the argument. Not entirely clear on the use
 case, but simple code. 
+
+
+## Packages
+
+This generates the file that directs what packages to monitor and process. 
+
+Each package is full to the left. Tabbed in are sublines. Those lines have
+"command: arg1,arg2,..."
+
+Commands:  pf is the list of other pieceful packages to depend on. They need
+to be tested and then rsynced over into node_modules for the package that
+needs it. 
+
+    0.1.0
+    -minimal
+    pf: core, commonmark, underpipes
+    -commonmark
+    dp: commonmark 0.28.1 
+
 
 
 

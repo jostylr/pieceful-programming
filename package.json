@@ -4,11 +4,11 @@
   "description": "A web of programming pieces woven together",
   "main": "index.js",
   "dependencies": {
+    "eslint": "^6.7.1",
     "node-fetch": "^2.6.0"
   },
   "devDependencies": {
     "deep-object-diff": "^1.1.0",
-    "eslint": "^6.7.2",
     "json-stringify-pretty-compact": "^2.0.0"
   },
   "scripts": {
