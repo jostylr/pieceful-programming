@@ -113,12 +113,18 @@ to be tested and then rsynced over into node_modules for the package that
 needs it. 
 
     0.1.0
+    -commonmark
+    desc: Commonmark processor component for pieceful programming
+    dp: commonmark 0.29.1 
+
+
+[packages.txt](# "save:")
+
+[later]()
+
+
     -minimal
     pf: core, commonmark, underpipes
-    -commonmark
-    dp: commonmark 0.28.1 
-
-
 
 
 ## TODO

@@ -22,12 +22,11 @@ const savelog = async function (scriptname) {
         writeFile('logs/log-'+scriptname+'-'+time+'.txt', log),
         writeFile('logs/err-'+scriptname+'-'+time+'.txt', err)
     ]);
-    console.log("LOGS", log, "ERRORS", err);
+    console.log("LOGS", log);
+    console.log("ERRORS", err);
 };
 
 try {
-    fs.renameSync('new-hashes.txt', 'hashes.txt');
-    console.log('Hash file updated');
     fs.unlinkSync('publish.txt');
     console.log('Publish list removed');
 } catch (e) {

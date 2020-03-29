@@ -797,3 +797,11 @@ This is the code to run the sample and see how it goes.
 
 [commonmark/runsample.js](# "save:")
     
+## Tests
+
+This is where we develop the tests to run. They should be directed by a script
+called run.js which should return a non-zero exit code if they fail. 
+
+    let cm = require('../index.js');
+    
+[commonmark/tests/run.js](# "save:")

@@ -22,11 +22,11 @@ const savelog = async function (scriptname) {
         writeFile('logs/log-'+scriptname+'-'+time+'.txt', log),
         writeFile('logs/err-'+scriptname+'-'+time+'.txt', err)
     ]);
-    console.log("LOGS", log, "ERRORS", err);
+    console.log("LOGS", log);
+    console.log("ERRORS", err);
 };
 
-const root = 'build/';
-const toPublish = fs.readFileSync('publish.txt');
+const toPublish = fs.readFileSync('publish.txt', {encoding:'utf8'});
 
 const list = toPublish.split('\n');
 
@@ -35,7 +35,7 @@ const publish = async function () {
     for (let i = 0; i < n; i += 1) {
         const dir = list[i];
         let report;
-        const cmd = `cd ${root + dir} && npm publish --dry-run`;
+        const cmd = `cd ${dir} && npm publish --dry-run`;
         try {
             const {stdout, stderr} = await exec(cmd);
             log(cmd + '\n---\n', stdout);

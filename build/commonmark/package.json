@@ -1,15 +1,32 @@
 {
-  "name": "pieceful-commonmark",
-  "version": "1.0.0",
-  "description": "commonmark processing",
-  "main": "index.js",
-  "dependencies": {},
-  "devDependencies": {
-    "commonmark": "^0.28.1"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "James Taylor",
-  "license": "ISC"
+	"homepage": "https://github.com/jostylr/pieceful-programming",
+	"author": {
+		"name": "James Taylor",
+		"email": "jostylr@gmail.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/jostylr/pieceful-programming.git"
+	},
+	"bugs": {
+		"url": "https://github.com/jostylr/pieceful-programming/issues"
+	},
+	"license": "MIT",
+	"engines": {
+		"node": ">=12.0"
+	},
+	"keywords": [
+		"literate",
+		"pieceful"
+	],
+	"name": "@pieceful/commonmark",
+	"version": "0.1.0",
+	"dependencies": {
+		"commonmark": "^0.29.1"
+	},
+	"description": "Commonmark processor component for pieceful programming",
+	"files": [
+		"index.js",
+		"lib/"
+	]
 }

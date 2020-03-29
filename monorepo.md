@@ -108,6 +108,7 @@ Runs the test using a command, such as node tests/run.js
 
     async function (dir) {
         _"exec | sub CMD, echo('`cd ${dir+'/tests'} && node run.js`') "     
+        return report.success;
     }
 
 ### Process Package File
@@ -128,8 +129,8 @@ empty object if no hash existed.
     const packages = packageFile.split('\n-');
     const version = packages.shift();
     packages.forEach( (txt, ind) => {
-        const pck = {};
-        const lines = txt.split('\n');
+        const pck = { pfdep :[], dep :[]};
+        const lines = txt.trim().split('\n');
         const name = pck.name = lines.shift().trim();
         pck.dir = root + name;
         pck.diff = publish.includes(pck.dir);
@@ -150,10 +151,14 @@ Here we are working on the line between package names.
     lines.forEach( (line) => {
         const [typ, argtxt] = line.split(':');
         if (typ === 'desc') {
-            pck.description = argtxt;
+            pck.description = argtxt.trim();
             return;
         }
         const args = argtxt.split(',').map( el => el.trim() );
+        if (typ === 'files') {
+            pck.files = args;
+            return;
+        }
         if (typ === 'pf') {
             pck.pfdep = args;
         } else if (typ === 'dp') {
@@ -163,9 +168,11 @@ Here we are working on the line between package names.
                 return pair;
             });
         } else {
-            throw "unrecognized package line";
+            throw "unrecognized package line: " + line;
         }
     });
+    pck.description = pck.description || "A very useful part of pieceful programming";
+    pck.files = pck.files || ['index.js', 'lib/'];
 
 ### Sort Package File
 
@@ -212,13 +219,14 @@ We attach the package.json object directly to the package.
         let json;
         let diff = false;
         try {
-            json = JSON.parse(await readFile(dir+ 'package.json', {encoding:'utf8'}));
+            json = JSON.parse(await readFile(dir+ '/package.json', {encoding:'utf8'}));
         } catch (e) {
             json = JSON.parse(pj);
             json.name = '@pieceful/' + name;
             json.version = version;
             diff = true;
         }
+        console.log(pck, json);
         pck.json = json;
         return diff;
     }
@@ -250,7 +258,7 @@ updated (diff on them is set, they should already be done processing). Return
 true if diff. Note this is only checked if everything else had not changed in
 the package.
 
-    async function (curpck, packages) {
+    function (curpck, packages) {
         const {pfdep} = curpck;
         return pfdep.some( name => packages[name].diff);
     }
@@ -271,15 +279,44 @@ If no package.json, generate one, putting in dependencies, save package.json, an
 installing. 
 
     async function (pck, packages) {
-        let diff = false;
-        let {json, dir, dependencies:deps} = pck;
+        let {json, dir, diff} = pck;
+        console.log("0", diff);
+        _":update json"
+        let deps = json.dependencies || {};
         _":remove pieceful dependencies"
+        console.log("1", diff);
         _":update other dependencies"
+        console.log("2", diff);
         _":save package.json"
+        console.log("3", diff);
         _":run npm"
+        console.log("4", diff);
         _":reload package.json"
+        console.log("5", diff);
         _":attach pieceful dependencies"
+        console.log("6", diff);
         return diff;
+    }
+
+[update json]()
+
+This updates the json for description and files. If the files are different,
+then we turn diff to true. 
+
+    
+    json.description = pck.description;
+    { 
+        let oldfiles = json.files;
+        let newfiles = json.files = pck.files;
+        if (oldfiles) {
+            if (oldfiles.length !== newfiles.length) {
+                diff = true;
+            } else {
+                diff = newfiles.some( file => !oldfiles.includes(file) ) || diff;
+            }
+        } else {
+            diff = true;
+        }
     }
 
 [remove pieceful dependencies]()
@@ -315,12 +352,12 @@ The pack.dep is of the form `[name, semver]`
 
     let newdep = pck.dep;
     let olddeps = Object.keys(deps);
-    if (newdep.length !== olddeps) {
+    if (newdep.length !== olddeps.length) {
         diff = true;
     } 
     let newobjdep = {};
     newdep.forEach( ([key, val]) => {
-        let oldval = olddeps[key];
+        let oldval = deps[key];
         if (!oldval) {
             diff = true;
         } else {
@@ -337,8 +374,8 @@ recent, then we set diff to true. We do this by converting the values into
 three element arrays of numbers and comparing them. We use some to
 short circuit the loop. 
 
-    let vals = val.slice(1).map( str => str*1 );
-    let oldvals = oldval.slice(1).map( str => str*1 );
+    let vals = val.slice(1).split('.').map( str => str*1 );
+    let oldvals = oldval.slice(1).split('.').map( str => str*1 );
     vals.some( (num, ind) => {
         let oldnum = oldvals[ind];
         if (num > oldnum) {
@@ -355,15 +392,15 @@ short circuit the loop.
 
 [save package.json]()
 
-    await writeFile(dir + '/package.json', JSON.stringify(pck.json) );
+    await writeFile(dir + '/package.json', JSON.stringify(pck.json, null, '\t') );
 
 [run npm]()
 
-    _"exec | sub CMD, echo('`cd ${dir} && npm update && npm install`')"
+    _"exec | sub CMD, echo('`cd ${dir} && npm update && npm outdated`')"
 
 [reload package.json]()
 
-    let updated = JSON.parse(await readFile(dir+ 'package.json', {encoding:'utf8'})).dependencies;
+    let updated = JSON.parse(await readFile(dir+ '/package.json', {encoding:'utf8'})).dependencies;
     _":check for updated version"
 
 [check for updated version]()
@@ -381,7 +418,7 @@ change is the dependency number.
 
 [attach pieceful dependencies]()
 
-    pck.pdfdep.forEach( dep => {
+    pck.pfdep.forEach( dep => {
         json.dependencies[ "@pieceful/" + dep] = packages[dep].version;
     });
 
@@ -413,6 +450,7 @@ does not get updated until tests pass.
         const allHashes = {};
         for (let i = 0; i < n; i += 1) {
             _":per package"
+            console.log(pck.name, pck.diff);
         }
 
 Finish up, recording exit code if something went wrong, create list to
@@ -439,7 +477,7 @@ This is a per package processing, hashing the files, figuring out if
 dependencies changes, testing, and updated version if needed. 
 
     const pck = packages[i];
-    const {dir, pfdep} = pck;
+    const {dir, pfdep, name} = pck;
 
 Hash stuff
 
@@ -451,11 +489,14 @@ Hash stuff
 
 Dependency stuff. Note that in pieceful dependencies, the name is listed so we
 translate that into the package directory for rsync. 
-
-    diff = getPackageJSON(pck, version);
+    
+    diff = await getPackageJSON(pck, version);
+    console.log("get pack", diff);
     diff = ( await install(pck, packages) ) || diff;
+    console.log("install", diff);
     await Promise.all(pfdep.map( (dep) => rsync(packages[dep].dir, dir) ));
     diff = diff || diffDep(pck, packages);
+    console.log(diff, "dep");
     pck.diff = diff;
         
 Testing
@@ -467,7 +508,7 @@ Update package version if changes dictate it
     if (pck.pass && diff) { 
         pck.json.version = version;
         fs.writeFileSync(dir + '/package.json',
-            JSON.stringify(pck.json) );
+            JSON.stringify(pck.json, null, '\t') );
     }
     pass = pck.pass && pass;
 
@@ -504,7 +545,7 @@ This takes in a filename and returns a hash. It is asynchronous.
             fs.createReadStream(fname),
             hash
         );
-        return [fname, hash.digest()];
+        return [fname, hash.digest('hex')];
     }
 
 
@@ -532,7 +573,7 @@ unnecessary).
       "engines": {
         "node": ">=12.0"
       },
-      "keywords": ["literate", "pieceful"],
+      "keywords": ["literate", "pieceful"]
     }
 
 
@@ -547,8 +588,7 @@ This should emit an error code if something errors...
 
     _"require"
 
-    const root = 'build/';
-    const toPublish = fs.readFileSync('publish.txt');
+    const toPublish = fs.readFileSync('publish.txt', {encoding:'utf8'});
     
     const list = toPublish.split('\n');
 
@@ -571,7 +611,7 @@ attempt.
     const n = list.length;
     for (let i = 0; i < n; i += 1) {
         const dir = list[i];
-        _"exec | sub CMD, echo('`cd ${root + dir} && npm publish --dry-run`')"
+        _"exec | sub CMD, echo('`cd ${dir} && npm publish --dry-run`')"
     }
 
 
@@ -586,8 +626,6 @@ removes the publish file. Do not call this until publish is done.
     _"require"
     
     try {
-        fs.renameSync('new-hashes.txt', 'hashes.txt');
-        console.log('Hash file updated');
         fs.unlinkSync('publish.txt');
         console.log('Publish list removed');
     } catch (e) {
@@ -634,7 +672,8 @@ Stuff to load and use for all of these.
             writeFile('logs/log-'+scriptname+'-'+time+'.txt', log),
             writeFile('logs/err-'+scriptname+'-'+time+'.txt', err)
         ]);
-        console.log("LOGS", log, "ERRORS", err);
+        console.log("LOGS", log);
+        console.log("ERRORS", err);
     }
 
 ## Exec
