@@ -1,0 +1,98 @@
+{
+  "web": {
+    "cycle::^": {
+      "name": "^",
+      "heading": "^",
+      "raw": [[[1, 1, 0], "", [1, 1, 0]]],
+      "code": [],
+      "scope": {
+        "prefix": "cycle",
+        "origin": "",
+        "sourcepos": [[1, 1, 0], [14, 12, 176]],
+        "lv1": "cycle::^",
+        "majorname": "cycle::^",
+        "fullname": "cycle::^",
+        "lv1only": "^"
+      }
+    },
+    "cycle::cycle": {
+      "name": "cycle",
+      "heading": "Cycle",
+      "raw": [
+        [
+          [1, 1, 0],
+          "# Cycle\n\nWhat happens if we have blocks that point to each other? Hopefully nothing.  \n\n\n    _\"block\"\n\n",
+          [8, 1, 103]
+        ]
+      ],
+      "code": [
+        {
+          "code": "_\"block\"",
+          "lang": "",
+          "start": [6, 5, 93],
+          "end": [7, 0, 101]
+        }
+      ],
+      "scope": {
+        "prefix": "cycle",
+        "origin": "",
+        "sourcepos": [[1, 1, 0], [1, 7, 6]],
+        "lv1": "cycle::cycle",
+        "majorname": "cycle::cycle",
+        "fullname": "cycle::cycle",
+        "lv1only": "cycle"
+      }
+    },
+    "cycle::block": {
+      "name": "block",
+      "heading": "Block",
+      "raw": [
+        [
+          [8, 1, 103],
+          "## Block\n\n    _\"cycle\"  _\"block:switch\" _\"block\"\n\n",
+          [12, 1, 153]
+        ]
+      ],
+      "code": [
+        {
+          "code": "_\"cycle\"  _\"block:switch\" _\"block\"",
+          "lang": "",
+          "start": [10, 5, 117],
+          "end": [11, 0, 151]
+        }
+      ],
+      "scope": {
+        "prefix": "cycle",
+        "origin": "",
+        "sourcepos": [[8, 1, 103], [8, 8, 110]],
+        "lv1": "cycle::block",
+        "majorname": "cycle::block",
+        "fullname": "cycle::block",
+        "lv1only": "block"
+      }
+    },
+    "cycle::block:switch": {
+      "name": "switch",
+      "raw": [[[12, 1, 153], "[switch]()\n\n    _\"cycle", [14, 12, 176]]],
+      "code": [
+        {
+          "code": "_\"cycle\"",
+          "lang": "",
+          "start": [14, 5, 169],
+          "end": [14, 12, 176]
+        }
+      ],
+      "scope": {
+        "prefix": "cycle",
+        "origin": "",
+        "sourcepos": [[12, 1, 153], [12, 10, 162]],
+        "lv1": "cycle::block",
+        "majorname": "cycle::block",
+        "fullname": "cycle::block:switch",
+        "lv1only": "block",
+        "minor": "switch"
+      }
+    }
+  },
+  "directives": []
+}

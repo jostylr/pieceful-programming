@@ -1,0 +1,44 @@
+{
+  "web": {
+    "one-heading::^": {
+      "name": "^",
+      "heading": "^",
+      "raw": [[[1, 1, 0], "", [1, 1, 0]]],
+      "code": [],
+      "scope": {
+        "prefix": "one-heading",
+        "origin": "",
+        "sourcepos": [[1, 1, 0], [11, 3, 60]],
+        "lv1": "one-heading::^",
+        "majorname": "one-heading::^",
+        "fullname": "one-heading::^",
+        "lv1only": "^"
+      }
+    },
+    "one-heading::heading": {
+      "name": "heading",
+      "heading": "Heading",
+      "raw": [
+        [
+          [1, 1, 0],
+          "# Heading\n\nParagraph 1\n\n    code1\n\nParagraph 2\n\n```\ncode2\n``",
+          [11, 3, 60]
+        ]
+      ],
+      "code": [
+        {"code": "code1", "lang": "", "start": [5, 5, 28], "end": [6, 0, 33]},
+        {"code": "code2", "lang": "", "start": [10, 1, 52], "end": [11, 1, 58]}
+      ],
+      "scope": {
+        "prefix": "one-heading",
+        "origin": "",
+        "sourcepos": [[1, 1, 0], [1, 9, 8]],
+        "lv1": "one-heading::heading",
+        "majorname": "one-heading::heading",
+        "fullname": "one-heading::heading",
+        "lv1only": "heading"
+      }
+    }
+  },
+  "directives": []
+}

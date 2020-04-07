@@ -57,13 +57,15 @@ const getPackageJSON = async function (pck, version) {
     let diff = false;
     try {
         json = JSON.parse(await readFile(dir+ '/package.json', {encoding:'utf8'}));
+        if (json.version === version) {
+            diff = true;
+        }
     } catch (e) {
         json = JSON.parse(pj);
         json.name = '@pieceful/' + name;
         json.version = version;
         diff = true;
     }
-    console.log(pck, json);
     pck.json = json;
     return diff;
 };
@@ -75,15 +77,6 @@ const hash = async function (fname) {
         hash
     );
     return [fname, hash.digest('hex')];
-};
-const fileMatch = async function (dir) {
-    const files = ( await readdir(dir) ).
-        filter( (file) => {return ( 
-             file.slice(-3) === '.js' ) ||
-            (file.slice(-4) === '.mjs' ) ||
-            (file.slice(-4) === '.cjs' ); 
-        }).map ( (file) => dir + '/' + file );
-    return files;
 };
 const rsync = async function (src, dest) {
     let report;
@@ -104,7 +97,7 @@ const rsync = async function (src, dest) {
 };
 const test = async function (dir) {
     let report;
-    const cmd = `cd ${dir+'/tests'} && node run.js`;
+    const cmd = `cd ${dir} && node tests/*.js`;
     try {
         const {stdout, stderr} = await exec(cmd);
         log(cmd + '\n---\n', stdout);
@@ -132,8 +125,11 @@ const diffDep = function (curpck, packages) {
 };
 const install = async function (pck, packages) {
     let {json, dir, diff} = pck;
-    console.log("0", diff);
     json.description = pck.description;
+    if (json.main !== pck.main) {
+        json.main = pck.main;
+        diff = true;
+    }
     { 
         let oldfiles = json.files;
         let newfiles = json.files = pck.files;
@@ -164,7 +160,6 @@ const install = async function (pck, packages) {
     if (slimpfdep.length !== 0) {
         diff = true;
     }
-    console.log("1", diff);
     let newdep = pck.dep;
     let olddeps = Object.keys(deps);
     if (newdep.length !== olddeps.length) {
@@ -194,9 +189,7 @@ const install = async function (pck, packages) {
         newobjdep[key] = val;
     });
     json.dependencies = newobjdep;
-    console.log("2", diff);
     await writeFile(dir + '/package.json', JSON.stringify(pck.json, null, '\t') );
-    console.log("3", diff);
     let report;
     const cmd = `cd ${dir} && npm update && npm outdated`;
     try {
@@ -212,7 +205,6 @@ const install = async function (pck, packages) {
         errlog(cmd + '\n---\n', stderr);
         report = {stdout, stderr, success:false};
     }
-    console.log("4", diff);
     let updated = JSON.parse(await readFile(dir+ '/package.json', {encoding:'utf8'})).dependencies;
     Object.keys(updated).forEach( (key) => {
         if (updated[key] !== json.dependencies[key]) {
@@ -220,18 +212,21 @@ const install = async function (pck, packages) {
             json.dependencies[key] = updated[key];
         }
     });
-    console.log("5", diff);
     pck.pfdep.forEach( dep => {
         json.dependencies[ "@pieceful/" + dep] = packages[dep].version;
     });
-    console.log("6", diff);
     return diff;
 };
 
 
 
 const packageFile = fs.readFileSync(root + 'packages.txt', {encoding:'utf8'});
-const hashes = JSON.parse(fs.readFileSync('hashes.json', {encoding:'utf8'}));
+let hashes;
+try {
+    hashes = JSON.parse(fs.readFileSync('hashes.json', {encoding:'utf8'}));
+} catch (e) {
+    hashes = {};
+}
 let publish;
 try {
     publish = fs.readFileSync('publish.txt', {encoding: 'utf8'}).split('\n');
@@ -252,6 +247,10 @@ packages.forEach( (txt, ind) => {
             pck.description = argtxt.trim();
             return;
         }
+        if (typ === 'main') {
+            pck.main = argtxt.trim();
+            return;
+        }
         const args = argtxt.split(',').map( el => el.trim() );
         if (typ === 'files') {
             pck.files = args;
@@ -270,7 +269,8 @@ packages.forEach( (txt, ind) => {
         }
     });
     pck.description = pck.description || "A very useful part of pieceful programming";
-    pck.files = pck.files || ['index.js', 'lib/'];
+    pck.files = pck.files || []; // main is automatically included
+    pck.main = 'index.js';
     packages[ind] = pck;
     packages[name] = pck; 
     pck.hashes = hashes[name] || {};
@@ -302,18 +302,18 @@ const run = async function (packages) {
     for (let i = 0; i < n; i += 1) {
         const pck = packages[i];
         const {dir, pfdep, name} = pck;
-        const files = await fileMatch(dir);
+        let files = pck.files.slice();
+        files.push(pck.main);
+        files = files.map( file => dir + '/' + file ); 
         const hashes = await Promise.all(files.map(hash));  
+        console.log(hashes);
         let diff = diffHashes(pck.hashes, hashes) || pck.diff; 
         pck.hashes = hashes;
         allHashes[name] = hashes;
         diff = await getPackageJSON(pck, version);
-        console.log("get pack", diff);
         diff = ( await install(pck, packages) ) || diff;
-        console.log("install", diff);
         await Promise.all(pfdep.map( (dep) => rsync(packages[dep].dir, dir) ));
         diff = diff || diffDep(pck, packages);
-        console.log(diff, "dep");
         pck.diff = diff;
         pck.pass = await test(dir);
         if (pck.pass && diff) { 
@@ -322,7 +322,6 @@ const run = async function (packages) {
                 JSON.stringify(pck.json, null, '\t') );
         }
         pass = pck.pass && pass;
-        console.log(pck.name, pck.diff);
     }
     if (!pass) {
         process.exitCode = 1;

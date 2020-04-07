@@ -1,0 +1,399 @@
+{
+  "web": {
+    "variety::^": {
+      "name": "^",
+      "heading": "^",
+      "raw": [[[1, 1, 0], "", [1, 1, 0]]],
+      "code": [],
+      "scope": {
+        "prefix": "variety",
+        "origin": "",
+        "sourcepos": [[1, 1, 0], [81, 8, 1005]],
+        "lv1": "variety::^",
+        "majorname": "variety::^",
+        "fullname": "variety::^",
+        "lv1only": "^"
+      }
+    },
+    "variety::try commonmark": {
+      "name": "try commonmark",
+      "heading": "Try CommonMark",
+      "raw": [
+        [
+          [1, 1, 0],
+          "## Try CommonMark\n\nYou can try CommonMark here.  This dingus is powered by\n[commonmark.js](https://github.com/jgm/commonmark.js), the\nJavaScript reference implementation.\n\n    This is some code\n\nA list below\n\n1. item one\n2. item two [item switch](cur \"load:\")\n   - sublist\n   - sublist\n\n---\n\n    more code\n\n[switch](dir \"save:\")\n\nMore text\n\n```js\neven more code\n```\n\n",
+          [28, 1, 367]
+        ]
+      ],
+      "code": [
+        {
+          "code": "This is some code",
+          "lang": "",
+          "start": [7, 5, 176],
+          "end": [8, 0, 193]
+        },
+        {
+          "code": "more code",
+          "lang": "",
+          "start": [18, 5, 296],
+          "end": [19, 0, 305]
+        },
+        {
+          "code": "even more code",
+          "lang": "js",
+          "start": [25, 1, 347],
+          "end": [26, 1, 362]
+        }
+      ],
+      "scope": {
+        "prefix": "variety",
+        "origin": "",
+        "sourcepos": [[1, 1, 0], [1, 17, 16]],
+        "lv1": "variety::try commonmark",
+        "majorname": "variety::try commonmark",
+        "fullname": "variety::try commonmark",
+        "lv1only": "try commonmark"
+      }
+    },
+    "variety::header": {
+      "name": "header",
+      "heading": "Header",
+      "raw": [
+        [
+          [28, 1, 367],
+          "### Header\n\nand some text\n\n    so much more code\n\n",
+          [34, 1, 417]
+        ]
+      ],
+      "code": [
+        {
+          "code": "so much more code",
+          "lang": "",
+          "start": [32, 5, 398],
+          "end": [33, 0, 415]
+        }
+      ],
+      "scope": {
+        "prefix": "variety",
+        "origin": "",
+        "sourcepos": [[28, 1, 367], [28, 10, 376]],
+        "lv1": "variety::header",
+        "majorname": "variety::header",
+        "fullname": "variety::header",
+        "lv1only": "header"
+      }
+    },
+    "variety::header:minor here": {
+      "name": "minor here",
+      "raw": [
+        [
+          [34, 1, 417],
+          "[minor here]()\n\nGot some minor\n\n    code minor block\n    this is cool\n    great. awesome\n\n\n",
+          [43, 1, 508]
+        ]
+      ],
+      "code": [
+        {
+          "code": "code minor block\nthis is cool\ngreat. awesome",
+          "lang": "",
+          "start": [38, 5, 453],
+          "end": [42, 0, 506]
+        }
+      ],
+      "scope": {
+        "prefix": "variety",
+        "origin": "",
+        "sourcepos": [[34, 1, 417], [34, 14, 430]],
+        "lv1": "variety::header",
+        "majorname": "variety::header",
+        "fullname": "variety::header:minor here",
+        "lv1only": "header",
+        "minor": "minor here"
+      }
+    },
+    "variety::header:minor pipes": {
+      "name": "minor pipes",
+      "raw": [
+        [
+          [43, 1, 508],
+          "[minor pipes](# \": this | pipe\")\n\n    pipes pipes\n\n[=vname](# \": make | new |var\")\n\n[dude](!prefix) Doing a prefix change here\n\n",
+          [51, 1, 636]
+        ]
+      ],
+      "code": [
+        {
+          "code": "pipes pipes",
+          "lang": "",
+          "start": [45, 5, 546],
+          "end": [46, 0, 557]
+        }
+      ],
+      "scope": {
+        "prefix": "variety",
+        "origin": "",
+        "sourcepos": [[43, 1, 508], [43, 32, 539]],
+        "lv1": "variety::header",
+        "majorname": "variety::header",
+        "fullname": "variety::header:minor pipes",
+        "lv1only": "header",
+        "minor": "minor pipes"
+      },
+      "rawTransform": [[[43, 17, 524], "this | pipe"]]
+    },
+    "dude::courageous": {
+      "name": "courageous",
+      "heading": "Courageous",
+      "raw": [
+        [
+          [51, 1, 636],
+          "#### Courageous\n\nThis is courages in all respects\n\n",
+          [55, 1, 687]
+        ]
+      ],
+      "code": [],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[51, 1, 636], [51, 15, 650]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous",
+        "fullname": "dude::courageous",
+        "lv1only": "courageous",
+        "minor": "minor pipes"
+      }
+    },
+    "dude::courageous:minor cour": {
+      "name": "minor cour",
+      "raw": [
+        [[55, 1, 687], "[minor cour]()\n\nJust a minor check\n\n", [59, 1, 723]]
+      ],
+      "code": [],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[55, 1, 687], [55, 14, 700]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous",
+        "fullname": "dude::courageous:minor cour",
+        "lv1only": "courageous",
+        "minor": "minor cour"
+      }
+    },
+    "dude::courageous//h6 check": {
+      "name": "h6 check",
+      "heading": "h6 check",
+      "raw": [
+        [
+          [59, 1, 723],
+          "###### h6 check\n\nGot that something special check\n\n    raw\n\n",
+          [65, 1, 783]
+        ]
+      ],
+      "code": [
+        {"code": "raw", "lang": "", "start": [63, 5, 778], "end": [64, 0, 781]}
+      ],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[59, 1, 723], [59, 15, 737]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous//h6 check",
+        "fullname": "dude::courageous//h6 check",
+        "lv1only": "courageous",
+        "minor": "minor cour",
+        "lv2": "",
+        "lv3": "h6 check"
+      }
+    },
+    "dude::courageous//h6 check:h6 minor": {
+      "name": "h6 minor",
+      "raw": [[[65, 1, 783], "[h6 minor]()\n\n", [67, 1, 797]]],
+      "code": [],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[65, 1, 783], [65, 12, 794]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous//h6 check",
+        "fullname": "dude::courageous//h6 check:h6 minor",
+        "lv1only": "courageous",
+        "minor": "h6 minor",
+        "lv2": "",
+        "lv3": "h6 check"
+      }
+    },
+    "dude::courageous/h5 first": {
+      "name": "h5 first",
+      "heading": "h5 first | pipe | a |command",
+      "raw": [
+        [
+          [67, 1, 797],
+          "##### h5 first | pipe | a |command\n\nAdd [|t test](# \": and then | more\")\n\n",
+          [71, 1, 871]
+        ]
+      ],
+      "code": [],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[67, 1, 797], [67, 34, 830]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous/h5 first",
+        "fullname": "dude::courageous/h5 first",
+        "lv1only": "courageous",
+        "minor": "h6 minor",
+        "lv2": "h5 first"
+      },
+      "rawTransform": [
+        [[67, 10, 806], "| pipe | a |command"],
+        [[69, 1, 833], "|t test| and then | more"]
+      ]
+    },
+    "dude::courageous/h5 first:h5 minor": {
+      "name": "h5 minor",
+      "raw": [[[71, 1, 871], "[h5 minor]()\n\n", [73, 1, 885]]],
+      "code": [],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[71, 1, 871], [71, 12, 882]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous/h5 first",
+        "fullname": "dude::courageous/h5 first:h5 minor",
+        "lv1only": "courageous",
+        "minor": "h5 minor",
+        "lv2": "h5 first"
+      }
+    },
+    "dude::courageous/h5 first/h6 second after first": {
+      "name": "h6 second after first",
+      "heading": "h6 second after first",
+      "raw": [[[73, 1, 885], "###### h6 second after first\n\n", [75, 1, 915]]],
+      "code": [],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[73, 1, 885], [73, 28, 912]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous/h5 first/h6 second after first",
+        "fullname": "dude::courageous/h5 first/h6 second after first",
+        "lv1only": "courageous",
+        "minor": "h5 minor",
+        "lv2": "h5 first",
+        "lv3": "h6 second after first"
+      }
+    },
+    "dude::courageous/h5 first/h6 second after first:h6 second minor under h5": {
+      "name": "h6 second minor under h5",
+      "raw": [[[75, 1, 915], "[h6 second minor under h5]()\n\n", [77, 1, 945]]],
+      "code": [],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[75, 1, 915], [75, 28, 942]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous/h5 first/h6 second after first",
+        "fullname": "dude::courageous/h5 first/h6 second after first:h6 second minor under h5",
+        "lv1only": "courageous",
+        "minor": "h6 second minor under h5",
+        "lv2": "h5 first",
+        "lv3": "h6 second after first"
+      }
+    },
+    "dude::a new heading": {
+      "name": "a new heading",
+      "heading": "A New heading",
+      "raw": [
+        [
+          [77, 1, 945],
+          "## A [New heading](# \"info: v6 | jt\")\n\nWhatever\n    \n    cod",
+          [81, 8, 1005]
+        ]
+      ],
+      "code": [
+        {
+          "code": "code",
+          "lang": "",
+          "start": [81, 5, 1002],
+          "end": [81, 8, 1005]
+        }
+      ],
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[77, 1, 945], [77, 37, 981]],
+        "lv1": "dude::a new heading",
+        "majorname": "dude::a new heading",
+        "fullname": "dude::a new heading",
+        "lv1only": "a new heading",
+        "minor": "h6 second minor under h5"
+      }
+    }
+  },
+  "directives": [
+    {
+      "directive": "load",
+      "args": "",
+      "src": "cur",
+      "target": "item switch",
+      "scope": {
+        "prefix": "variety",
+        "origin": "",
+        "sourcepos": [[12, 4, 224], [12, 38, 258]],
+        "lv1": "variety::try commonmark",
+        "majorname": "variety::try commonmark",
+        "fullname": "variety::try commonmark",
+        "lv1only": "try commonmark"
+      }
+    },
+    {
+      "directive": "save",
+      "args": "",
+      "src": "dir",
+      "target": "switch",
+      "scope": {
+        "prefix": "variety",
+        "origin": "",
+        "sourcepos": [[20, 1, 307], [20, 21, 327]],
+        "lv1": "variety::try commonmark",
+        "majorname": "variety::try commonmark",
+        "fullname": "variety::try commonmark",
+        "lv1only": "try commonmark"
+      }
+    },
+    {
+      "directive": "store",
+      "args": " make | new |var",
+      "src": "#",
+      "target": "vname",
+      "scope": {
+        "prefix": "variety",
+        "origin": "",
+        "sourcepos": [[47, 1, 559], [47, 31, 589]],
+        "lv1": "variety::header",
+        "majorname": "variety::header",
+        "fullname": "variety::header:minor pipes",
+        "lv1only": "header",
+        "minor": "minor pipes"
+      }
+    },
+    {
+      "directive": "info",
+      "args": " v6 | jt",
+      "src": "#",
+      "target": "New heading",
+      "scope": {
+        "prefix": "dude",
+        "origin": "",
+        "sourcepos": [[77, 1, 945], [77, 37, 981]],
+        "lv1": "dude::courageous",
+        "majorname": "dude::courageous/h5 first/h6 second after first",
+        "fullname": "dude::courageous/h5 first/h6 second after first:h6 second minor under h5",
+        "lv1only": "courageous",
+        "minor": "h6 second minor under h5",
+        "lv2": "h5 first",
+        "lv3": "h6 second after first"
+      }
+    }
+  ]
+}

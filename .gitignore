@@ -2,3 +2,4 @@ Session.vim
 node_modules/
 publish.txt
 logs/
+.nyc_output

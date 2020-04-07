@@ -127,6 +127,24 @@ needs it.
     pf: core, commonmark, underpipes
 
 
+## Report JSON
+
+This is something that helps get a file output for a JSON object for
+comparison in tests. 
+
+    let report;
+    {
+        const stringify = require('json-stringify-pretty-compact');
+        const fs = require('fs');
+        report = function (file, json) {
+            console.log(stringify(json));
+            fs.writeFileSync(file, stringify(json));
+        };
+    }
+    
+
+
+
 ## TODO
 
 COMPILE: Make a command that can take in a piece of text and will run it through the
@@ -141,7 +159,6 @@ SEQUENCE: Allow for segmented sequence of loading files. Each file is done in
 order, waiting for the previous to finish. The next has full access to what
 was before. No filenames lead to setup.md, project.md and cleanup.md as the
 default sequence, if those files are present. 
-
 
 
 

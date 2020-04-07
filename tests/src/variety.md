@@ -1,8 +1,4 @@
-let cmparse = require('./index.js');
-let util = require('util');
-
-let ret = cmparse(
-`## Try CommonMark
+## Try CommonMark
 
 You can try CommonMark here.  This dingus is powered by
 [commonmark.js](https://github.com/jgm/commonmark.js), the
@@ -17,19 +13,23 @@ A list below
    - sublist
    - sublist
 
+---
+
+    more code
+
 [switch](dir "save:")
 
 More text
 
-\`\`\`js
-more code
-\`\`\`
+```js
+even more code
+```
 
 ### Header
 
 and some text
 
-    more code
+    so much more code
 
 [minor here]()
 
@@ -78,7 +78,4 @@ Add [|t test](# ": and then | more")
 
 Whatever
     
-    code`, {tracker : () => {}, prefix: 'first' }
-);
-
-console.log(util.inspect(ret, {depth : 8, colors:true} ) ) ;
+    code

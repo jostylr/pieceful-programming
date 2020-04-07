@@ -15,8 +15,11 @@ major field associated with them if they are not independent blocks.
 
     let cmparse;
     
-    {
-    _"core"
+    {    
+        const has = function (obj, key) {
+            return Object.prototype.hasOwnProperty.call(obj, key);
+        };
+        _"core"
     }
 
     module.exports = cmparse;
@@ -670,10 +673,11 @@ The first line starts at 0 with no newlines
 This is a short script and test file that allows for commonmark exploration. 
 
     
-    let commonmark = require('commonmark');
+    const commonmark = require('commonmark');
     
-    text = 
-    `_"sample"`;
+    const fs = require('fs');
+
+    const text = fs.readFileSync('tests/src/variety.md', {encoding:'utf8'});
 
     let lineNumbering = _"source information"
     console.log(text);
@@ -689,7 +693,7 @@ This is a short script and test file that allows for commonmark exploration.
     while ( (event = walker.next()) ) {
         let node = event.node;
         if (node.sourcepos)  { 
-            sourcepos = [ lineNumbering(nodesourcepos[0]),
+            sourcepos = [ lineNumbering(node.sourcepos[0]),
             lineNumbering(node.sourcepos[1]) ];
         }
         console.log(node.type, node.literal || '', node.destination|| '', node.title|| '', node.info|| '', node.level|| '',  sourcepos, text.slice(sourcepos[0][2], sourcepos[1][2]+1), event.entering);
@@ -703,105 +707,164 @@ This is a short script and test file that allows for commonmark exploration.
 
 A sample md doc
 
-    ## Try CommonMark
-
-    You can try CommonMark here.  This dingus is powered by
-    [commonmark.js](https://github.com/jgm/commonmark.js), the
-    JavaScript reference implementation.
-
-        This is some code
-
-    A list below
-
-    1. item one
-    2. item two [item switch](cur "load:")
-       - sublist
-       - sublist
-
-    [switch](dir "save:")
-
-    More text
-
-    \`\`\`js
-    more code
-    \`\`\`
-
-    ### Header
-
-    and some text
-
-        more code
-
-    [minor here]()
-
-    Got some minor
-
-        code minor block
-        this is cool
-        great. awesome
-
-
-    [minor pipes](# ": this | pipe")
-
-        pipes pipes
-
-    [=vname](# ": make | new |var")
-
-    [dude](!prefix) Doing a prefix change here
-
-    #### Courageous
-    
-    This is courages in all respects
-
-    [minor cour]()
-
-    Just a minor check
-
-    ###### h6 check
-
-    Got that something special check
-
-        raw
-
-    [h6 minor]()
-
-    ##### h5 first | pipe | a |command
-
-    Add [|t test](# ": and then | more")
-
-    [h5 minor]()
-
-    ###### h6 second after first
-
-    [h6 second minor under h5]()
-
-    ## A [New heading](# "info: v6 | jt")
-
-    Whatever
-        
-        code
 
 ## Run sample
 
 This is the code to run the sample and see how it goes. 
 
-    let cmparse = require('./index.js');
-    let util = require('util');
-    
-    let ret = cmparse(
-    `_"sample"`, {tracker : () => {}, prefix: 'first::' }
+    const cmparse = require('./index.js');
+    const util = require('util');
+    const fs = require('fs');
+
+    const text = fs.readFileSync('tests/src/variety.md', {encoding:'utf8'});
+
+    const ret = cmparse(
+    text, {tracker : () => {}, prefix: 'first' }
     );
 
+    
     console.log(util.inspect(ret, {depth : 8, colors:true} ) ) ;
 
 
-[commonmark/runsample.js](# "save:")
+[commonmark/runsample.js](# "save")
     
 ## Tests
 
-This is where we develop the tests to run. They should be directed by a script
-called run.js which should return a non-zero exit code if they fail. 
+This is where we develop the tests to run. We have a separate setup script
+that puts source and compiled versions of cases in the test folder. We run
+through each and make sure the generated objects are the same. 
 
-    let cm = require('../index.js');
+    const tap = require('tap');
+    const cmparse = require('../index.js');
+    const util = require('util');
+    const {isDeepStrictEqual: deep} = util;
+   
+    const path = require('path');
+    const {readdir, readFile, writeFile} = require('fs').promises;
+
+
+    const main = async function () {
+        _":main"
+    };
+
+    main();
     
-[commonmark/tests/run.js](# "save:")
+[commonmark/tests/generated.js](# "save:")
+
+[main]()
+
+    const src = "tests/src/";
+    const out = "tests/json/";
+
+    const mdfiles = (await readdir(src)).
+        filter( file => (path.extname(file) === '.md') ).
+        map( file =>  path.basename(file, '.md') );
+
+
+We read in the md file and the json file (json may not exist --> return null)
+
+
+    const results = await Promise.all(mdfiles.map( async (fname) => {
+        tap.test('Checking '+fname, async (t) => {
+            let jsons = await Promise.all( [
+                readFile(src + fname + '.md', {encoding:'utf8'}).then(
+                    txt => cmparse(txt, {tracker: ()=> {}, prefix: fname})
+                ),
+                readFile(out + fname + '.json', {encoding:'utf8'}).then( 
+                    txt => JSON.parse(txt)
+                ).catch(e => null )
+            ]);
+
+            t.ok(deep(jsons[0], jsons[1]));
+
+        })
+    }) );
+
+
+## Setup Tests
+
+There are two distinct steps. One is to generate the output files. The other,
+once those output files are confirmed to be correct, is to put them where
+automated test runs can be run. The original place is under the root directory
+tests/src and we create output files in tests/commonmark  
+
+### Generate test output
+
+    const cmparse = require('./index.js');
+    const util = require('util');
+    const {isDeepStrictEqual: deep} = util;
+    const path = require('path');
+    const {readdir, readFile, writeFile} = require('fs').promises;
+    const stringify = require('json-stringify-pretty-compact');
+    const cp = require('child_process');
+    const exec = util.promisify(cp.exec);
+
+    const main = async function () {
+        _":main"
+    };
+
+    main();
+
+[commonmark/maketests.js](# "save:")
+
+[main]()
+
+    try {
+        const {stdout, stderr} = await exec(
+            'rsync -av ../../tests/src/ tests/src/'
+        );
+        console.log(stdout);
+        if (stderr) {
+            console.error("error:", stderr);
+        }
+    } catch (e) {
+        console.log("error in syncing src:", e);
+    }
+
+    const src = "tests/src/";
+    const out = "tests/json/";
+
+    const mdfiles = (await readdir(src)).
+        filter( file => (path.extname(file) === '.md') ).
+        map( file =>  path.basename(file, '.md') );
+
+
+We read in the md file and the json file (json may not exist --> return null)
+
+
+    const results = await Promise.all(mdfiles.map( async (fname) => {
+        let jsons = await Promise.all( [
+            readFile(src + fname + '.md', {encoding:'utf8'}).then(
+                txt => cmparse(txt, {tracker: ()=> {}, prefix: fname})
+            ),
+            readFile(out + fname + '.json', {encoding:'utf8'}).then( 
+                txt => JSON.parse(txt)
+            ).catch(e => null )
+        ]);
+
+The json file might not exist in which case json[1] is null and evaluates to
+false and short circuits the comparison. 
+
+        return [fname, jsons[1] && (deep(jsons[0], jsons[1]) ), jsons[0] ];  
+    }) );
+
+    const same = results.filter( arr => arr[1] );
+    const diff = results.filter( arr => !arr[1] );
+    
+    console.log('The following are unchanged: ' + 
+        same.map( arr => arr[0] ).join(',') );
+
+    diff.forEach( async (arr) => {
+        try {
+            await writeFile(out + arr[0] + '-new.json', 
+                stringify(arr[2]) );
+            console.log(`New json file saved ${out+arr[0]}-new.json`);
+        } catch (e) {
+            console.log(`Error in saving ${out+arr[0]}-new.json ${e}`);
+        }
+    });
+        
+
+
+
+

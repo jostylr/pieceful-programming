@@ -44,7 +44,9 @@ aborting all writing or
     const pj = `_"boiler package.json"`;
     const getPackageJSON = _"get package json";
     const hash = _"hash";
-    const fileMatch = _"file match";
+
+const fileMatch = _"file match";
+
     const rsync = _"rsync dependencies";
     const test = _"run tests";
     const diffHashes = _"diff hashes";
@@ -54,7 +56,12 @@ aborting all writing or
 
 
     const packageFile = fs.readFileSync(root + 'packages.txt', {encoding:'utf8'});
-    const hashes = JSON.parse(fs.readFileSync('hashes.json', {encoding:'utf8'}));
+    let hashes;
+    try {
+        hashes = JSON.parse(fs.readFileSync('hashes.json', {encoding:'utf8'}));
+    } catch (e) {
+        hashes = {};
+    }
     _":get public"
     _"process package file"
     _"sort package file"
@@ -83,6 +90,9 @@ before publishing; important that post gets run to remove this file.
 
 ### File Match
 
+
+Not used anymore. scheduled for deletion
+
 This takes in a directory and returns the list of files to hash. Currently the
 idea is top level matching to extensions with .js, .mjs, .cjs. maybe also a
 files: option in the repo manager. Ignoring package.json as it may have noisy
@@ -107,9 +117,13 @@ works.
 Runs the test using a command, such as node tests/run.js
 
     async function (dir) {
-        _"exec | sub CMD, echo('`cd ${dir+'/tests'} && node run.js`') "     
+        _"exec | sub CMD, echo('`cd ${dir} && node tests/*.js`') "     
         return report.success;
     }
+
+[running tap]()
+
+``_"exec | sub CMD, echo('`cd ${dir} && ../../node_modules/.bin/tap -R terse`') "   ``
 
 ### Process Package File
 
@@ -154,6 +168,10 @@ Here we are working on the line between package names.
             pck.description = argtxt.trim();
             return;
         }
+        if (typ === 'main') {
+            pck.main = argtxt.trim();
+            return;
+        }
         const args = argtxt.split(',').map( el => el.trim() );
         if (typ === 'files') {
             pck.files = args;
@@ -172,7 +190,8 @@ Here we are working on the line between package names.
         }
     });
     pck.description = pck.description || "A very useful part of pieceful programming";
-    pck.files = pck.files || ['index.js', 'lib/'];
+    pck.files = pck.files || []; // main is automatically included
+    pck.main = 'index.js';
 
 ### Sort Package File
 
@@ -220,13 +239,15 @@ We attach the package.json object directly to the package.
         let diff = false;
         try {
             json = JSON.parse(await readFile(dir+ '/package.json', {encoding:'utf8'}));
+            if (json.version === version) {
+                diff = true;
+            }
         } catch (e) {
             json = JSON.parse(pj);
             json.name = '@pieceful/' + name;
             json.version = version;
             diff = true;
         }
-        console.log(pck, json);
         pck.json = json;
         return diff;
     }
@@ -280,21 +301,14 @@ installing.
 
     async function (pck, packages) {
         let {json, dir, diff} = pck;
-        console.log("0", diff);
         _":update json"
         let deps = json.dependencies || {};
         _":remove pieceful dependencies"
-        console.log("1", diff);
         _":update other dependencies"
-        console.log("2", diff);
         _":save package.json"
-        console.log("3", diff);
         _":run npm"
-        console.log("4", diff);
         _":reload package.json"
-        console.log("5", diff);
         _":attach pieceful dependencies"
-        console.log("6", diff);
         return diff;
     }
 
@@ -305,6 +319,10 @@ then we turn diff to true.
 
     
     json.description = pck.description;
+    if (json.main !== pck.main) {
+        json.main = pck.main;
+        diff = true;
+    }
     { 
         let oldfiles = json.files;
         let newfiles = json.files = pck.files;
@@ -450,7 +468,6 @@ does not get updated until tests pass.
         const allHashes = {};
         for (let i = 0; i < n; i += 1) {
             _":per package"
-            console.log(pck.name, pck.diff);
         }
 
 Finish up, recording exit code if something went wrong, create list to
@@ -481,8 +498,18 @@ dependencies changes, testing, and updated version if needed.
 
 Hash stuff
 
-    const files = await fileMatch(dir);
+const files = await fileMatch(dir);
+This did look up all the files that did the match. But with the creation of
+the files to include, that seems to be sufficient. Note that below we assume
+that the files are explicitly listed. If it is a directory or globbing, one
+should do something more. Not anticipating needing that right now. 
+
+
+    let files = pck.files.slice();
+    files.push(pck.main);
+    files = files.map( file => dir + '/' + file ); 
     const hashes = await Promise.all(files.map(hash));  
+    console.log(hashes);
     let diff = diffHashes(pck.hashes, hashes) || pck.diff; 
     pck.hashes = hashes;
     allHashes[name] = hashes;
@@ -491,12 +518,9 @@ Dependency stuff. Note that in pieceful dependencies, the name is listed so we
 translate that into the package directory for rsync. 
     
     diff = await getPackageJSON(pck, version);
-    console.log("get pack", diff);
     diff = ( await install(pck, packages) ) || diff;
-    console.log("install", diff);
     await Promise.all(pfdep.map( (dep) => rsync(packages[dep].dir, dir) ));
     diff = diff || diffDep(pck, packages);
-    console.log(diff, "dep");
     pck.diff = diff;
         
 Testing

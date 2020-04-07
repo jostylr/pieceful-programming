@@ -1,0 +1,4 @@
+0.1.0
+-commonmark
+desc: Commonmark processor component for pieceful programming
+dp: commonmark 0.29.1 

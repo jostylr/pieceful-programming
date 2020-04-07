@@ -21,12 +21,10 @@
 	],
 	"name": "@pieceful/commonmark",
 	"version": "0.1.0",
+	"description": "Commonmark processor component for pieceful programming",
+	"main": "index.js",
+	"files": [],
 	"dependencies": {
 		"commonmark": "^0.29.1"
-	},
-	"description": "Commonmark processor component for pieceful programming",
-	"files": [
-		"index.js",
-		"lib/"
-	]
+	}
 }
