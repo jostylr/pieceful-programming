@@ -18,7 +18,9 @@ const main = async function () {
         tap.test('Checking '+fname, async (t) => {
             let jsons = await Promise.all( [
                 readFile(src + fname + '.md', {encoding:'utf8'}).then(
-                    txt => cmparse(txt, {tracker: ()=> {}, prefix: fname})
+                    async txt => await cmparse(txt, {prefix: fname,
+                        origin: src + fname + '.md'
+                        }) 
                 ),
                 readFile(out + fname + '.json', {encoding:'utf8'}).then( 
                     txt => JSON.parse(txt)

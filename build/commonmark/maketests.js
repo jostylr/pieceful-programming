@@ -29,7 +29,8 @@ const main = async function () {
     const results = await Promise.all(mdfiles.map( async (fname) => {
         let jsons = await Promise.all( [
             readFile(src + fname + '.md', {encoding:'utf8'}).then(
-                txt => cmparse(txt, {tracker: ()=> {}, prefix: fname})
+                async txt => { return await cmparse(txt, { prefix: fname,
+                origin: src + fname + '.md'}); }
             ),
             readFile(out + fname + '.json', {encoding:'utf8'}).then( 
                 txt => JSON.parse(txt)

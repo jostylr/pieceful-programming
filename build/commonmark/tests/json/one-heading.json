@@ -7,7 +7,7 @@
       "code": [],
       "scope": {
         "prefix": "one-heading",
-        "origin": "",
+        "origin": "tests/src/one-heading.md",
         "sourcepos": [[1, 1, 0], [11, 3, 60]],
         "lv1": "one-heading::^",
         "majorname": "one-heading::^",
@@ -31,7 +31,7 @@
       ],
       "scope": {
         "prefix": "one-heading",
-        "origin": "",
+        "origin": "tests/src/one-heading.md",
         "sourcepos": [[1, 1, 0], [1, 9, 8]],
         "lv1": "one-heading::heading",
         "majorname": "one-heading::heading",

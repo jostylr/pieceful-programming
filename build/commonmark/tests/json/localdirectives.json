@@ -1,0 +1,164 @@
+{
+  "web": {
+    "localdirectives::^": {
+      "name": "^",
+      "heading": "^",
+      "raw": [[[1, 1, 0], "", [1, 1, 0]]],
+      "code": [],
+      "scope": {
+        "prefix": "localdirectives",
+        "origin": "tests/src/localdirectives.md",
+        "sourcepos": [[1, 1, 0], [54, 0, 668]],
+        "lv1": "localdirectives::^",
+        "majorname": "localdirectives::^",
+        "fullname": "localdirectives::^",
+        "lv1only": "^"
+      }
+    },
+    "localdirectives::local directives": {
+      "name": "local directives",
+      "heading": "Local Directives",
+      "raw": [
+        [
+          [1, 1, 0],
+          "# Local Directives\n\nWe will test various local directives here. \n\n    This is some angry text. _\"not escape\"\n\nNeed to make it angry\n\n```eval\ncode = code.toUpperCase();\n```\n\n[make angry](# \"!eval:\")\n\n```eval\nfunction atest() {\n  return new Promise(resolve => {\n    setTimeout(() => {\n      resolve(5);\n    }, 10);\n  });\n}\n\ncode += await atest();\n```\n\n[test async eval](# \"!eval:\")\n\n\n",
+          [30, 1, 382]
+        ]
+      ],
+      "code": [
+        {
+          "code": "THIS IS SOME ANGRY TEXT. _\"NOT ESCAPE\"5",
+          "lang": "generated",
+          "start": [16, 1, 207],
+          "end": [25, 1, 345]
+        }
+      ],
+      "scope": {
+        "prefix": "localdirectives",
+        "origin": "tests/src/localdirectives.md",
+        "sourcepos": [[1, 1, 0], [1, 18, 17]],
+        "lv1": "localdirectives::local directives",
+        "majorname": "localdirectives::local directives",
+        "fullname": "localdirectives::local directives",
+        "lv1only": "local directives"
+      },
+      "evaldCode": [
+        [
+          {
+            "code": "code = code.toUpperCase();",
+            "lang": "eval",
+            "start": [10, 1, 141],
+            "end": [11, 1, 168]
+          }
+        ],
+        [
+          {
+            "code": "function atest() {\n  return new Promise(resolve => {\n    setTimeout(() => {\n      resolve(5);\n    }, 10);\n  });\n}\n\ncode += await atest();",
+            "lang": "eval",
+            "start": [16, 1, 207],
+            "end": [25, 1, 345]
+          }
+        ]
+      ]
+    },
+    "localdirectives::scope change": {
+      "name": "scope change",
+      "heading": "Scope change",
+      "raw": [
+        [
+          [30, 1, 382],
+          "## Scope change\n\nLet's add in a scope change: [cwd=dude/](# \"!scope:\")\n\n[what.js](# \"save:\")\n\n[scope change](# \"!report:\")\n\n",
+          [38, 1, 506]
+        ]
+      ],
+      "code": [],
+      "scope": {
+        "prefix": "localdirectives",
+        "origin": "tests/src/localdirectives.md",
+        "sourcepos": [[30, 1, 382], [30, 15, 396]],
+        "lv1": "localdirectives::scope change",
+        "majorname": "localdirectives::scope change",
+        "fullname": "localdirectives::scope change",
+        "lv1only": "scope change"
+      }
+    },
+    "localdirectives::another": {
+      "name": "another",
+      "heading": "another",
+      "raw": [
+        [
+          [38, 1, 506],
+          "## another\n\n[that.js](# \"save:\")\n\nAnd now remove scope cwd\n\n    Some text _\"should get escaped\"\n\n[esc](# \"!escape:\")\n\n[cwd](# \"!scope:\")\n\n[nocwd.js](# \"save:\")\n\n\n",
+          [54, 0, 668]
+        ]
+      ],
+      "code": [
+        {
+          "code": "Some text \\_\"should get escaped\"",
+          "lang": "",
+          "start": [44, 5, 570],
+          "end": [45, 0, 601]
+        }
+      ],
+      "scope": {
+        "prefix": "localdirectives",
+        "origin": "tests/src/localdirectives.md",
+        "sourcepos": [[38, 1, 506], [38, 10, 515]],
+        "lv1": "localdirectives::another",
+        "majorname": "localdirectives::another",
+        "fullname": "localdirectives::another",
+        "lv1only": "another",
+        "cwd": "dude/"
+      }
+    }
+  },
+  "directives": [
+    {
+      "directive": "save",
+      "args": "",
+      "src": "#",
+      "target": "what.js",
+      "scope": {
+        "prefix": "localdirectives",
+        "origin": "tests/src/localdirectives.md",
+        "sourcepos": [[34, 1, 454], [34, 20, 473]],
+        "lv1": "localdirectives::scope change",
+        "majorname": "localdirectives::scope change",
+        "fullname": "localdirectives::scope change",
+        "lv1only": "scope change",
+        "cwd": "dude/"
+      }
+    },
+    {
+      "directive": "save",
+      "args": "",
+      "src": "#",
+      "target": "that.js",
+      "scope": {
+        "prefix": "localdirectives",
+        "origin": "tests/src/localdirectives.md",
+        "sourcepos": [[40, 1, 518], [40, 20, 537]],
+        "lv1": "localdirectives::another",
+        "majorname": "localdirectives::another",
+        "fullname": "localdirectives::another",
+        "lv1only": "another",
+        "cwd": "dude/"
+      }
+    },
+    {
+      "directive": "save",
+      "args": "",
+      "src": "#",
+      "target": "nocwd.js",
+      "scope": {
+        "prefix": "localdirectives",
+        "origin": "tests/src/localdirectives.md",
+        "sourcepos": [[50, 1, 644], [50, 21, 664]],
+        "lv1": "localdirectives::another",
+        "majorname": "localdirectives::another",
+        "fullname": "localdirectives::another",
+        "lv1only": "another"
+      }
+    }
+  ]
+}

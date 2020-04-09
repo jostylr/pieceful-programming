@@ -7,7 +7,7 @@
       "code": [],
       "scope": {
         "prefix": "codeblocks",
-        "origin": "",
+        "origin": "tests/src/codeblocks.md",
         "sourcepos": [[1, 1, 0], [44, 42, 546]],
         "lv1": "codeblocks::^",
         "majorname": "codeblocks::^",
@@ -59,7 +59,7 @@
       ],
       "scope": {
         "prefix": "codeblocks",
-        "origin": "",
+        "origin": "tests/src/codeblocks.md",
         "sourcepos": [[1, 1, 0], [1, 13, 12]],
         "lv1": "codeblocks::code blocks",
         "majorname": "codeblocks::code blocks",
@@ -76,7 +76,7 @@
       "target": "jack-jill.txt",
       "scope": {
         "prefix": "codeblocks",
-        "origin": "",
+        "origin": "tests/src/codeblocks.md",
         "sourcepos": [[44, 1, 505], [44, 42, 546]],
         "lv1": "codeblocks::code blocks",
         "majorname": "codeblocks::code blocks",

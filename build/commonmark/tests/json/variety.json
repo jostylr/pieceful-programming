@@ -7,8 +7,8 @@
       "code": [],
       "scope": {
         "prefix": "variety",
-        "origin": "",
-        "sourcepos": [[1, 1, 0], [81, 8, 1005]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[1, 1, 0], [81, 8, 1010]],
         "lv1": "variety::^",
         "majorname": "variety::^",
         "fullname": "variety::^",
@@ -47,7 +47,7 @@
       ],
       "scope": {
         "prefix": "variety",
-        "origin": "",
+        "origin": "tests/src/variety.md",
         "sourcepos": [[1, 1, 0], [1, 17, 16]],
         "lv1": "variety::try commonmark",
         "majorname": "variety::try commonmark",
@@ -75,7 +75,7 @@
       ],
       "scope": {
         "prefix": "variety",
-        "origin": "",
+        "origin": "tests/src/variety.md",
         "sourcepos": [[28, 1, 367], [28, 10, 376]],
         "lv1": "variety::header",
         "majorname": "variety::header",
@@ -102,7 +102,7 @@
       ],
       "scope": {
         "prefix": "variety",
-        "origin": "",
+        "origin": "tests/src/variety.md",
         "sourcepos": [[34, 1, 417], [34, 14, 430]],
         "lv1": "variety::header",
         "majorname": "variety::header",
@@ -116,8 +116,8 @@
       "raw": [
         [
           [43, 1, 508],
-          "[minor pipes](# \": this | pipe\")\n\n    pipes pipes\n\n[=vname](# \": make | new |var\")\n\n[dude](!prefix) Doing a prefix change here\n\n",
-          [51, 1, 636]
+          "[minor pipes](# \": this | pipe\")\n\n    pipes pipes\n\n[=vname](# \": make | new |var\")\n\n[dude](# \"!prefix:\") Doing a prefix change here\n\n",
+          [51, 1, 641]
         ]
       ],
       "code": [
@@ -130,7 +130,7 @@
       ],
       "scope": {
         "prefix": "variety",
-        "origin": "",
+        "origin": "tests/src/variety.md",
         "sourcepos": [[43, 1, 508], [43, 32, 539]],
         "lv1": "variety::header",
         "majorname": "variety::header",
@@ -145,16 +145,16 @@
       "heading": "Courageous",
       "raw": [
         [
-          [51, 1, 636],
+          [51, 1, 641],
           "#### Courageous\n\nThis is courages in all respects\n\n",
-          [55, 1, 687]
+          [55, 1, 692]
         ]
       ],
       "code": [],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[51, 1, 636], [51, 15, 650]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[51, 1, 641], [51, 15, 655]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous",
         "fullname": "dude::courageous",
@@ -165,13 +165,13 @@
     "dude::courageous:minor cour": {
       "name": "minor cour",
       "raw": [
-        [[55, 1, 687], "[minor cour]()\n\nJust a minor check\n\n", [59, 1, 723]]
+        [[55, 1, 692], "[minor cour]()\n\nJust a minor check\n\n", [59, 1, 728]]
       ],
       "code": [],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[55, 1, 687], [55, 14, 700]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[55, 1, 692], [55, 14, 705]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous",
         "fullname": "dude::courageous:minor cour",
@@ -184,18 +184,18 @@
       "heading": "h6 check",
       "raw": [
         [
-          [59, 1, 723],
+          [59, 1, 728],
           "###### h6 check\n\nGot that something special check\n\n    raw\n\n",
-          [65, 1, 783]
+          [65, 1, 788]
         ]
       ],
       "code": [
-        {"code": "raw", "lang": "", "start": [63, 5, 778], "end": [64, 0, 781]}
+        {"code": "raw", "lang": "", "start": [63, 5, 783], "end": [64, 0, 786]}
       ],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[59, 1, 723], [59, 15, 737]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[59, 1, 728], [59, 15, 742]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous//h6 check",
         "fullname": "dude::courageous//h6 check",
@@ -207,12 +207,12 @@
     },
     "dude::courageous//h6 check:h6 minor": {
       "name": "h6 minor",
-      "raw": [[[65, 1, 783], "[h6 minor]()\n\n", [67, 1, 797]]],
+      "raw": [[[65, 1, 788], "[h6 minor]()\n\n", [67, 1, 802]]],
       "code": [],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[65, 1, 783], [65, 12, 794]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[65, 1, 788], [65, 12, 799]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous//h6 check",
         "fullname": "dude::courageous//h6 check:h6 minor",
@@ -227,16 +227,16 @@
       "heading": "h5 first | pipe | a |command",
       "raw": [
         [
-          [67, 1, 797],
+          [67, 1, 802],
           "##### h5 first | pipe | a |command\n\nAdd [|t test](# \": and then | more\")\n\n",
-          [71, 1, 871]
+          [71, 1, 876]
         ]
       ],
       "code": [],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[67, 1, 797], [67, 34, 830]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[67, 1, 802], [67, 34, 835]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous/h5 first",
         "fullname": "dude::courageous/h5 first",
@@ -245,18 +245,18 @@
         "lv2": "h5 first"
       },
       "rawTransform": [
-        [[67, 10, 806], "| pipe | a |command"],
-        [[69, 1, 833], "|t test| and then | more"]
+        [[67, 10, 811], "| pipe | a |command"],
+        [[69, 1, 838], "|t test| and then | more"]
       ]
     },
     "dude::courageous/h5 first:h5 minor": {
       "name": "h5 minor",
-      "raw": [[[71, 1, 871], "[h5 minor]()\n\n", [73, 1, 885]]],
+      "raw": [[[71, 1, 876], "[h5 minor]()\n\n", [73, 1, 890]]],
       "code": [],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[71, 1, 871], [71, 12, 882]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[71, 1, 876], [71, 12, 887]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous/h5 first",
         "fullname": "dude::courageous/h5 first:h5 minor",
@@ -268,12 +268,12 @@
     "dude::courageous/h5 first/h6 second after first": {
       "name": "h6 second after first",
       "heading": "h6 second after first",
-      "raw": [[[73, 1, 885], "###### h6 second after first\n\n", [75, 1, 915]]],
+      "raw": [[[73, 1, 890], "###### h6 second after first\n\n", [75, 1, 920]]],
       "code": [],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[73, 1, 885], [73, 28, 912]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[73, 1, 890], [73, 28, 917]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous/h5 first/h6 second after first",
         "fullname": "dude::courageous/h5 first/h6 second after first",
@@ -285,12 +285,12 @@
     },
     "dude::courageous/h5 first/h6 second after first:h6 second minor under h5": {
       "name": "h6 second minor under h5",
-      "raw": [[[75, 1, 915], "[h6 second minor under h5]()\n\n", [77, 1, 945]]],
+      "raw": [[[75, 1, 920], "[h6 second minor under h5]()\n\n", [77, 1, 950]]],
       "code": [],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[75, 1, 915], [75, 28, 942]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[75, 1, 920], [75, 28, 947]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous/h5 first/h6 second after first",
         "fullname": "dude::courageous/h5 first/h6 second after first:h6 second minor under h5",
@@ -305,23 +305,23 @@
       "heading": "A New heading",
       "raw": [
         [
-          [77, 1, 945],
+          [77, 1, 950],
           "## A [New heading](# \"info: v6 | jt\")\n\nWhatever\n    \n    cod",
-          [81, 8, 1005]
+          [81, 8, 1010]
         ]
       ],
       "code": [
         {
           "code": "code",
           "lang": "",
-          "start": [81, 5, 1002],
-          "end": [81, 8, 1005]
+          "start": [81, 5, 1007],
+          "end": [81, 8, 1010]
         }
       ],
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[77, 1, 945], [77, 37, 981]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[77, 1, 950], [77, 37, 986]],
         "lv1": "dude::a new heading",
         "majorname": "dude::a new heading",
         "fullname": "dude::a new heading",
@@ -338,7 +338,7 @@
       "target": "item switch",
       "scope": {
         "prefix": "variety",
-        "origin": "",
+        "origin": "tests/src/variety.md",
         "sourcepos": [[12, 4, 224], [12, 38, 258]],
         "lv1": "variety::try commonmark",
         "majorname": "variety::try commonmark",
@@ -353,7 +353,7 @@
       "target": "switch",
       "scope": {
         "prefix": "variety",
-        "origin": "",
+        "origin": "tests/src/variety.md",
         "sourcepos": [[20, 1, 307], [20, 21, 327]],
         "lv1": "variety::try commonmark",
         "majorname": "variety::try commonmark",
@@ -368,7 +368,7 @@
       "target": "vname",
       "scope": {
         "prefix": "variety",
-        "origin": "",
+        "origin": "tests/src/variety.md",
         "sourcepos": [[47, 1, 559], [47, 31, 589]],
         "lv1": "variety::header",
         "majorname": "variety::header",
@@ -384,8 +384,8 @@
       "target": "New heading",
       "scope": {
         "prefix": "dude",
-        "origin": "",
-        "sourcepos": [[77, 1, 945], [77, 37, 981]],
+        "origin": "tests/src/variety.md",
+        "sourcepos": [[77, 1, 950], [77, 37, 986]],
         "lv1": "dude::courageous",
         "majorname": "dude::courageous/h5 first/h6 second after first",
         "fullname": "dude::courageous/h5 first/h6 second after first:h6 second minor under h5",

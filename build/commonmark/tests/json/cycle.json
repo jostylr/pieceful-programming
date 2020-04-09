@@ -7,7 +7,7 @@
       "code": [],
       "scope": {
         "prefix": "cycle",
-        "origin": "",
+        "origin": "tests/src/cycle.md",
         "sourcepos": [[1, 1, 0], [14, 12, 176]],
         "lv1": "cycle::^",
         "majorname": "cycle::^",
@@ -35,7 +35,7 @@
       ],
       "scope": {
         "prefix": "cycle",
-        "origin": "",
+        "origin": "tests/src/cycle.md",
         "sourcepos": [[1, 1, 0], [1, 7, 6]],
         "lv1": "cycle::cycle",
         "majorname": "cycle::cycle",
@@ -63,7 +63,7 @@
       ],
       "scope": {
         "prefix": "cycle",
-        "origin": "",
+        "origin": "tests/src/cycle.md",
         "sourcepos": [[8, 1, 103], [8, 8, 110]],
         "lv1": "cycle::block",
         "majorname": "cycle::block",
@@ -84,7 +84,7 @@
       ],
       "scope": {
         "prefix": "cycle",
-        "origin": "",
+        "origin": "tests/src/cycle.md",
         "sourcepos": [[12, 1, 153], [12, 10, 162]],
         "lv1": "cycle::block",
         "majorname": "cycle::block",

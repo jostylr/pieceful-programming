@@ -5,15 +5,115 @@ let cmparse;
         return Object.prototype.hasOwnProperty.call(obj, key);
     };
     let commonmark = require('commonmark');
-    cmparse = function cmparse (text, { prefix = '', origin = '' }) {
-        const tracker = cmparse.tracker;
+    cmparse = async function cmparse (text, options = {})  {
+        let scope = Object.assign({ 
+            prefix : '', 
+            tracker : () => {},
+            immediateDirectives : {}
+        }, options); 
     
-        tracker('commonmark parsing about to begin', {prefix, text});
+        scope.immediateDirectives = Object.assign(
+            {
+                eval : async function (data) {
+                    let webNode = data.webNode;
+                    let start, end;
+                    let localContext = this; //eslint-disable-line no-unused-vars
+                        let code = webNode.code;
+                        if (!webNode.evaldCode) { webNode.evaldCode = [];}
+                        if (code.some( (obj) => obj.lang === 'eval') ) {
+                            let [evblocks, origev, other] = code.reduce( (acc, next) => {
+                                if (next.lang === 'eval') {
+                                    acc[0].push(next.code);
+                                    acc[1].push(next);
+                                    if (!start) { start = next.start;}
+                                    end = next.end;
+                                } else {
+                                    acc[2].push(next);
+                                }
+                                return acc;
+                            }, [[],[], []]);
+                            code = evblocks.join('\n');
+                            webNode.code = other; 
+                            webNode.evaldCode.push(origev);
+                        } else {
+                            code = webNode.code.reduce( (acc, next) => {
+                                if (!start) { start = next.start;}
+                                end = next.end;
+                                return acc.push(next.code);
+                            }, []).join('\n');
+                            webNode.evaldCode.push(webNode.code);
+                            webNode.code = [];
+                        }
+                    localContext.tracker("local directive evaling code", {webNode, code});
+                    let str;
+                    if (webNode.code.length === 1) {
+                        str = `const origCode = webNode.code[0].code; let code = origCode; ${code}; 
+                        if (code !== origCode) {webNode.code.pop();} return code;`
+                    } else if (webNode.code.length === 0) {
+                        str = `let code = ''; ${code}; return code;`;
+                    } else {
+                        str = `${code}`;
+                    }
+                    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+                    const af = new AsyncFunction( 
+                        'localContext', 
+                        'webNode',
+                        'data',
+                        str
+                    );
+                    
+                    let ret = await af(localContext, webNode, data);
+                    if (ret) {
+                        webNode.code.push({
+                            code:ret,
+                            lang:'generated',
+                            start,
+                            end
+                        });
+                    }
+                
+                },
+                scope : function ({target, scope}) {
+                    let ind = target.indexOf('=');
+                    if (ind === -1) {
+                        delete scope[target.trim()];
+                    } else {
+                        let vname = target.slice(0,ind).trim();
+                        let val = target.slice(ind+1);
+                        scope[vname] = val;
+                    }
+                },
+                report : function ({target, scope, webNode}) {
+                    this.tracker("commonmark immediate directive report", {target, scope,
+                        webNode}); 
+                },
+                prefix : function ({target, scope}) {
+                    if (target.slice(-2) === '::') {
+                        target = target.slice(0,-2);
+                    }
+                    if (target) {
+                        scope.prefix = target;
+                    } else {
+                        scope.prefix = this.originalPrefix;
+                    }
+                },
+                escape : function ({webNode}) {
+                    webNode.code.forEach( (el) => {
+                        el.code = el.code.replace(/_"/g, '\\_"');
+                        el.code = el.code.replace(/_'/g, "\\_'");
+                        el.code = el.code.replace(/_`/g, '\\_`');
+                    });
+                }
+            },
+            scope.immediateDirectves 
+        );
+    
         
-        const parsingDirectives = cmparse.parsingDirectives;
+        const {tracker, immediateDirectives} = scope;
+        delete scope.tracker;
+        delete scope.immediateDirectives;
     
-        const originalPrefix = prefix;
-        let scope = { prefix, origin};
+        tracker('commonmark parsing about to begin', {scope, text});
     
         let lineNumbering = ( function (text) {
             let lines = [0];
@@ -39,7 +139,8 @@ let cmparse;
     
         let event;
     
-        let localContext = {originalPrefix, tracker, lineNumbering, web, parsingDirectives, event, directives};
+        const originalPrefix = scope.prefix;
+        let localContext = {originalPrefix, tracker, lineNumbering, web, immediateDirectives, event, directives};
     
     
         let reader = new commonmark.Parser();
@@ -203,16 +304,6 @@ let cmparse;
                                 }
                             }
                         }
-                    } else if (href[0] === '!') { //parse directive
-                        let directive = href.slice(1).
-                            trim().
-                            toLowerCase();
-                        let args = title;
-                        let target = ltext;
-                        let data = {args, target, scope, context:webNode};
-                        tracker("calling parse directive", {directive, data});
-                        parsingDirectives[directive].call(localContext, data);
-                        tracker("done with parse directive", {directive, scope, context : webNode});
                     } else if ( (ind = title.indexOf(":")) !== -1) { //compile directive
                         let data = {
                             directive : title.slice(0, ind).
@@ -222,11 +313,19 @@ let cmparse;
                             args : title.slice(ind+1),
                             src:href,
                             target : ltext,
-                            scope : Object.assign({}, scope)
                         };
-                        
-                        tracker("directive call found", data);
-                        directives.push(data);
+                        if (data.directive[0] === '!') {
+                            let dir = data.directive.slice(1); //strip !
+                            data.scope = scope; //live scope
+                            data.webNode = webNode;
+                            tracker("calling local directive", {dir, data});
+                            await immediateDirectives[dir].call(localContext, data);
+                            tracker("done with local directive", {directive:dir, scope, webNode});
+                        } else {
+                            data.scope = Object.assign({}, scope)
+                            tracker("directive call found", data);
+                            directives.push(data);
+                        }
                     }
                     ltext = false;
                 }
@@ -329,7 +428,8 @@ let cmparse;
                 scope.fullname = scope.majorname = scope.lv1; 
                 scope.lv1only = '^';
                 webNode = web[scope.fullname] = {
-                    name : '^', heading:'^', 
+                    name : '^', 
+                    heading:'^', 
                     raw : [ [scope.sourcepos[0]] ],
                     code : [],
                     scope : Object.assign({}, scope)
@@ -345,55 +445,11 @@ let cmparse;
             cur[2] = end;
         }
     
-        tracker('commonmark parsing done', {prefix, web, directives, text});
+        tracker('commonmark parsing done', {origin: scope.origin || originalPrefix, web, directives, text});
     
         return {web, directives};
     
     };
-    
-    
-    cmparse.parsingDirectives = {
-        eval : function (data) {
-            let webNode = data.webNode;
-            let localContext = this; //eslint-disable-line no-unused-vars
-            let originalCode = webNode.code; //eslint-disable-line no-unused-vars
-            let code = webNode.code.reduce( (acc, next) => {
-                return acc.push(next[0]);
-            }, []).join('\n');
-            webNode.code = [];
-            localContext.tracker("local directive evaling code", {webNode, code});
-            let ret;
-            eval(code);
-            if (ret && ret.code) {
-                webNode.code.push(ret);
-            }
-        },
-        scope : function ({target, scope}) {
-            let ind = target.indexOf('=');
-            if (ind === -1) {
-                delete scope[target.trim()];
-            } else {
-                let vname = target.slice(0,ind).trim();
-                let val = target.slice(ind+1);
-                scope[vname] = val;
-            }
-        },
-        report : function ({label, scope, webNode}) {
-            this.tracker("commonmark parsing directive report", {label, scope,
-                webNode}); 
-        },
-        prefix : function ({target, scope}) {
-            if (target.slice(-2) === '::') {
-                target = target.slice(0,-2);
-            }
-            if (target) {
-                scope.prefix = target;
-            } else {
-                scope.prefix = this.originalPrefix;
-            }
-        }
-    };
-    cmparse.tracker = () => {};
 }
 
 module.exports = cmparse;

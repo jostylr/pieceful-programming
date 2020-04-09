@@ -40,16 +40,24 @@ the link text and title text. They cannot see or affect anything else.
 
 Origin is the filepath or other basic identifier. 
 
+    cmparse = async function cmparse (text, options = {})  {
+        let scope = Object.assign({ 
+            prefix : '', 
+            tracker : () => {},
+            immediateDirectives : {}
+        }, options); 
 
-    cmparse = function cmparse (text, { prefix = '', origin = '' }) {
-        const tracker = cmparse.tracker;
+        scope.immediateDirectives = Object.assign(
+            _"immediate directives",
+            scope.immediateDirectves 
+        );
 
-        tracker('commonmark parsing about to begin', {prefix, text});
         
-        const parsingDirectives = cmparse.parsingDirectives;
+        const {tracker, immediateDirectives} = scope;
+        delete scope.tracker;
+        delete scope.immediateDirectives;
 
-        const originalPrefix = prefix;
-        let scope = { prefix, origin};
+        tracker('commonmark parsing about to begin', {scope, text});
 
         let lineNumbering = _"source information"
 
@@ -67,7 +75,8 @@ The current state
 
         let event;
 
-        let localContext = {originalPrefix, tracker, lineNumbering, web, parsingDirectives, event, directives};
+        const originalPrefix = scope.prefix;
+        let localContext = {originalPrefix, tracker, lineNumbering, web, immediateDirectives, event, directives};
 
 
         let reader = new commonmark.Parser();
@@ -94,15 +103,12 @@ The current state
             _"finish webnode"
         }
 
-        tracker('commonmark parsing done', {prefix, web, directives, text});
+        tracker('commonmark parsing done', {origin: scope.origin || originalPrefix, web, directives, text});
 
         return {web, directives};
 
     };
 
-
-    cmparse.parsingDirectives = _"common parsing directives";
-    cmparse.tracker = () => {};
 
 
 # walk the tree
@@ -150,7 +156,8 @@ itself.
     scope.fullname = scope.majorname = scope.lv1; 
     scope.lv1only = '^';
     webNode = web[scope.fullname] = {
-        name : '^', heading:'^', 
+        name : '^', 
+        heading:'^', 
         raw : [ [scope.sourcepos[0]] ],
         code : [],
         scope : Object.assign({}, scope)
@@ -387,7 +394,7 @@ Links may be directives if one of the following things occur:
    after the colon is sent as second in the data array, with the link text as
    first. The href in this instance is completely ignored. There is some pipe
    processing that happens.
-3. Title and href are empty.
+3. Title and href are empty in which case this is a switch to a minor.
 4. The href starts with a `!` in which case it is a local directive and
    processed as such. 
 
@@ -429,10 +436,13 @@ title tells us the information we need in all other cases.
             } else { // switch
                 _"switch"
             }
-        } else if (href[0] === '!') { //parse directive
-            _":parse directive"
         } else if ( (ind = title.indexOf(":")) !== -1) { //compile directive
-            _":compile directive"
+            _":parse out directive"
+            if (data.directive[0] === '!') {
+                _":execute local directive"
+            } else {
+                _":store the directive"
+            }
         }
         ltext = false;
     }
@@ -462,28 +472,42 @@ The store command uses the prefix
     tracker("directive call found", data);
     directives.push(data);
     
+[parse out directive]()
 
+    let data = {
+        directive : title.slice(0, ind).
+            trim().
+            toLowerCase().
+            replace(/\s+/g, ' '),
+        args : title.slice(ind+1),
+        src:href,
+        target : ltext,
+    };
+    
+[execute local directive]()
 
-[parse directive]()
+These are directives identified by being a directive with a leading `!`. 
+They are executed immediately and pause further processing until resolved. The
+eval directive, for example, can be asynchronous. 
 
-These are directives identified by the href having an `!` as the first
-character. Seems harmless and we don't need a ref because these are always
-synchronous, mainly modifying either the current webnode or scope 
+These have access to the localContext variable via `this` as well as in the
+data object being the args, target, and src as with other directives. It
+additionally has access to the current scope object and the current piece
+being worked on under webNode. 
+
+The main goal is allowing modification of either the current webnode or scope 
 objects. They can do more by tapping in to the localContext but hopefully that
 is kept to a minimum. 
 
-    let directive = href.slice(1).
-        trim().
-        toLowerCase();
-    let args = title;
-    let target = ltext;
-    let data = {args, target, scope, context:webNode};
-    tracker("calling parse directive", {directive, data});
-    parsingDirectives[directive].call(localContext, data);
-    tracker("done with parse directive", {directive, scope, context : webNode});
+    let dir = data.directive.slice(1); //strip !
+    data.scope = scope; //live scope
+    data.webNode = webNode;
+    tracker("calling local directive", {dir, data});
+    await immediateDirectives[dir].call(localContext, data);
+    tracker("done with local directive", {directive:dir, scope, webNode});
 
 
-[compile directive]()
+[store the directive]()
 
 This is where the directives for processing occur, such as save or load. We
 assemble the data and then push it on to the directives array, for later
@@ -495,23 +519,13 @@ location data. The scope variables are set
 with a local directive and then shipped with the directive data. 
 
 
-    let data = {
-        directive : title.slice(0, ind).
-            trim().
-            toLowerCase().
-            replace(/\s+/g, ' '),
-        args : title.slice(ind+1),
-        src:href,
-        target : ltext,
-        scope : Object.assign({}, scope)
-    };
-
+    data.scope = Object.assign({}, scope)
     tracker("directive call found", data);
     directives.push(data);
     
 
 
-## Common Parsing Directives
+## Immediate Directives
 
 This is where we can have local directives that impact the parsing. We can 
 add to a scope variable that can be tapped
@@ -521,36 +535,105 @@ into elsewhere.
         eval : _"local eval",
         scope : _"scope",
         report : _"report",
-        prefix : _"prefix"
+        prefix : _"prefix",
+        escape : _"escape"
     }
     
 ### local eval
 
-This is a simple eval execution. No async. It grabs the code from the current
+This is a an eval-like execution; it is asynchronous. It grabs the code from the current
 node and that's it. It then removes the code from the node from the web being generated. 
 
-Both localContext and originalCode are there simply to be referenced by the
+localContext, the webNode, and the data object are there simply to be referenced by the
 evaling code if it wants. 
 
-We have a special variable ret that the code can set to a value that gets put
-in for the code. The ret object should have at least the code property.  
+The behavior is a little more complicated. If there is a code fence block with
+language `eval` then we take those code blocks, concatenate and use them,
+removing them from the webnode. If there is just one block remaining, then we
+eval the code with the code variable referencing that text and then that text
+being stored in replacement of the original code in the webnode. If there are
+no other blocks (eval code fence or not), then we return the code that gets
+generated and stash it in the web Node. To short circuit, that, return from
+the code. If there are multiple webNode.code blocks, then we make no guesses
+as to what the desired outcome is. One can empty that array and return text to
+get the behavior of the other scenarios. 
 
 
-    function (data) {
+
+    async function (data) {
         let webNode = data.webNode;
+        let start, end;
         let localContext = this; //eslint-disable-line no-unused-vars
-        let originalCode = webNode.code; //eslint-disable-line no-unused-vars
-        let code = webNode.code.reduce( (acc, next) => {
-            return acc.push(next[0]);
-        }, []).join('\n');
-        webNode.code = [];
+        _":pick code to eval"
         localContext.tracker("local directive evaling code", {webNode, code});
-        let ret;
-        eval(code);
-        if (ret && ret.code) {
-            webNode.code.push(ret);
+        let str;
+        if (webNode.code.length === 1) {
+            str = `const origCode = webNode.code[0].code; let code = origCode; ${code}; 
+            if (code !== origCode) {webNode.code.pop();} return code;`
+        } else if (webNode.code.length === 0) {
+            str = `let code = ''; ${code}; return code;`;
+        } else {
+            str = `${code}`;
         }
+        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+        const af = new AsyncFunction( 
+            'localContext', 
+            'webNode',
+            'data',
+            str
+        );
+        
+        let ret = await af(localContext, webNode, data);
+        if (ret) {
+            webNode.code.push({
+                code:ret,
+                lang:'generated',
+                start,
+                end
+            });
+        }
+
     }
+
+[pick code to eval]()
+
+Evaling could be two things. The first is that all of the code in the section
+up to the directive being called is to be eval'd. The second is to concatenate
+only eval language blocks and eval them. This second option is employed if
+there is an eval language block already present. 
+
+        let code = webNode.code;
+        if (!webNode.evaldCode) { webNode.evaldCode = [];}
+        if (code.some( (obj) => obj.lang === 'eval') ) {
+            let [evblocks, origev, other] = code.reduce( (acc, next) => {
+                if (next.lang === 'eval') {
+                    acc[0].push(next.code);
+                    acc[1].push(next);
+                    _":start end"
+                } else {
+                    acc[2].push(next);
+                }
+                return acc;
+            }, [[],[], []]);
+            code = evblocks.join('\n');
+            webNode.code = other; 
+            webNode.evaldCode.push(origev);
+        } else {
+            code = webNode.code.reduce( (acc, next) => {
+                _":start end"
+                return acc.push(next.code);
+            }, []).join('\n');
+            webNode.evaldCode.push(webNode.code);
+            webNode.code = [];
+        }
+
+[start end]()
+
+Start and end markers if we create a code node. 
+
+    if (!start) { start = next.start;}
+    end = next.end;
+
 
 ### scope
 
@@ -567,7 +650,7 @@ This sets a local variable of the scope.
         }
     }
 
-An example would be to set `[cwd=core](!scope)` with a directive presumably
+An example would be to set `[cwd=core](# "!scope:")` with a directive presumably
 seeing `cwd` as `change working directory`. One could alternatively have
 `scwd` and `lcwd` for different save and loading directories. 
 
@@ -605,11 +688,25 @@ original state.
 
 This reports current state of parsing. 
 
-    function ({label, scope, webNode}) {
-        this.tracker("commonmark parsing directive report", {label, scope,
+    function ({target, scope, webNode}) {
+        this.tracker("commonmark immediate directive report", {target, scope,
             webNode}); 
     }
 
+### Escape
+
+This escapes all underlines in the code that are followed by one of the
+quotes. It is a hack purely for the purpose of being able to write about
+pieceful programming. This could be moved to its own tool, but it gives a nice
+example of going through the code. 
+
+    function ({webNode}) {
+        webNode.code.forEach( (el) => {
+            el.code = el.code.replace(/\_"/g, '\\\_"');
+            el.code = el.code.replace(/\_'/g, "\\\_'");
+            el.code = el.code.replace(/\_`/g, '\\\_`');
+        });
+    }
 
 ## Differences
 
@@ -768,7 +865,9 @@ We read in the md file and the json file (json may not exist --> return null)
         tap.test('Checking '+fname, async (t) => {
             let jsons = await Promise.all( [
                 readFile(src + fname + '.md', {encoding:'utf8'}).then(
-                    txt => cmparse(txt, {tracker: ()=> {}, prefix: fname})
+                    async txt => await cmparse(txt, {prefix: fname,
+                        origin: src + fname + '.md'
+                        }) 
                 ),
                 readFile(out + fname + '.json', {encoding:'utf8'}).then( 
                     txt => JSON.parse(txt)
@@ -835,7 +934,8 @@ We read in the md file and the json file (json may not exist --> return null)
     const results = await Promise.all(mdfiles.map( async (fname) => {
         let jsons = await Promise.all( [
             readFile(src + fname + '.md', {encoding:'utf8'}).then(
-                txt => cmparse(txt, {tracker: ()=> {}, prefix: fname})
+                async txt => { return await cmparse(txt, { prefix: fname,
+                origin: src + fname + '.md'}); }
             ),
             readFile(out + fname + '.json', {encoding:'utf8'}).then( 
                 txt => JSON.parse(txt)
@@ -865,6 +965,52 @@ false and short circuits the comparison.
     });
         
 
+
+## README
+
+This is the readme for this module. Very little to say. 
+
+    # Pieceful Commonmark
+
+    This a component of [pieceful programming](https://github.com/jostylr/pieceful-programming).
+
+    It takes in a markdown document (commonmark dialect) and outputs a
+    javascript object suitable for further processing by the rest of the
+    pieceful programming setups. 
+
+    Headings in markdown convert to names of the pieces. 
+
+    Code blocks become pieces of code. Code blocks within the same heading
+    get added to an array of code blocks for that heading group. They
+    eventually get concatenated together, in general. Code fences with a
+    language after the fences have code blocks with that language tag. 
+
+    Most of the other markdown syntax is ignored. The only other bit is that
+    of links. 
+
+    ## Links
+
+    A link of the form `[target](src "directive: args")` becomes a directive.
+    That colon is crucial in the title to recognize as a directive. The names
+    in that link form are the headings of the directive object produced. There
+    is also a scope object. If `src = #`, then the current section is used for
+    the src. 
+
+    To produce a minor block (a kind of subheading), we use `[name]()` as the
+    main way. Also possible is `[name](whatever ":pipes")`. In both cases, this
+    creates a new piece whose name is the name of the piece it appears in plus
+    `:name` where name is the link text. 
+
+    We also have `[=varname](whatever ": pipes")` to store the current
+    section, after piping, into a new piece name. There is also a way to
+    transform the current section by having `[](whatever ":pipes")` or
+    `[|](whatever ":pipes")`.  
+
+    The final form of the link is that of a local directive. Most directives
+    are executed later without regard to order of appearance (though the piece
+    they appeared in is regarded in a scope variable). Local directives get
+    executed immediately and are triggered by `[target](! "directive:
+    args")`
 
 
 
