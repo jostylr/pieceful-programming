@@ -6,6 +6,7 @@ const {readdir, readFile, writeFile} = require('fs').promises;
 const stringify = require('json-stringify-pretty-compact');
 const cp = require('child_process');
 const exec = util.promisify(cp.exec);
+const deepdiff = require('deep-diff').diff;
 
 const main = async function () {
     try {
@@ -72,7 +73,8 @@ const main = async function () {
                 return null;
             })
         ]);
-        return [fname, jsons[1] && (deep(jsons[0], jsons[1]) ), jsons[0] ];  
+        return [fname, jsons[1] && (deep(jsons[0], jsons[1]) ), jsons[0],
+        jsons[1] ];  
     }) );
     
     const same = results.filter( arr => arr[1] );
@@ -86,6 +88,10 @@ const main = async function () {
             await writeFile(out + arr[0] + '-new.json', 
                 stringify(arr[2]) );
             console.log(`New json file saved ${out+arr[0]}-new.json`);
+            if (arr[3]) { // differences, not just a new one
+                console.log('The differences are (new, old): ', 
+                util.inspect(deepdiff(arr[2], arr[3]), {depth : 8, colors:true}) );
+            }
         } catch (e) {
             console.log(`Error in saving ${out+arr[0]}-new.json ${e}`);
         }

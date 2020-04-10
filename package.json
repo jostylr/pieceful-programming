@@ -4,6 +4,7 @@
   "description": "A web of programming pieces woven together",
   "main": "index.js",
   "dependencies": {
+    "deep-diff": "^1.0.2",
     "eslint": "^6.7.1",
     "node-fetch": "^2.6.0",
     "tap": "^14.10.7"

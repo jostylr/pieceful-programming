@@ -47,7 +47,7 @@ let cmparse;
                             webNode.code = other; 
                             webNode.evaldCode.push(origev);
                         } else {
-                            code = webNode.code.reduce( (acc, next) => {
+                            code = webNode.code.reduce( (acc, next) =>{
                                 if (!start) { start = next.start;}
                                 end = next.end;
                                 acc.push(next.code);

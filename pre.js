@@ -19,11 +19,17 @@ const savelog = async function (scriptname) {
     const log = report.log.join('\n===\n');
     const err = report.err.join('\n===\n');
     await Promise.all([
+        writeFile('logs/log-'+scriptname+'.txt', log),
         writeFile('logs/log-'+scriptname+'-'+time+'.txt', log),
-        writeFile('logs/err-'+scriptname+'-'+time+'.txt', err)
+        ( (err) ?  
+            writeFile('logs/err-'+scriptname+'-'+time+'.txt', err) :
+            ''
+        )
     ]);
-    console.log("LOGS", log);
-    console.log("ERRORS", err);
+    //console.log("LOGS", log);
+    if (err) { 
+        console.log("ERRORS", err);
+    }
 };
 const path = require('path');
 
@@ -101,7 +107,7 @@ const test = async function (dir) {
     let files = await readdir(dir + '/tests');
     files = files.filter( (file) => path.extname(file) === '.js');
     const n = files.length;
-    let ret = [];
+    let pass = true;
     for (let i = 0; i < n; i += 1) {
         let report;
         const cmd = `cd ${dir} && node tests/${files[i]}`;
@@ -118,9 +124,9 @@ const test = async function (dir) {
             errlog(cmd + '\n---\n', stderr);
             report = {stdout, stderr, success:false};
         }     
-        ret.push(report.success);
+        pass = pass && report.success; 
     }
-    return ret;
+    return pass;
 };
 const diffHashes = async function (oldh, newh) {
     const nkeys = Object.keys(newh);
@@ -315,7 +321,7 @@ const run = async function (packages) {
         files.push(pck.main);
         files = files.map( file => dir + '/' + file ); 
         const hashes = await Promise.all(files.map(hash));  
-        console.log(hashes);
+        //console.log(hashes);
         let diff = diffHashes(pck.hashes, hashes) || pck.diff; 
         pck.hashes = hashes;
         allHashes[name] = hashes;
@@ -325,6 +331,17 @@ const run = async function (packages) {
         diff = diff || diffDep(pck, packages);
         pck.diff = diff;
         pck.pass = await test(dir);
+        if (pck.pass) {
+            console.log('Tests passed for ' + name);
+        } else {
+            console.log('Tests failed for ' + name);
+        }
+        
+        if (diff) {
+            console.log(name + ' needs publishing');
+        } else {
+            console.log(name + ' does not need publishing');
+        }
         if (pck.pass && diff) { 
             pck.json.version = version;
             fs.writeFileSync(dir + '/package.json',
@@ -343,7 +360,7 @@ const run = async function (packages) {
         writeFile('publish.txt', toPublish),
         writeFile('hashes.json', JSON.stringify(allHashes) )
     ]);
-    savelog('Pre'); 
+    savelog('pre'); 
 };
 
 run(packages);

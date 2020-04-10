@@ -121,12 +121,12 @@ Runs the test using a command, such as node tests/run.js
         let files = await readdir(dir + '/tests');
         files = files.filter( (file) => path.extname(file) === '.js');
         const n = files.length;
-        let ret = [];
+        let pass = true;
         for (let i = 0; i < n; i += 1) {
             _"exec | sub CMD, echo('`cd ${dir} && node tests/${files[i]}`') "     
-            ret.push(report.success);
+            pass = pass && report.success; 
         }
-        return ret;
+        return pass;
     }
 
 [running tap]()
@@ -492,7 +492,7 @@ publish, and record the hashes.
             writeFile('publish.txt', toPublish),
             writeFile('hashes.json', JSON.stringify(allHashes) )
         ]);
-        savelog('Pre'); 
+        savelog('pre'); 
     }
 
 
@@ -517,7 +517,7 @@ should do something more. Not anticipating needing that right now.
     files.push(pck.main);
     files = files.map( file => dir + '/' + file ); 
     const hashes = await Promise.all(files.map(hash));  
-    console.log(hashes);
+    //console.log(hashes);
     let diff = diffHashes(pck.hashes, hashes) || pck.diff; 
     pck.hashes = hashes;
     allHashes[name] = hashes;
@@ -534,6 +534,17 @@ translate that into the package directory for rsync.
 Testing
 
     pck.pass = await test(dir);
+    if (pck.pass) {
+        console.log('Tests passed for ' + name);
+    } else {
+        console.log('Tests failed for ' + name);
+    }
+
+    if (diff) {
+        console.log(name + ' needs publishing');
+    } else {
+        console.log(name + ' does not need publishing');
+    }
 
 Update package version if changes dictate it
 
@@ -702,11 +713,17 @@ Stuff to load and use for all of these.
         const log = report.log.join('\n===\n');
         const err = report.err.join('\n===\n');
         await Promise.all([
+            writeFile('logs/log-'+scriptname+'.txt', log),
             writeFile('logs/log-'+scriptname+'-'+time+'.txt', log),
-            writeFile('logs/err-'+scriptname+'-'+time+'.txt', err)
+            ( (err) ?  
+                writeFile('logs/err-'+scriptname+'-'+time+'.txt', err) :
+                ''
+            )
         ]);
-        console.log("LOGS", log);
-        console.log("ERRORS", err);
+        //console.log("LOGS", log);
+        if (err) { 
+            console.log("ERRORS", err);
+        }
     }
 
 ## Exec

@@ -19,11 +19,17 @@ const savelog = async function (scriptname) {
     const log = report.log.join('\n===\n');
     const err = report.err.join('\n===\n');
     await Promise.all([
+        writeFile('logs/log-'+scriptname+'.txt', log),
         writeFile('logs/log-'+scriptname+'-'+time+'.txt', log),
-        writeFile('logs/err-'+scriptname+'-'+time+'.txt', err)
+        ( (err) ?  
+            writeFile('logs/err-'+scriptname+'-'+time+'.txt', err) :
+            ''
+        )
     ]);
-    console.log("LOGS", log);
-    console.log("ERRORS", err);
+    //console.log("LOGS", log);
+    if (err) { 
+        console.log("ERRORS", err);
+    }
 };
 const path = require('path');
 
