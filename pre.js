@@ -224,6 +224,7 @@ const install = async function (pck, packages) {
     Object.keys(updated).forEach( (key) => {
         if (updated[key] !== json.dependencies[key]) {
             diff = true;
+            console.log(`Dependency ${key} was at ${json.dependencies[key]} but is now at ${updated[key]}`);
             json.dependencies[key] = updated[key];
         }
     });

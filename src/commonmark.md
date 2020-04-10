@@ -40,13 +40,21 @@ the link text and title text. They cannot see or affect anything else.
 
 Origin is the filepath or other basic identifier. 
 
-    cmparse = async function cmparse (text, options = {})  {
+    cmparse = async function cmparse (text, prefix, options = {})  {
         let scope = Object.assign({ 
-            prefix : '', 
             tracker : () => {},
             immediateDirectives : {}
         }, options); 
 
+        if (typeof text !== 'string') {
+            throw 'First argument (text) needs to be a string in cmparse';
+        }
+    
+        if (typeof prefix !== 'string') {
+            throw 'Second argument (prefix) needs to be a string in cmparse';
+        }
+        scope.prefix = prefix; 
+        
         scope.immediateDirectives = Object.assign(
             _"immediate directives",
             scope.immediateDirectves 
@@ -857,9 +865,7 @@ This is the code to run the sample and see how it goes.
 
     const text = fs.readFileSync('tests/src/variety.md', {encoding:'utf8'});
 
-    const ret = cmparse(
-    text, {tracker : () => {}, prefix: 'first' }
-    );
+    const ret = cmparse( text, 'first', {tracker : () => {} });
 
     
     console.log(util.inspect(ret, {depth : 8, colors:true} ) ) ;
@@ -898,7 +904,7 @@ through each and make sure the generated objects are the same.
     tap.test('Checking '+fname, async (t) => {
         let jsons = await Promise.all( [
             readFile(src + fname + '.md', {encoding:'utf8'}).then(
-                async txt => await cmparse(txt, {prefix: fname,
+                async txt => await cmparse(txt, fname, {
                     origin: src + fname + '.md'
                     }) 
             ),
@@ -969,18 +975,23 @@ json saved for it.
     const results = await Promise.all(mdfiles.map( async (fname) => {
         let jsons = await Promise.all( [
             readFile(src + fname + '.md', {encoding:'utf8'}).then(
-                async txt => { return await cmparse(txt, { prefix: fname,
+                async txt => { return await cmparse(txt, fname, {
                 origin: src + fname + '.md'}); }
             ),
             readFile(out + fname + '.json', {encoding:'utf8'}).then( 
                 txt => JSON.parse(txt)
             ).catch(e => {
-                let testfile = `_"tests"`;
-                testfile = testfile.replace('FNAME', fname);
-                writeFile('tests/' + fname + '.js', testfile);
                 return null;
             })
         ]);
+        if ( jsons[1] === null) {
+            let testfile = `_"tests"`;
+            let tname = 'tests/' + fname + '.js';
+            testfile = testfile.replace('FNAME', fname);
+            await writeFile(tname, testfile);
+            console.log('written test file ' + tname);
+        }
+
 
 The json file might not exist in which case json[1] is null and evaluates to
 false and short circuits the comparison. 
@@ -1099,6 +1110,24 @@ This is the readme for this module. Very little to say.
       for being able to write about pieceful programming without having to
       slash everything. Of course, this only works if one does not want to put
       in any substitutions at all. 
+
+
+    ## Require
+
+    If using this module separately, the `require` exports a function, (I call
+    it `cmparse`), and that function takes in `text` which gets parsed, a
+    prefix string for referring to the pieces,  and an
+    `options` argument that can contain whatever scope variables one wants,
+    but it can also contain two special pieces: `tracker`, if present, should
+    be a function that expects to take in arguments for some kind of reporting
+    to be done, and `immediateDirectives` which should be an object whose keys
+    are the immediate directive names and values are functions that get
+    called; their argument is a data object that contains the target, src,
+    args, scope, directive, webNode. The `this` is the localContext which
+    contains access to all directives, webNodes (under web), and some other
+    stuff. To disable the ability to do eval in these blocks, pass in a
+    key-value pair of eval-function that does not evaluate. 
+
 
 [commonmark/readme.md](# "save:")
 

@@ -82,3 +82,20 @@ There are several built-in:
   for being able to write about pieceful programming without having to
   slash everything. Of course, this only works if one does not want to put
   in any substitutions at all. 
+
+
+## Require
+
+If using this module separately, the `require` exports a function, (I call
+it `cmparse`), and that function takes in `text` which gets parsed, a
+prefix string for referring to the pieces,  and an
+`options` argument that can contain whatever scope variables one wants,
+but it can also contain two special pieces: `tracker`, if present, should
+be a function that expects to take in arguments for some kind of reporting
+to be done, and `immediateDirectives` which should be an object whose keys
+are the immediate directive names and values are functions that get
+called; their argument is a data object that contains the target, src,
+args, scope, directive, webNode. The `this` is the localContext which
+contains access to all directives, webNodes (under web), and some other
+stuff. To disable the ability to do eval in these blocks, pass in a
+key-value pair of eval-function that does not evaluate. 

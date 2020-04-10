@@ -5,13 +5,21 @@ let cmparse;
         return Object.prototype.hasOwnProperty.call(obj, key);
     };
     let commonmark = require('commonmark');
-    cmparse = async function cmparse (text, options = {})  {
+    cmparse = async function cmparse (text, prefix, options = {})  {
         let scope = Object.assign({ 
-            prefix : '', 
             tracker : () => {},
             immediateDirectives : {}
         }, options); 
     
+        if (typeof text !== 'string') {
+            throw 'First argument (text) needs to be a string in cmparse';
+        }
+    
+        if (typeof prefix !== 'string') {
+            throw 'Second argument (prefix) needs to be a string in cmparse';
+        }
+        scope.prefix = prefix; 
+        
         scope.immediateDirectives = Object.assign(
             {
                 eval : async function (data) {
