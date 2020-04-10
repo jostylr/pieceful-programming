@@ -25,6 +25,7 @@ const savelog = async function (scriptname) {
     console.log("LOGS", log);
     console.log("ERRORS", err);
 };
+const path = require('path');
 
 try {
     fs.unlinkSync('publish.txt');

@@ -8,7 +8,7 @@
       "scope": {
         "prefix": "localdirectives",
         "origin": "tests/src/localdirectives.md",
-        "sourcepos": [[1, 1, 0], [54, 0, 668]],
+        "sourcepos": [[1, 1, 0], [65, 0, 769]],
         "lv1": "localdirectives::^",
         "majorname": "localdirectives::^",
         "fullname": "localdirectives::^",
@@ -21,16 +21,16 @@
       "raw": [
         [
           [1, 1, 0],
-          "# Local Directives\n\nWe will test various local directives here. \n\n    This is some angry text. _\"not escape\"\n\nNeed to make it angry\n\n```eval\ncode = code.toUpperCase();\n```\n\n[make angry](# \"!eval:\")\n\n```eval\nfunction atest() {\n  return new Promise(resolve => {\n    setTimeout(() => {\n      resolve(5);\n    }, 10);\n  });\n}\n\ncode += await atest();\n```\n\n[test async eval](# \"!eval:\")\n\n\n",
-          [30, 1, 382]
+          "# Local Directives\n\nWe will test various local directives here. \n\n    This is some angry text. _\"not escape\"\n\nNeed to make it angry\n\n```eval\ncode = code.toUpperCase();\n```\n\n```ejs\nfunction atest() {\n  return new Promise(resolve => {\n    setTimeout(() => {\n      resolve(5);\n    }, 10);\n  });\n}\n\ncode += await atest();\n```\n\n[.email](.ejs \"!eval:\")\n\n",
+          [27, 1, 348]
         ]
       ],
       "code": [
         {
           "code": "THIS IS SOME ANGRY TEXT. _\"NOT ESCAPE\"5",
-          "lang": "generated",
-          "start": [16, 1, 207],
-          "end": [25, 1, 345]
+          "lang": "email",
+          "start": [14, 1, 180],
+          "end": [23, 1, 318]
         }
       ],
       "scope": {
@@ -54,9 +54,53 @@
         [
           {
             "code": "function atest() {\n  return new Promise(resolve => {\n    setTimeout(() => {\n      resolve(5);\n    }, 10);\n  });\n}\n\ncode += await atest();",
-            "lang": "eval",
-            "start": [16, 1, 207],
-            "end": [25, 1, 345]
+            "lang": "ejs",
+            "start": [14, 1, 180],
+            "end": [23, 1, 318]
+          }
+        ]
+      ]
+    },
+    "localdirectives::only eval": {
+      "name": "only eval",
+      "heading": "Only eval",
+      "raw": [
+        [
+          [27, 1, 348],
+          "## Only eval\n\nThis is just some eval\n\n    a = 3;\n    b = 2;\n\nNow we add them\n\n    c = a*b + a -b;\n    return c;\n\n[number](# \"!eval:\")\n\n",
+          [41, 1, 483]
+        ]
+      ],
+      "code": [
+        {
+          "code": "7",
+          "lang": "generated",
+          "start": [31, 5, 390],
+          "end": [38, 0, 459]
+        }
+      ],
+      "scope": {
+        "prefix": "localdirectives",
+        "origin": "tests/src/localdirectives.md",
+        "sourcepos": [[27, 1, 348], [27, 12, 359]],
+        "lv1": "localdirectives::only eval",
+        "majorname": "localdirectives::only eval",
+        "fullname": "localdirectives::only eval",
+        "lv1only": "only eval"
+      },
+      "evaldCode": [
+        [
+          {
+            "code": "a = 3;\nb = 2;",
+            "lang": "",
+            "start": [31, 5, 390],
+            "end": [33, 0, 407]
+          },
+          {
+            "code": "c = a*b + a -b;\nreturn c;",
+            "lang": "",
+            "start": [36, 5, 430],
+            "end": [38, 0, 459]
           }
         ]
       ]
@@ -66,16 +110,16 @@
       "heading": "Scope change",
       "raw": [
         [
-          [30, 1, 382],
+          [41, 1, 483],
           "## Scope change\n\nLet's add in a scope change: [cwd=dude/](# \"!scope:\")\n\n[what.js](# \"save:\")\n\n[scope change](# \"!report:\")\n\n",
-          [38, 1, 506]
+          [49, 1, 607]
         ]
       ],
       "code": [],
       "scope": {
         "prefix": "localdirectives",
         "origin": "tests/src/localdirectives.md",
-        "sourcepos": [[30, 1, 382], [30, 15, 396]],
+        "sourcepos": [[41, 1, 483], [41, 15, 497]],
         "lv1": "localdirectives::scope change",
         "majorname": "localdirectives::scope change",
         "fullname": "localdirectives::scope change",
@@ -87,23 +131,23 @@
       "heading": "another",
       "raw": [
         [
-          [38, 1, 506],
+          [49, 1, 607],
           "## another\n\n[that.js](# \"save:\")\n\nAnd now remove scope cwd\n\n    Some text _\"should get escaped\"\n\n[esc](# \"!escape:\")\n\n[cwd](# \"!scope:\")\n\n[nocwd.js](# \"save:\")\n\n\n",
-          [54, 0, 668]
+          [65, 0, 769]
         ]
       ],
       "code": [
         {
           "code": "Some text \\_\"should get escaped\"",
           "lang": "",
-          "start": [44, 5, 570],
-          "end": [45, 0, 601]
+          "start": [55, 5, 671],
+          "end": [56, 0, 702]
         }
       ],
       "scope": {
         "prefix": "localdirectives",
         "origin": "tests/src/localdirectives.md",
-        "sourcepos": [[38, 1, 506], [38, 10, 515]],
+        "sourcepos": [[49, 1, 607], [49, 10, 616]],
         "lv1": "localdirectives::another",
         "majorname": "localdirectives::another",
         "fullname": "localdirectives::another",
@@ -121,7 +165,7 @@
       "scope": {
         "prefix": "localdirectives",
         "origin": "tests/src/localdirectives.md",
-        "sourcepos": [[34, 1, 454], [34, 20, 473]],
+        "sourcepos": [[45, 1, 555], [45, 20, 574]],
         "lv1": "localdirectives::scope change",
         "majorname": "localdirectives::scope change",
         "fullname": "localdirectives::scope change",
@@ -137,7 +181,7 @@
       "scope": {
         "prefix": "localdirectives",
         "origin": "tests/src/localdirectives.md",
-        "sourcepos": [[40, 1, 518], [40, 20, 537]],
+        "sourcepos": [[51, 1, 619], [51, 20, 638]],
         "lv1": "localdirectives::another",
         "majorname": "localdirectives::another",
         "fullname": "localdirectives::another",
@@ -153,7 +197,7 @@
       "scope": {
         "prefix": "localdirectives",
         "origin": "tests/src/localdirectives.md",
-        "sourcepos": [[50, 1, 644], [50, 21, 664]],
+        "sourcepos": [[61, 1, 745], [61, 21, 765]],
         "lv1": "localdirectives::another",
         "majorname": "localdirectives::another",
         "fullname": "localdirectives::another",

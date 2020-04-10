@@ -359,10 +359,40 @@ something else, mainly for source mappish concerns.
 
     webNode.code.push( {code, lang, start:sourcepos[0], end:sourcepos[1]});
 
+    if (lang.slice(0,4) === 'eval') {
+        _":eval block"    
+    }
+
 If there are code fences in the code, then the positioning information is
 going to be off. Not sure whether to address this. 
 
 If there are fences, then the code block starts at column 1. 
+
+[eval block]()
+
+This is a bit of a hack. We will use a code fence eval lang as meaning it
+should be eval'd. We pretend it comes from a directive and reuse that code.
+This helps ensure that if we want to replace eval, that we end up doing so. 
+
+    let data = {
+        directive : 'eval',
+        args : '',
+        src: '.eval',
+    };
+    let tar = lang.slice(4);
+    if (tar) {
+        data.target = '.' + tar;
+    } else {
+        data.target = '';
+    }
+
+    let directive = data.directive;
+    data.scope = scope; //live scope
+    data.webNode = webNode;
+    tracker("evaling code block", {directive, data});
+    await immediateDirectives[directive].call(localContext, data);
+    tracker("done with evaling code block", {directive, scope, webNode});
+
 
 [adjust sourcepos]()
 
@@ -561,6 +591,17 @@ get the behavior of the other scenarios.
 
 
     async function (data) {
+        let evalLang, outLang;
+        if (data.src[0] === '.') {
+            evalLang = data.src.slice(1);
+        } else {
+            'eval';
+        }
+        if (data.target[0] === '.') {
+            outLang = data.target.slice(1);
+        } else {
+            outLang = 'generated';
+        }
         let webNode = data.webNode;
         let start, end;
         let localContext = this; //eslint-disable-line no-unused-vars
@@ -586,8 +627,8 @@ get the behavior of the other scenarios.
         let ret = await af(localContext, webNode, data);
         if (ret) {
             webNode.code.push({
-                code:ret,
-                lang:'generated',
+                code:ret + '', //this must be a string;
+                lang: outLang,
                 start,
                 end
             });
@@ -604,9 +645,9 @@ there is an eval language block already present.
 
         let code = webNode.code;
         if (!webNode.evaldCode) { webNode.evaldCode = [];}
-        if (code.some( (obj) => obj.lang === 'eval') ) {
+        if (code.some( (obj) => obj.lang === evalLang) ) {
             let [evblocks, origev, other] = code.reduce( (acc, next) => {
-                if (next.lang === 'eval') {
+                if (next.lang === evalLang) {
                     acc[0].push(next.code);
                     acc[1].push(next);
                     _":start end"
@@ -621,7 +662,8 @@ there is an eval language block already present.
         } else {
             code = webNode.code.reduce( (acc, next) => {
                 _":start end"
-                return acc.push(next.code);
+                acc.push(next.code);
+                return acc;
             }, []).join('\n');
             webNode.evaldCode.push(webNode.code);
             webNode.code = [];
@@ -846,38 +888,28 @@ through each and make sure the generated objects are the same.
 
     main();
     
-[commonmark/tests/generated.js](# "save:")
 
 [main]()
 
     const src = "tests/src/";
     const out = "tests/json/";
+    const fname = 'FNAME'; 
 
-    const mdfiles = (await readdir(src)).
-        filter( file => (path.extname(file) === '.md') ).
-        map( file =>  path.basename(file, '.md') );
+    tap.test('Checking '+fname, async (t) => {
+        let jsons = await Promise.all( [
+            readFile(src + fname + '.md', {encoding:'utf8'}).then(
+                async txt => await cmparse(txt, {prefix: fname,
+                    origin: src + fname + '.md'
+                    }) 
+            ),
+            readFile(out + fname + '.json', {encoding:'utf8'}).then( 
+                txt => JSON.parse(txt)
+            ).catch(e => null )
+        ]);
 
+        t.ok(deep(jsons[0], jsons[1]));
 
-We read in the md file and the json file (json may not exist --> return null)
-
-
-    const results = await Promise.all(mdfiles.map( async (fname) => {
-        tap.test('Checking '+fname, async (t) => {
-            let jsons = await Promise.all( [
-                readFile(src + fname + '.md', {encoding:'utf8'}).then(
-                    async txt => await cmparse(txt, {prefix: fname,
-                        origin: src + fname + '.md'
-                        }) 
-                ),
-                readFile(out + fname + '.json', {encoding:'utf8'}).then( 
-                    txt => JSON.parse(txt)
-                ).catch(e => null )
-            ]);
-
-            t.ok(deep(jsons[0], jsons[1]));
-
-        })
-    }) );
+    });
 
 
 ## Setup Tests
@@ -929,6 +961,8 @@ tests/src and we create output files in tests/commonmark
 
 
 We read in the md file and the json file (json may not exist --> return null)
+If it does not exist, then we create a test file for it and later it gets a
+json saved for it. 
 
 
     const results = await Promise.all(mdfiles.map( async (fname) => {
@@ -939,7 +973,12 @@ We read in the md file and the json file (json may not exist --> return null)
             ),
             readFile(out + fname + '.json', {encoding:'utf8'}).then( 
                 txt => JSON.parse(txt)
-            ).catch(e => null )
+            ).catch(e => {
+                let testfile = `_"tests"`;
+                testfile = testfile.replace('FNAME', fname);
+                writeFile('tests/' + fname + '.js', testfile);
+                return null;
+            })
         ]);
 
 The json file might not exist in which case json[1] is null and evaluates to

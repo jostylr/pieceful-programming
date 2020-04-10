@@ -10,9 +10,7 @@ Need to make it angry
 code = code.toUpperCase();
 ```
 
-[make angry](# "!eval:")
-
-```eval
+```ejs
 function atest() {
   return new Promise(resolve => {
     setTimeout(() => {
@@ -24,8 +22,21 @@ function atest() {
 code += await atest();
 ```
 
-[test async eval](# "!eval:")
+[.email](.ejs "!eval:")
 
+## Only eval
+
+This is just some eval
+
+    a = 3;
+    b = 2;
+
+Now we add them
+
+    c = a*b + a -b;
+    return c;
+
+[number](# "!eval:")
 
 ## Scope change
 

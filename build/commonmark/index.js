@@ -15,14 +15,25 @@ let cmparse;
         scope.immediateDirectives = Object.assign(
             {
                 eval : async function (data) {
+                    let evalLang, outLang;
+                    if (data.src[0] === '.') {
+                        evalLang = data.src.slice(1);
+                    } else {
+                        'eval';
+                    }
+                    if (data.target[0] === '.') {
+                        outLang = data.target.slice(1);
+                    } else {
+                        outLang = 'generated';
+                    }
                     let webNode = data.webNode;
                     let start, end;
                     let localContext = this; //eslint-disable-line no-unused-vars
                         let code = webNode.code;
                         if (!webNode.evaldCode) { webNode.evaldCode = [];}
-                        if (code.some( (obj) => obj.lang === 'eval') ) {
+                        if (code.some( (obj) => obj.lang === evalLang) ) {
                             let [evblocks, origev, other] = code.reduce( (acc, next) => {
-                                if (next.lang === 'eval') {
+                                if (next.lang === evalLang) {
                                     acc[0].push(next.code);
                                     acc[1].push(next);
                                     if (!start) { start = next.start;}
@@ -39,7 +50,8 @@ let cmparse;
                             code = webNode.code.reduce( (acc, next) => {
                                 if (!start) { start = next.start;}
                                 end = next.end;
-                                return acc.push(next.code);
+                                acc.push(next.code);
+                                return acc;
                             }, []).join('\n');
                             webNode.evaldCode.push(webNode.code);
                             webNode.code = [];
@@ -65,8 +77,8 @@ let cmparse;
                     let ret = await af(localContext, webNode, data);
                     if (ret) {
                         webNode.code.push({
-                            code:ret,
-                            lang:'generated',
+                            code:ret + '', //this must be a string;
+                            lang: outLang,
                             start,
                             end
                         });
@@ -345,6 +357,27 @@ let cmparse;
                 }
                 
                 webNode.code.push( {code, lang, start:sourcepos[0], end:sourcepos[1]});
+                
+                if (lang.slice(0,4) === 'eval') {
+                    let data = {
+                        directive : 'eval',
+                        args : '',
+                        src: '.eval',
+                    };
+                    let tar = lang.slice(4);
+                    if (tar) {
+                        data.target = '.' + tar;
+                    } else {
+                        data.target = '';
+                    }
+                    
+                    let directive = data.directive;
+                    data.scope = scope; //live scope
+                    data.webNode = webNode;
+                    tracker("evaling code block", {directive, data});
+                    await immediateDirectives[directive].call(localContext, data);
+                    tracker("done with evaling code block", {directive, scope, webNode});    
+                }
             } else if (ty === 'heading') {
                 if (entering) {
                     htext = [];

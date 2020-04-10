@@ -117,8 +117,16 @@ works.
 Runs the test using a command, such as node tests/run.js
 
     async function (dir) {
-        _"exec | sub CMD, echo('`cd ${dir} && node tests/*.js`') "     
-        return report.success;
+        //get test files, then run through the commands
+        let files = await readdir(dir + '/tests');
+        files = files.filter( (file) => path.extname(file) === '.js');
+        const n = files.length;
+        let ret = [];
+        for (let i = 0; i < n; i += 1) {
+            _"exec | sub CMD, echo('`cd ${dir} && node tests/${files[i]}`') "     
+            ret.push(report.success);
+        }
+        return ret;
     }
 
 [running tap]()
@@ -673,6 +681,7 @@ Stuff to load and use for all of these.
     const log = _":log";
     const errlog = _":err";
     const savelog = _":save log";
+    const path = require('path');
 
 [log]() 
 

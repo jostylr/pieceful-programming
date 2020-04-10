@@ -25,6 +25,7 @@ const savelog = async function (scriptname) {
     console.log("LOGS", log);
     console.log("ERRORS", err);
 };
+const path = require('path');
 
 const crypto = require('crypto');
 const stream = require('stream');
@@ -96,22 +97,30 @@ const rsync = async function (src, dest) {
     }
 };
 const test = async function (dir) {
-    let report;
-    const cmd = `cd ${dir} && node tests/*.js`;
-    try {
-        const {stdout, stderr} = await exec(cmd);
-        log(cmd + '\n---\n', stdout);
-        errlog(cmd + '\n---\n', stderr);
-        report = {stdout, stderr, success:true};
-    } catch (e) {
-        process.exitCode = e.code;
-        console.error('ERROR:' + cmd + '::' + e);
-        const {stdout, stderr}  = e;
-        log(cmd + '\n---\n', stdout);
-        errlog(cmd + '\n---\n', stderr);
-        report = {stdout, stderr, success:false};
-    }     
-    return report.success;
+    //get test files, then run through the commands
+    let files = await readdir(dir + '/tests');
+    files = files.filter( (file) => path.extname(file) === '.js');
+    const n = files.length;
+    let ret = [];
+    for (let i = 0; i < n; i += 1) {
+        let report;
+        const cmd = `cd ${dir} && node tests/${files[i]}`;
+        try {
+            const {stdout, stderr} = await exec(cmd);
+            log(cmd + '\n---\n', stdout);
+            errlog(cmd + '\n---\n', stderr);
+            report = {stdout, stderr, success:true};
+        } catch (e) {
+            process.exitCode = e.code;
+            console.error('ERROR:' + cmd + '::' + e);
+            const {stdout, stderr}  = e;
+            log(cmd + '\n---\n', stdout);
+            errlog(cmd + '\n---\n', stderr);
+            report = {stdout, stderr, success:false};
+        }     
+        ret.push(report.success);
+    }
+    return ret;
 };
 const diffHashes = async function (oldh, newh) {
     const nkeys = Object.keys(newh);
