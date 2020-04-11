@@ -1,0 +1,181 @@
+{
+  "web": {
+    "simple::abstract": {
+      "scope": {
+        "sourcepos": [[1, 1, 0]],
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::abstract",
+        "lv1only": "abstract",
+        "fullname": "simple::abstract",
+        "majorname": "simple::abstract"
+      },
+      "code": [
+        {
+          "code": "This is a first attempt",
+          "start": [1, 1, 0],
+          "end": [2, 1, 24],
+          "lang": ""
+        }
+      ]
+    },
+    "simple::yaml": {
+      "code": [
+        {
+          "code": "a: 3\nb: [2, 3, 4]",
+          "start": [3, 1, 33],
+          "end": [6, 1, 51],
+          "lang": ""
+        }
+      ],
+      "scope": {
+        "sourcepos": [[3, 1, 33]],
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::yaml",
+        "lv1only": "yaml",
+        "fullname": "simple::yaml",
+        "majorname": "simple::yaml"
+      }
+    },
+    "simple::main": {
+      "code": [
+        {
+          "code": "Let's discuss _\"topic\" but we need _\"b\" and _\"cool.js\"",
+          "start": [7, 1, 60],
+          "end": [9, 1, 115],
+          "lang": ""
+        }
+      ],
+      "scope": {
+        "sourcepos": [[7, 1, 60]],
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::main",
+        "lv1only": "main",
+        "fullname": "simple::main",
+        "majorname": "simple::main"
+      }
+    },
+    "simple::topic": {
+      "code": [
+        {
+          "code": "Something and _\":more\"",
+          "start": [10, 1, 128],
+          "end": [12, 1, 151],
+          "lang": "js"
+        }
+      ],
+      "scope": {
+        "sourcepos": [[10, 1, 128]],
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::topic",
+        "lv1only": "topic",
+        "fullname": "simple::topic",
+        "majorname": "simple::topic"
+      }
+    },
+    "simple::topic:more": {
+      "code": [
+        {
+          "code": "And another thing.",
+          "start": [13, 1, 195],
+          "end": [15, 1, 215],
+          "lang": ""
+        }
+      ],
+      "scope": {
+        "sourcepos": [[13, 1, 195]],
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::topic",
+        "lv1only": "topic",
+        "fullname": "simple::topic:more",
+        "majorname": "simple::topic",
+        "lv4": "more"
+      },
+      "rawTransform": [[[12, 12, 162], "sub(another, one more)"]]
+    },
+    "simple::cool.js": {
+      "code": [
+        {
+          "code": "This should have name cool.js",
+          "start": [16, 1, 228],
+          "end": [18, 1, 258],
+          "lang": ""
+        },
+        {
+          "code": "cool.js again\n---\nThis is included.\n--- not a heading. expect slash next, then no slash\n---\\\n---",
+          "start": [22, 1, 378],
+          "end": [29, 1, 478],
+          "lang": ""
+        }
+      ],
+      "scope": {
+        "sourcepos": [[16, 1, 228], [22, 1, 378]],
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::end",
+        "lv1only": "end",
+        "fullname": "simple::end",
+        "majorname": "simple::end"
+      }
+    },
+    "simple::end": {
+      "code": [
+        {
+          "code": "Nothing to see here",
+          "start": [32, 1, 498],
+          "end": [34, 1, 518],
+          "lang": ""
+        }
+      ],
+      "scope": {
+        "sourcepos": [[16, 1, 228], [22, 1, 378]],
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::end",
+        "lv1only": "end",
+        "fullname": "simple::end",
+        "majorname": "simple::end"
+      }
+    }
+  },
+  "directives": [
+    {
+      "directive": "log",
+      "src": ":more",
+      "target": "",
+      "args": "",
+      "scope": {
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::topic",
+        "lv1only": "topic",
+        "fullname": "simple::topic:more",
+        "majorname": "simple::topic",
+        "lv4": "more",
+        "start": [12, 39, 189],
+        "end": [12, 44, 194]
+      }
+    },
+    {
+      "directive": "log",
+      "src": "simple::cool.js",
+      "target": "",
+      "args": "",
+      "scope": {
+        "sourcepos": [[16, 1, 228], [22, 1, 378]],
+        "origin": "tests/src/simple.pfp",
+        "prefix": "simple",
+        "lv1": "simple::cool.js",
+        "lv1only": "cool.js",
+        "fullname": "simple::cool.js",
+        "majorname": "simple::cool.js",
+        "start": [29, 8, 485],
+        "end": [29, 12, 489]
+      }
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "web": {
+    "codeblocks::abstract": {
+      "scope": {
+        "sourcepos": [[1, 1, 0]],
+        "origin": "tests/src/codeblocks.pfp",
+        "prefix": "codeblocks",
+        "lv1": "codeblocks::abstract",
+        "lv1only": "abstract",
+        "fullname": "codeblocks::abstract",
+        "majorname": "codeblocks::abstract"
+      },
+      "code": [
+        {
+          "code": "code blocks - checking the different types of code blocks",
+          "start": [1, 1, 0],
+          "end": [3, 1, 59],
+          "lang": ""
+        }
+      ]
+    },
+    "codeblocks::main": {
+      "code": [
+        {
+          "code": "# Code blocks\n\nThis is a series of code blocks of different types to see if it all works out\nfine. They should just all concatenate together\n\n    jack and jill\n\nAnd then \n\n```\nwent up a hill\n```\n\noops\n\n<pre>\nignored text\n</pre>\n\noh\n\n```ignore\nalso ignored\n```\n\nand \n\n```js\nto fetch a pail of water\n```\n\nand then we finish (a blank line in the code fences at the end gets stripped\napparently, but not a leading blank line).\n\n```\n\njack fell down\nand broke his crown\nand jill came tumbling down after\n```\n\n\n[jack-jill.txt](# \"save: sub(jack, j, k)\")",
+          "start": [4, 1, 94],
+          "end": [50, 1, 643],
+          "lang": ""
+        }
+      ],
+      "scope": {
+        "sourcepos": [[4, 1, 94]],
+        "origin": "tests/src/codeblocks.pfp",
+        "prefix": "codeblocks",
+        "lv1": "codeblocks::main",
+        "lv1only": "main",
+        "fullname": "codeblocks::main",
+        "majorname": "codeblocks::main"
+      }
+    },
+    "codeblocks::result": {
+      "code": [
+        {
+          "code": "jack and jill\nwent up a hill\nto fetch a pail of water\n\njack fell down\nand broke his crown\nand jill came tumbling down after",
+          "start": [51, 1, 690],
+          "end": [60, 1, 815],
+          "lang": ""
+        }
+      ],
+      "scope": {
+        "sourcepos": [[51, 1, 690]],
+        "origin": "tests/src/codeblocks.pfp",
+        "prefix": "codeblocks",
+        "lv1": "codeblocks::result",
+        "lv1only": "result",
+        "fullname": "codeblocks::result",
+        "majorname": "codeblocks::result"
+      }
+    }
+  },
+  "directives": [
+    {
+      "directive": "save",
+      "src": "main",
+      "target": "S./codeblocks.md",
+      "args": "",
+      "scope": {
+        "origin": "tests/src/codeblocks.pfp",
+        "prefix": "codeblocks",
+        "lv1": "codeblocks::main",
+        "lv1only": "main",
+        "fullname": "codeblocks::main",
+        "majorname": "codeblocks::main",
+        "start": [3, 13, 71],
+        "end": [3, 35, 93]
+      }
+    },
+    {
+      "directive": "save",
+      "src": "result",
+      "target": "R./desired/jack-jill.txt",
+      "args": "",
+      "scope": {
+        "origin": "tests/src/codeblocks.pfp",
+        "prefix": "codeblocks",
+        "lv1": "codeblocks::result",
+        "lv1only": "result",
+        "fullname": "codeblocks::result",
+        "majorname": "codeblocks::result",
+        "start": [50, 15, 657],
+        "end": [50, 47, 689]
+      }
+    }
+  ]
+}

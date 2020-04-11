@@ -1,0 +1,60 @@
+{
+  "web": {
+    "cycle::abstract": {
+      "scope": {
+        "sourcepos": [[1, 1, 0]],
+        "origin": "tests/src/cycle.pfp",
+        "prefix": "cycle",
+        "lv1": "cycle::abstract",
+        "lv1only": "abstract",
+        "fullname": "cycle::abstract",
+        "majorname": "cycle::abstract"
+      },
+      "code": [
+        {
+          "code": "cycle -- cycle tester of blocks pointing to each other",
+          "start": [1, 1, 0],
+          "end": [3, 1, 56],
+          "lang": ""
+        }
+      ]
+    },
+    "cycle::main": {
+      "code": [
+        {
+          "code": "# Cycle\n\nWhat happens if we have blocks that point to each other? Hopefully nothing.  \n\n\n    \\_\"block\"\n\n## Block\n\n    \\_\"cycle\"  \\_\"block:switch\" \\_\"block\"\n\n[switch]()\n\n    \\_\"cycle\"",
+          "start": [4, 1, 86],
+          "end": [20, 1, 270],
+          "lang": ""
+        }
+      ],
+      "scope": {
+        "sourcepos": [[4, 1, 86]],
+        "origin": "tests/src/cycle.pfp",
+        "prefix": "cycle",
+        "lv1": "cycle::main",
+        "lv1only": "main",
+        "fullname": "cycle::main",
+        "majorname": "cycle::main"
+      }
+    }
+  },
+  "directives": [
+    {
+      "directive": "save",
+      "src": "main",
+      "target": "S./cycle.md",
+      "args": "",
+      "scope": {
+        "origin": "tests/src/cycle.pfp",
+        "prefix": "cycle",
+        "lv1": "cycle::main",
+        "lv1only": "main",
+        "fullname": "cycle::main",
+        "majorname": "cycle::main",
+        "start": [3, 13, 68],
+        "end": [3, 30, 85]
+      }
+    }
+  ]
+}

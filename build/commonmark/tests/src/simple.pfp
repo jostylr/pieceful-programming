@@ -1,0 +1,11 @@
+This is a first attempt
+--- yaml
+a: 3
+b: [2, 3, 4]
+--- main
+Let's discuss _"topic" but we need _"b"
+--- topic
+Something and _":more"
+--- :more | sub(another, one more) :=> log 
+And another thing. 
+--- :=> log

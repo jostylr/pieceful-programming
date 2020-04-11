@@ -80,6 +80,21 @@ block where the directive was found.
 This does the underscore and pipe parsing needed both in code blocks and
 directives. 
 
+## [Scriptedwriting](scriptedwriting.md "load:")
+
+This takes in a document (I use the extension `pfp` for pieceful programming.
+It does the blocking by `\n--- ` with what follows being a heading name and
+option pipes to transform the block and then option directive `:=> dirname args`
+
+What follows is the code block. There are no non-code bits. 
+
+The purpose of this style is to more produce a scripted document where we want
+to compute some results in the document and this will do that. It can be used
+to produce a program but it loses the "literate" aspect that the markdown
+style facilitates. 
+
+
+
 ## Director
 
 This should direct all the different parts of the processing. It would be the

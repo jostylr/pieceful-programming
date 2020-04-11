@@ -1,0 +1,24 @@
+This is a first attempt
+--- yaml
+a: 3
+b: [2, 3, 4]
+--- main
+Let's discuss _"topic" but we need _"b" and _"cool.js"
+--- topic.js
+Something and _":more"
+--- :more | sub(another, one more) :=> log 
+And another thing. 
+--- cool.js.
+This should have name cool.js
+--- 
+This does not get included. This is how to include comments. Notice the space after the three dashes.
+--- cool.js.
+cool.js again
+---
+This is included.
+---\ not a heading. expect slash next, then no slash
+---\
+---\ 
+--- :=> log
+--- end
+Nothing to see here

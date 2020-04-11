@@ -49,18 +49,34 @@ in the file processor. This happens in the client and can be overriden.
 This is a simple module that exports a function that will take in a file of
 the above form and produce an output similar to commonmark processing. 
 
-    sw = function scriptedwriting (text='', {
-        prefix = '',
-        firstName = 'abstract',
-        current = [1,1, 0]
-    } = {}) {
+    sw = async function scriptedwriting (text, prefix, options) {
+        let scope = Object.assign({ 
+            firstName : 'abstract',
+            current : [1,1, 0],
+            getText : _"get text"
+        }, options); 
+
+Allows customization, but not part of scope.  
+
+        let {firstName, current, getText} = scope;
+        delete scope.firstName;
+        delete scope.current;
+        delete scope.getText;
+
+        if (typeof text !== 'string') {
+            throw 'First argument (text) needs to be a string in scriptedwriting';
+        }
+    
+        if (typeof prefix !== 'string') {
+            throw 'Second argument (prefix) needs to be a string in scriptedwriting';
+        }
+
         let ret = {};
         let lines = [];
-        let scope = {
-            prefix,
-            lv1 : prefix + '::' + firstName,
-            lv1only : firstName,
-        };
+        scope.prefix = prefix;
+        scope.lv1 = prefix + '::' + firstName;
+        scope.lv1only = firstName;
+
         scope.fullname = scope.lv1;
         scope.majorname = scope.fullname;
         let piece = {
@@ -74,6 +90,7 @@ the above form and produce an output similar to commonmark processing.
         let ind = 0;
         let len = text.length;
         let start = current.slice();
+        let lang = '';
         while (ind < len) {
             if (text[ind] === '\n') {
                 if (text.slice(ind+1, ind+5) === '--- ') {
@@ -86,7 +103,7 @@ the above form and produce an output similar to commonmark processing.
             ind +=1;
         }
         current[1] = 1+ ind - current[2]; //get column
-        piece.code.push( {code: text.slice(start[2], ind).trim(), start, end:current.slice(), lang:''});
+        piece.code.push( {code: getText(text, start[2], ind), start, end:current.slice(), lang});
         return ret; 
 
     };
@@ -105,13 +122,17 @@ old object.
 The separate module part is here.
 
     let sw;
+
     {
-    _"core"
+        const has = function (obj, key) {
+            return Object.prototype.hasOwnProperty.call(obj, key);
+        };
+        _"core"
     }
 
     module.exports = sw;
 
-[swparse/index.js](# "save:")
+[scriptedwriting/index.js](# "save:")
 
 ### New Heading
 
@@ -145,7 +166,7 @@ line.
     if (name ) {
         if (has(web, fullname) ) {
             piece = web[fullname];
-            scope = web.scope;
+            scope = piece.scope;
             scope.sourcepos.push(start);
         } else {
             piece = web[fullname] = {
@@ -186,9 +207,18 @@ This is to conform with the standard directive format.
 We cut out the body now that we have the end and push it onto code. 
 
     let end = current.slice();
-    piece.code.push( {code: text.slice(start[2], end[2]).trim(), start, end, lang:''});
+    piece.code.push( {code: getText(text, start[2], end[2]),  start, end, lang});
 
+### Get Text
 
+This does a little text slicing. 
+
+    function getText (text, start, end) {
+        return text.
+            slice(start, end).
+            replace(/\n---\\ /g, '\n--- ').
+            trim();
+    }
 ### Loop through heading
 
 We need to get the name, a possible transform (started by a pipe) and/or a
@@ -247,7 +277,18 @@ avoided it because we found something else first.
 
 [end name]()
 
+If a name ends in `.ext` then we take that to be a language for the code and
+remove it from the name. Only the last period matters. So if one wants the
+name to be `this.js` but not language js, write `this.js.` 
+
     name = text.slice(nameStart, ind).trim().toLowerCase();
+    let perind = name.lastIndexOf('.');
+    if (perind !== -1) {
+        lang = name.slice(perind+1);
+        name = name.slice(0, perind);
+    } else {
+        lang = '';
+    }
 
 [end transform]()
 
@@ -345,15 +386,203 @@ fullname.
 
     let fs = require('fs');
     let util = require('util');
-    let swparse = require('../../swparse');
+    let swparse = require('../../scriptedwriting');
     
     let txt = fs.readFileSync(__dirname + '/simple.txt', {encoding:'utf8'});
-    let result = swparse(txt, {prefix:'sample'});
+    let result = swparse(txt, 'sample');
 
     console.log(util.inspect(result, {depth:10}));
 
 
-[sample/scriptedwriting/simple.js](# "save:")
+[sample/scriptedwriting/simple.js](# "save")
 
 
+## Tests
+
+This is where we develop the tests to run. We have a separate setup script
+that puts source and compiled versions of cases in the test folder. We run
+through each and make sure the generated objects are the same. 
+
+    const f = require('../index.js');
+    const ext = '.pfp';
+    const tap = require('tap');
+    const util = require('util');
+    const {isDeepStrictEqual: deep} = util;
+   
+    const path = require('path');
+    const {readdir, readFile, writeFile} = require('fs').promises;
+
+
+    const main = async function () {
+        _":main"
+    };
+
+    main();
+    
+
+[main]()
+
+    const src = "tests/src/";
+    const out = "tests/json/";
+    const fname = 'FNAME'; 
+
+    tap.test('Checking '+fname, async (t) => {
+        let jsons = await Promise.all( [
+            readFile(src + fname + ext, {encoding:'utf8'}).then(
+                async txt => await f(txt, fname, {
+                    origin: src + fname + ext
+                    }) 
+            ),
+            readFile(out + fname + '.json', {encoding:'utf8'}).then( 
+                txt => JSON.parse(txt)
+            ).catch(e => null )
+        ]);
+
+        t.ok(deep(jsons[0], jsons[1]));
+
+    });
+
+
+## Setup Tests
+
+There are two distinct steps. One is to generate the output files. The other,
+once those output files are confirmed to be correct, is to put them where
+automated test runs can be run. The original place is under the root directory
+tests/src and we create output files in tests/commonmark  
+
+### Generate test output
+
+    const f = require('./index.js');
+    const ext = '.pfp';
+
+    const util = require('util');
+    const {isDeepStrictEqual: deep} = util;
+    const path = require('path');
+    const {readdir, readFile, writeFile} = require('fs').promises;
+    const stringify = require('json-stringify-pretty-compact');
+    const cp = require('child_process');
+    const exec = util.promisify(cp.exec);
+    const deepdiff = require('deep-diff').diff;
+
+    const main = async function () {
+        _":main"
+    };
+
+    main();
+
+[scriptedwriting/maketests.js](# "save:")
+
+[main]()
+
+    try {
+        const {stdout, stderr} = await exec(
+            'rsync -av ../../tests/src/*.pfp tests/src/'
+        );
+        console.log(stdout);
+        if (stderr) {
+            console.error("error:", stderr);
+        }
+    } catch (e) {
+        console.log("error in syncing src:", e);
+    }
+
+    const src = "tests/src/";
+    const out = "tests/json/";
+
+    const srcfiles = (await readdir(src)).
+        filter( file => (path.extname(file) === ext) ).
+        map( file =>  path.basename(file, ext) );
+
+
+We read in the source file and the json file (json may not exist --> return null)
+If it does not exist, then we create a test file for it and later it gets a
+json saved for it. 
+
+
+    const results = await Promise.all(srcfiles.map( async (fname) => {
+        let jsons = await Promise.all( [
+            readFile(src + fname + ext, {encoding:'utf8'}).then(
+                async txt => { return await f(txt, fname, {
+                origin: src + fname + ext}); }
+            ),
+            readFile(out + fname + '.json', {encoding:'utf8'}).then( 
+                txt => JSON.parse(txt)
+            ).catch(e => {
+                return null;
+            })
+        ]);
+        if (  jsons[1] === null) {
+            let testfile = `_"tests"`;
+            let tname = 'tests/' + fname + '.js';
+            testfile = testfile.replace('FNAME', fname);
+            await writeFile(tname, testfile);
+            console.log('written test file ' + tname);
+        }
+
+
+The json file might not exist in which case json[1] is null and evaluates to
+false and short circuits the comparison. 
+
+        return [fname, jsons[1] && (deep(jsons[0], jsons[1]) ), jsons[0],
+        jsons[1] ];  
+    }) );
+
+    const same = results.filter( arr => arr[1] );
+    const diff = results.filter( arr => !arr[1] );
+    
+    console.log('The following are unchanged: ' + 
+        same.map( arr => arr[0] ).join(',') );
+
+    diff.forEach( async (arr) => {
+        try {
+            await writeFile(out + arr[0] + '-new.json', 
+                stringify(arr[2]) );
+            console.log(`New json file saved ${out+arr[0]}-new.json`);
+            if (arr[3]) { // differences, not just a new one
+                console.log('The differences are (new, old): ', 
+                util.inspect(deepdiff(arr[2], arr[3]), {depth : 8, colors:true}) );
+            }
+        } catch (e) {
+            console.log(`Error in saving ${out+arr[0]}-new.json ${e}`);
+        }
+    });
+
+## Readme
+
+    # Scripted Writing
+
+    This is the scripted writing component for pieceful programming. The usual
+    require of this module returns a function that expects the text to parse,
+    a prefix string, and includes an optional argument that can put anything
+    one likes in the scope for all the blocks and directives. 
+
+    It will output a JSON object with directives and a web of nodes, each
+    node being labeled with a name and having a scope and code object. The
+    code objects have code, start, end, and lang properties. 
+
+    ## The format
+    
+    Between the lines of `--- `, we have a block of code. It gets added asa
+    code block and so the typical pieceful flow is to process the
+    underscore-quote parts, subbing in. There is no raw text given. 
+
+    Each block is created by a separator `--- ` where the space after the
+    three dashes is critical for indicating a separation. That is, `---` will
+    be considered just a part of the current code context. 
+    
+    After the dashes
+    can go a name. It can be of the form `prefix::name1/lv2/lv3:minor.ext`
+    where pretty much all of that is optional, with prefix and name1 being
+    filled in if missing and .ext being a separate thing; to include an
+    extension in the name, put an extra period at the end. 
+
+    After the name, we can have option pipe transformations. These get stored
+    as 'rawTransformations' in the JSON object and pieceful flow should
+    transform the code according to all that before reporting the code as done. 
+
+    Then we can include a directive with the syntax `:=> dirname args` 
+    
+
+            
+[scriptedwriting/readme.md](# "save:")
 

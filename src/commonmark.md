@@ -1131,3 +1131,13 @@ This is the readme for this module. Very little to say.
 
 [commonmark/readme.md](# "save:")
 
+
+## TODO
+
+Ideas: Implement raw transform like scripted writing has. Probably immediate
+directive of `!|`. Maybe `!!|` means process before subbing? 
+
+Implement lang extension on names like in scriptedwriting giving automatic
+language extension to all code blocks in it? 
+
+
