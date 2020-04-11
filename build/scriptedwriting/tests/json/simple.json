@@ -106,9 +106,9 @@
           "lang": ""
         },
         {
-          "code": "cool.js again\n---\nThis is included.\n--- not a heading. expect slash next, then no slash\n---\\\n---",
+          "code": "cool.js again\n---\nThis is included.\n--- not a heading. expect slash next, then no slash\n---\\\n--- \n---\\ One slash\n---\\\\ Two slashes",
           "start": [22, 1, 378],
-          "end": [29, 1, 478],
+          "end": [31, 1, 513],
           "lang": ""
         }
       ],
@@ -126,8 +126,8 @@
       "code": [
         {
           "code": "Nothing to see here",
-          "start": [32, 1, 498],
-          "end": [34, 1, 518],
+          "start": [34, 1, 533],
+          "end": [36, 1, 553],
           "lang": ""
         }
       ],
@@ -173,8 +173,8 @@
         "lv1only": "cool.js",
         "fullname": "simple::cool.js",
         "majorname": "simple::cool.js",
-        "start": [29, 8, 485],
-        "end": [29, 12, 489]
+        "start": [31, 8, 520],
+        "end": [31, 12, 524]
       }
     }
   ]

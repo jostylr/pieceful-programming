@@ -216,7 +216,7 @@ This does a little text slicing.
     function getText (text, start, end) {
         return text.
             slice(start, end).
-            replace(/\n---\\ /g, '\n--- ').
+            replace(/\n---(\\)(\\*) /g, '\n---$2 ').
             trim();
     }
 ### Loop through heading
@@ -568,7 +568,10 @@ false and short circuits the comparison.
 
     Each block is created by a separator `--- ` where the space after the
     three dashes is critical for indicating a separation. That is, `---` will
-    be considered just a part of the current code context. 
+    be considered just a part of the current code context. To have a heading
+    like object but without it being a heading use `---\ ` This is the only
+    escape that is done. More slashses in that configuration get reduced by
+    one. 
     
     After the dashes
     can go a name. It can be of the form `prefix::name1/lv2/lv3:minor.ext`
@@ -582,6 +585,20 @@ false and short circuits the comparison.
 
     Then we can include a directive with the syntax `:=> dirname args` 
     
+    ## Options object
+
+    While most keys in the options object will go into scope, a few are
+    special: 
+
+    * `firstName` is the name of the first block. It is `abstract` by default
+    * `current` is `[1,1,0]` which tells how to start counting the lines and
+      positions. Not sure why it would need to be different, but maybe some
+      useful offset. 
+    * `getText` this takes in the text, start, and end, and slices it,
+      returning the code piece. It trims the ends. It also does the escaping
+      of heading like dashes with slashes. A different function can be passed
+      into to do something different to the code blocks. 
+
 
             
 [scriptedwriting/readme.md](# "save:")

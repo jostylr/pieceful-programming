@@ -1140,4 +1140,5 @@ directive of `!|`. Maybe `!!|` means process before subbing?
 Implement lang extension on names like in scriptedwriting giving automatic
 language extension to all code blocks in it? 
 
+Implement current being passed in, maybe first name like in sw? 
 

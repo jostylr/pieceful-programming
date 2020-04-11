@@ -11,7 +11,7 @@ let sw;
             getText : function getText (text, start, end) {
                 return text.
                     slice(start, end).
-                    replace(/\n---\\ /g, '\n--- ').
+                    replace(/\n---(\\)(\\*) /g, '\n---$2 ').
                     trim();
             }
         }, options); 

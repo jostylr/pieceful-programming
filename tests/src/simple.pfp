@@ -19,6 +19,8 @@ This is included.
 ---\ not a heading. expect slash next, then no slash
 ---\
 ---\ 
+---\\ One slash
+---\\\ Two slashes
 --- :=> log
 --- end
 Nothing to see here
