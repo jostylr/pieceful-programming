@@ -5,17 +5,18 @@ underpipes syntax, not commonmark. That is, there are no actual code blocks to
 substitute in. There is a scope. 
 
 The idea is to have a document that basically requires some computation in
-place and this does that. It has a lead section of yaml, then the main body
+place and this does that. It has a lead section of toml, then the main body
 which is what the output will be and, followed by that section, any named
-sections. 
+sections. This behavior is handled by name matchers passed in under
+`namedBehaviors`.  
 
 This should be the scaffolding for both cli and browser. 
 
 Basic outline:
 
     Abstract (raw)
-    --- yaml
-    yaml stuff
+    ---  
+    toml stuff
     --- main | transform stuff
     
     main block
@@ -29,7 +30,7 @@ We cut the stuff up looking for `\n--- `
 
 Note that in contrast to literate programming, the whole named block is
 considered a piece (equivalent of a code block). There is no explanatory text
-role though an empty `\n---\n` can not be called and thus is ignored. This
+role though an empty `\n--- \n` can not be called and thus is ignored. This
 should lead to an easy ignoring of random code stuff. 
 
 We can also use directives indicated by `:=> dirname target (args)` the src is
@@ -41,8 +42,6 @@ processing of the parser. Also, there are no different levels of heading;
 they are all global as written. 
 
 
-Note the convention of yaml and main having special behaviors is not apparent
-in the file processor. This happens in the client and can be overriden. 
 
 ## Core
 
@@ -53,15 +52,17 @@ the above form and produce an output similar to commonmark processing.
         let scope = Object.assign({ 
             firstName : 'abstract',
             current : [1,1, 0],
-            getText : _"get text"
+            getText : _"get text",
+            namedBehaviors : () => {}
         }, options); 
 
 Allows customization, but not part of scope.  
 
-        let {firstName, current, getText} = scope;
+        let {firstName, current, getText, namedBehaviors} = scope;
         delete scope.firstName;
         delete scope.current;
         delete scope.getText;
+        delete scope.namedBehaviors;
 
         if (typeof text !== 'string') {
             throw 'First argument (text) needs to be a string in scriptedwriting';
@@ -208,6 +209,8 @@ We cut out the body now that we have the end and push it onto code.
 
     let end = current.slice();
     piece.code.push( {code: getText(text, start[2], end[2]),  start, end, lang});
+    if (name[0] === '!') {
+        namedBehaviors(name piece, web, directives, scope);
 
 ### Get Text
 
@@ -317,6 +320,13 @@ Essentially, we have the format `prefix::lv1/lv2/lv3:lv4`.  We do a lot of
 redundancy as we build up the full name, clearing away old levels if new stuff
 is found that arises earlier. 
 
+We have the option of inserting some immediate executable commands. 
+
+    if (name[0] === '!') {
+        let ind = name.indexOf(' ');
+        immediate = name.slice(0, ind);
+        name = name.slice(ind+1);
+    }
     let reg = /([^:/]*::)?([^:/]+)?(\/[^:/]*)?(\/[^:/]*)?(:.*)?/;
     let match = reg.exec(name); //match can't fail as far as I know
     if (match[1]) {
@@ -603,3 +613,51 @@ false and short circuits the comparison.
             
 [scriptedwriting/readme.md](# "save:")
 
+
+## Immediates
+
+Here are some immediate functions. 
+
+    {
+        toml: _"toml",
+        raw : _"raw",
+        eval : _"eval",
+        scope : _"scope",
+        log : _"log"
+    }
+
+### Toml
+
+This is the relatively tiny and easy to use toml. For more complicated stuff
+(and probably a bad idea), one can largely swap in yaml to create more
+complicated stuff.  We will use the implementation
+[fast-toml](https://www.npmjs.com/package/fast-toml)
+
+What this does is parse the toml code in the block and then stash all
+top-level keys 
+
+### Raw
+
+### Eval
+
+### Scope
+
+### Log
+
+This logs the current state of the piece under consideration, sending it to
+the tracker. 
+
+    function (data) {
+        
+    }
+
+## TODO
+
+Check on directives. What is the syntax. also the pipes and transforms. Make
+sure raw transform is dealt with in underpipes or something?
+
+toml. Maybe actually load and parse as part of this. It adds each of its
+object stuff as a code object. 
+
+want to use the split in utilities to allow for multiple immediate action
+stuff `.` separator and directives and pipes, whatever, 

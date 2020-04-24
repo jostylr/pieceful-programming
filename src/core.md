@@ -1929,3 +1929,34 @@ This is a sample bare minimum program to show this works.
 
 
 [sample/weaver.js](# "save:")
+
+
+## TODO
+
+Need to convert to tests before messing with all of this, but want to be able
+to pass in nodes that have stuff not to be processed. Maybe a `done` field.
+Also, need to work in language variation. Maybe we could have a main field for
+the first language code block encountered and a multi field for all the lang
+blocks done. Names setting the lang block would also be key. Could be handled
+a bit with the first code block lang being used. 
+
+
+Need to ensure all objects taking in names are written with
+Object.create(null) to avoid prototype issues, etc.  and to make sure they are
+accessed appropriately (no toString called or implied, kind of stuff). 
+
+Partials. Need to work in the command for partials. This should return a
+promise within a promise to avoid the await thing, I think. The idea is that
+the promise gets propagated upwards and then when filled in, it can be used.
+This does not work because we will fill it in multiple times later. Maybe just
+need to set it up so that the partials get a location to access within the
+pieces and then that is what gets used. Return value is a value with the
+pieces and the partials and transform and not sure what else (maybe a
+reference to original parent call?). The idea is to try and get the template
+to do as much work beforehand and also minimize typing. Partials should have a
+couple of functions: fill(name, val, name, val, ...) also allowing regex,
+match strings, as well as something like '*' to match all, and replace with a
+value, maybe with a number. This could tap into transform(function, symbol)
+where the function takes text -> text and the symbol is something to lead a
+symbol# setup so that each partial can be replaced afterwards. (break the
+piece up again).   

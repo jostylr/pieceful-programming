@@ -13,12 +13,14 @@ let sw;
                     slice(start, end).
                     replace(/\n---(\\)(\\*) /g, '\n---$2 ').
                     trim();
-            }
+            },
+            namedBehaviors : () => {}
         }, options); 
-        let {firstName, current, getText} = scope;
+        let {firstName, current, getText, namedBehaviors} = scope;
         delete scope.firstName;
         delete scope.current;
         delete scope.getText;
+        delete scope.namedBehaviors;
     
         if (typeof text !== 'string') {
             throw 'First argument (text) needs to be a string in scriptedwriting';
@@ -55,6 +57,7 @@ let sw;
                     lines.push(current.slice());
                     let end = current.slice();
                     piece.code.push( {code: getText(text, start[2], end[2]),  start, end, lang});
+                    namedBehavior(name, piece, web, directives, scope);
                     
                     ind += 5; 
                     

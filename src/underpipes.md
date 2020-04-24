@@ -479,6 +479,7 @@ input after a certain spot, name the spot (so to put it after the first, say
         '"' : _"parse backslashes",
         '`' : _"template string",
         '\u005f' : _"get",
+        '%' : _"partial",
         '!' : _"cmd",
         '~' : _"eval",
         '#' : _"math",
@@ -604,6 +605,17 @@ This is an underscore. Just continue until terminator, pipe.
         let end = p.ind-1;
         _"return piece:bind";
     }
+
+### Partial
+
+This is a partial, meaning it is like an underscore except this is a section
+not intended to be filled in until later. It will change the nature of the
+resulting object, making it effectively a function to fill in partials. For
+here, this will just return a different kind of command, but is otherwise the
+same as underscore 
+
+    _"get | sub parseGet, parsePartial, get, partial"
+
 
 
 ### Parse args
