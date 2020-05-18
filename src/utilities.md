@@ -41,6 +41,7 @@ This generates these functions. Some rely on others.
         _"delimiters"
 
         const descend = _"descend";
+        const getMatch = _"get match";
         const indexOf = _"index of";
         const lastIndexOf = _"last index of";
         const match = _"match";
@@ -51,12 +52,11 @@ This generates these functions. Some rely on others.
         const split = _"split";
         const chunk = _"chunk";
         const chunkAll = _"chunk all";
-        const walker = _"walker";
     
 
         return {indexOf, lastIndexOf, match, replace, descend, 
             allIndexOf, matchAll, replaceAll,
-            split, chunk, chunkAll, walker, delimiterCatalog};
+            split, chunk, chunkAll, walker:descend, delimiterCatalog};
     }
 
 ### Descend
@@ -77,16 +77,27 @@ is also the pop function which is behavior for dealing with the ending of a
 delimiter, say for chunking up the delimited expressions. 
 
 Any data that is being created should be done within the functions as closures
-to the calling functions. 
+to the calling functions. The functions are called in this fashion: terminator
+is called to see if it should end (null does not) with the return from descent
+being an array of the position and whatever terminator outputs; inner is
+called after no delimiter is found (it can be used to track the characters or
+advance over stuff, whatever as its return value if not null will affect the
+flow); inner is similar to top except it happens in the delimiters; push is
+called when a delimiter is found with call of str, start, left, right; pop is
+called when a delimiter is finished with a call of str, positions, delimiter,
+and other delimiters in the level; end is called if we reach the end of the
+string.
 
 
     function descend ({ 
         str = '', 
         start = 0, 
         delimiters = 'common', 
+        first = () => null,
         terminator = () => null,
-        top = () => null, 
-        inner = () => null,
+        last = () => null, 
+        innerFirst = () => null,
+        innerLast = () => null,
         push = () => null, 
         pop = () => null, 
         end = () => null
@@ -111,11 +122,24 @@ Now we proceed to do the processing.
         for (let i = start; i < n; i += 1) {
             let substr = str.slice(i);
             
-            _":check for terminator"
-            _":check for delimiter | sub //TOP, _':top flow' "
+            {
+            const control = first(substr, i, str);
+            _":flow" 
+            }
 
-            let lead = delim[1].lead;
-            _":check for escaping"
+            _":check for terminator"
+            _":check for delimiter" 
+            
+            if (delim) {
+                let lead = delim[1].lead;
+                _":check for escaping"  
+            }
+
+            if (!delim) {
+                const control = last(substr, i, str);
+                _":flow"
+                continue;
+            }
             
             { //delimiter has been found, not escape
             
@@ -136,13 +160,6 @@ delimiter and the second entry is the i that started it.
         end(); 
         return -1; //not found 
     }
-
-[top flow]() 
-
-This is after delimiter checking so that we know that it is not a delimiter
-
-    let control = top(substr);
-    _":flow"
 
 
 [flow]()
@@ -170,10 +187,7 @@ delimiters is an array of `[leftdelim, object details]`
         const left = arr[0];
         return ( left === substr.slice(0, left.length) );
     });
-    if (!delim) {
-        //TOP
-        continue;
-    }
+
 
 [check for escaping]()
 
@@ -187,7 +201,7 @@ string, meaning there is no escaping.
                 esci += 1;
             }
             if (esci % 2 === 1) {
-                continue; //odd number of escapes leave an escape so no delim
+                delim = false; //odd number of escapes leave an escape so no delim
             }
         }
     }
@@ -209,41 +223,26 @@ for popping out of the delimiter (for chunking).
     while (insides.length && (i < n) ) {
         let substr = str.slice(i);
         
-        let control = inner(substr, current, insides, i); 
-        _":flow"
+        {
+        const control = innerFirst(substr, current, insides, i, str); 
+        _":flow| sub control-1, control"  //not a for loop here so need +1
+        }
 
-        if (str.slice(i, i+cdl) === right.end) { //end delimiter found
-            let escape = right.escape;
-            _":check for escaping | sub lead, escape, continue, i+=1; continue"
- 
-            insides.pop();
-            let leftPos = current[2];
-            let positions = [leftPos, leftPos+left.length, i, i +cdl]
+        _":ending delimiter"
 
-            let control = pop(str, positions, current, insides);
-            
-We run control with the current insides; it could do weird stuff. Probably bad
-idea. Afterwards, we prep the insides for more rounds. We still invoke flow
-in case control wants to do increment differently or return, but we want to
-prepare the insides first. 
+        _":check for delimiter"
+        
+        if (delim) {
+            let lead = delim[1].lead;
+            _":check for escaping"
+        }
 
-            if (insides.length !== 0) {
-                current = last(insides);
-                [left, right] = current; 
-                _":update delimiters"
-            } else {
-                delimiters = originalDelimiters;  
-            }
-
-            _":flow"
-
-            i += cdl;
-            if (insides.length === 0) { i -= 1;} // for loop increments
+        if (!delim) {
+            let control = innerLast(substr, current, insides, i, str); 
+            _":flow | sub control-1, control"
+            i+=1; 
             continue;
         }
-        
-        _":check for delimiter | sub continue, i+=1; continue"
-        _":check for escaping | sub continue, i+=1; continue"
 
 Next delimiter has been found. We need to update current, left, right, and
 push it on to the insides. We also need to modify the delimiters being looked
@@ -255,6 +254,7 @@ at.
         push(str, i, left, right);
         i += left.length;
         cdl = right.end.length;
+        _":update delimiters"
 
     }
     
@@ -263,6 +263,38 @@ at.
     if (right.delimiters) {
         delimiters = delimiterCatalog[right.delimiters];
     }
+
+[ending delimiter]()
+
+Here we deal with the ending delimiter. 
+
+        if (substr.slice(0, cdl) === right.end) { //end delimiter found
+            let rightFound = true;
+            let escape = right.escape;
+            _":check for escaping | sub lead, escape, delim, rightFound"
+           
+            if (rightFound) {
+                insides.pop();
+                let leftPos = current[2];
+                let positions = [leftPos, leftPos+left.length, i, i +cdl]
+
+                pop(str, positions, current, insides);
+                
+Note insides should have the current inside of it. So don't pop!
+
+                if (insides.length !== 0) {
+                    current = insides[insides.length-1];
+                    [left, right] = current; 
+                    _":update delimiters"
+                } else {
+                    delimiters = originalDelimiters;  
+                }
+
+                i += cdl;
+                if (insides.length === 0) { i -= 1;} // for loop increments
+                continue;
+            }
+        }
 
 [prep terminator]()
 
@@ -296,286 +328,163 @@ This is just like the match length; just different names and break condition.
 Terminators are looked for only on the top level. 
 
     {
-        const t = terminator(substr);
+        const t = terminator(substr, i);
         if (t) {
             return [i, t];
         }
     }
 
-### Common
+### Get Match
 
-This is the basic function that the others use. It is like the standard index
-of, except it skips over delimited stuff. To do so, one has to worry about
-nested stuff so it recurses. 
+We want to be able to create functions from strings and regexes that will be
+appropriate in the control flows. 
 
-It can be passed in a regular expression. The regex should start searches at the beginning of the regex. Delimiters can be multi-character strings. 
+This converts strings and regexs to functions that return the matched value if
+found; null if not. 
 
 
-    function (str, ARGS { start = 0, delimiters = null, terminator = null } ) {
-
-        console.log('hi');
-
-        PREP
-
-        let ttype, tlength;
-        if (terminator) {
-            ttype = typeof terminator;
-            tlength = (ttype === 'string') ? terminator.length : 0;
+    function (value ) {
+        let vtype = typeof value;
+        if (vtype === 'function') {
+            return value;
         }
-
-        delimiters = delimiters || delimiterCatalog.common; 
-
-We create an array to go through and check for delimiters. We filter out any
-keys that have false (we want to keep them in delimiters to pass them in
-recursing) and we sort by length of the key so that longer ones get seen
-first. 
-
-        let delArr = Object.keys(delimiters).
-            sort ( (a,b) => b.length - a.length );
-
-         
-Now we do the searching. This code is shared with chunk, but they have
-different purposes. For chunk, search is not present at the top level. Here it
-is to see if the search matches 
-
-        const n = str.length;
-        
-        console.log('made it here', n, str, searchValue);
-
-        let descent = []; // pop/push of ending delimiters
-        for (let i = start; i < n; i += 1) {
-            let end, delimited;
-            
-            MATCH
-
-            _":check for terminator"
-
-            _":check for delimiter"
-
-            let delimObj = delimiters[leftDelim];
-            
-            _":check for escaping"
-            
-            { //delimiter has been found, not escape
-            
-                _":descend into delimiters"
-                
-                if ( descent.length ) {
-                    throw `ending delimiters [${descent.join(',')}] not found in:\n  ${str.slice(i)}`;
-                } else {
-                    i = end;
-                }
-            }
-
-        }
-
-        return -1; //not found 
-    }
-
-  
-
-[check for delimiter]()
-
-The keys are in delArr. Just check if any of them match. 
-
-    let leftDelim = delArr.find( left => left === str.slice(i, left) );
-    if (!leftDelim) {
-        continue;
-    }
-
-[check for escaping]()
-
-There is a leftDelim. Now we check for escaping. The escape could be an empty
-string, meaning there is no escaping.  
-
-    let lead = delimObj.lead;
-    if (lead) {
-        if (str[i-1] === lead) {
-            let esci = 1;
-            while (str[i - esci - 1] === lead) {
-                esci += 1;
-            }
-            if (esci % 2 === 1) {
-                continue; //odd number of escapes leave an escape so no delim
-            }
+        if (vtype === 'string') {
+            _":string"
+        } else if ( (vtype === 'object') && (value.constructor === conreg) ) {
+            _":regex"
+        } else {
+            throw `Value must be string, function, or regex: ${value}`;
         }
     }
 
-[descend into delimiters]()
+[string]() 
 
-This is where the interesting stuff is. We have a left delimiter which tells
-us to look for the right delimiter. We are no longer caring about matching the
-search value (that's the point of this custom index of). So we just go through
-matching delimiters. 
+Strings are designed for exact matches. 
 
-    descent.push(leftDelim);
-    let end = i+1; 
-    let curDel = leftDelim;
-    let cdl = curDel.length;
-    while (descent.length && (end < n) ) {
-        if (str.slice(end, end+cdl) === curDel) { //end delimiter found
-            end = end + cdl;
-            let finishedDelim = descent.pop();
-            CHUNK
-            continue;
+    let vl = value.length;
+    return (str) => {
+        if (str.slice(0,vl) === value) {
+            return [value];
+        } else {
+            return null;
         }
-        let i = end;
-        end += 1;
-        _":check for delimiter"
-        _":check for escaping"
-        curDel = leftDelim;
-        cdl = curDel.length;
-        descent.push(curDel);
-        end = i + cdl;
-    }
+    };
+
+[regex]()
+
+Returns a matching value. Ignores groupings, basically. Ensures it only checks
+at the beginning of a string.
+
+    let regstr = value.toString();
+    if (regstr[1] !== '^') {
+        const lastInd = regstr.lastIndexOf('/');
+        const flags = regstr.slice(lastInd+1); 
+        value = RegExp('^' + regstr.slice(1, lastInd), flags);
+    } 
+    return (str) => {
+        if (value.lastIndex) { value.lastIndex = 0;} // make sure starts at 0
+        let match = value.exec(str);
+        return (match ? match : null);
+    };
     
-[check for terminator]()
 
-This is just like the match length; just different names and break condition.
-Terminators are looked for only on the top level. 
-
-    if (ttype === 'string') {
-        if (str.slice(i, tlength) === terminator ) {
-            break;
-        }
-    } else {
-        let substr = slice(i); 
-        if (ttype === 'function') {
-            if (terminator(substr)) {
-                break;
-            }
-        } else { //should be a regex
-            if (terminator.test(substr)) {
-                break;
-            }
-        }
-    }
 
 
 ### Index Of
 
-This uses the common part; see that which was written from the perspective of
-indexOf but is also used by match. 
+This takes in a str, searchValue, and args that can alter the behavior of the
+descend function. The searchValue can be a string, a regex, or a function that
+returns the match of interest (match as done by exec). 
 
-    _"common | sub
-        ARGS, echo('searchValue,'),
-        PREP, _':searchValue setup', 
-        MATCH, _':check for match', 
-        CHUNK, echo(' ') "
-        
+To make searchValue irrelevant, pass in a function in `first` that will control
+the flow. If a match could be mistaken for a delimiter and one wants to choose
+the delimiter path instead, pass in last=true to have the match checked after
+delimiter checking. A terminator can also be used to stop before the end of
+the string if no match is found before that. It can be a string, regex, or a
+function that returns truthy for a match. 
 
-[check for match]()
 
-This checks the string for a match. The search value could be a string, regex,
-or function. If it is a regex, it should be a global regex that starts at the
-beginning. The function should determine the match based on the beginning of
-the string and return null if not found (allows same function for match if
-desired). 
-
-    
-    if (t === 'string') {
-        if (str.slice(i, svlength) === searchValue ) {
-            return i;
-        }
-    } else {
-        let substr = slice(i); 
-        if (t === 'function') {
-            svlength = searchValue(substr);
-            if (svlength !== null) {
-                return i;
-            }
-        } else { //definitely a regex
-            let regmatch = searchValue.test(substr);
-            if (regmatch) {
-                return i;
+    function (str, searchValue, args = {} ) {
+        searchValue = getMatch(searchValue);
+        let ret = -1;
+        const flow = function (substr, i, str) {
+            const match = searchValue(substr, i, str);
+            if (match) {
+                ret = i;
+                return -1; //breaks further search
+            } else {
+                return null;
             }
         }
+        if (args.last === true) {
+            args.last = flow;
+        } else {
+            args.first = args.first || flow;
+        } 
+        descend({ str, ...args });
+        return ret;
     }
-
-[searchValue setup]()
-
-The searchValue will typically be a string, but it can be a matching function
-or regex. We will throw if it is not one of those types. 
-
-    const tsv = typeof searchValue;
-    if ( (tsv !== 'string') && (tsv !== 'function') ) {
-        if (searchValue.constructor !== conreg) {
-            throw "indexOf requires a matching string, a matching function, explicit null, or a regex as the second argument";
-        }
-        let regstr = searchValue.toString();
-        if (regstr[1] !== '^') {
-            throw `regex ${regstr} must check from the beginning of the string`; 
-        }
-    }
-    let svlength = (tsv === 'string') ? searchValue.length : 0;
-        
-          
 
 ### Last Index Of
 
-A better implementation would do this more efficiently, but we expect these to
-be called on small bits of text and so we don't care. There is no index from
-like in indexOf.
+This goes through the whole string until it ends. The last successful match
+index is what is reported. If "endIndex" is passed into args, then no matching
+allowed after start. 
 
-    function (...args) {
-        let arr = allIndexOf(...args);
-        if (arr.length) {
-            return arr[arr.length-1];
-        } else {
-            return -1;
+    function (str, searchValue, args = {}) {
+        searchValue = getMatch(searchValue);
+        let lastIndex = args.lastIndex ?? +Infinity;
+        let ret = -1;
+        const flow = function (substr, i, str) {
+            if (i > lastIndex) {
+                return -1; //matches that start after endInd not allowed
+            }
+            const match = searchValue(substr, i, str);
+            if ( match ) {
+                ret = i;
+                return 1; //goes to the next character, may match within match
+            } else {
+                return null;
+            }
         }
+        if (args.last === true) {
+            args.last = flow;
+        } else {
+            args.first = args.first || flow;
+        } 
+        descend({ str, ...args });
+        return ret;
     }
 
 ### Match 
 
 This is like indexOf except it returns the match as if it was a regex: an
 array where the first element is the matched string and the rest are
-subgroups. The array also has index of the location where the match starts and
-a property end which is +1 beyond the end of the match so that
-slice(index,end) will give the substring. 
-
-We reuse the code of indexOf, but replace the match checking. 
-    
-    _"common | sub 
-        ARGS, echo('searchValue,'),
-        PREP, _"index of:searchvalue setup",
-        MATCH, _':check for match',
-        CHUNK, echo(' ') "
-
-[check for match]()
-
-This checks the string for a match. The search value could be a string, regex,
-or function. If it is a regex, it should be a global regex that starts at the
-beginning. The function should determine the match based on the beginning of
-the string and return the endpoint. It returns as if it was a regex match
-(which it could be). 
+subgroups. The array also has index of the location where the match starts. 
 
     
-    if (t === 'string') {
-        let substr = str.slice(i, svlength);  
-        if (substr === searchValue ) {
-            let ret = [searchValue];
-            ret.input = subst;
-            ret.index = i; 
-            return ret;
-        }
-    } else {
-        let substr = slice(i); 
-        if (t === 'function') {
-            let match = searchValue(substr);
+    function (str, searchValue, args = {} ) {
+        searchValue = getMatch(searchValue);
+        let ret = null;
+        const flow = function (substr, i, str) {
+            const match = searchValue(substr, i, str);
             if (match) {
+                ret = match;
                 match.index = i;
-                return match; 
-            }
-        } else { //definitely a regex
-            let regmatch = searchValue.exec(substr);
-            if (regmatch) {
-                regmatch.index = i; 
-                return regmatch;
+                match.input = str;
+                return -1; //breaks further search
+            } else {
+                return null;
             }
         }
+        if (args.last === true) {
+            args.last = flow;
+        } else {
+            args.first = args.first || flow;
+        } 
+        descend({ str, ...args });
+        return ret;
     }
-
 
 
 
@@ -738,9 +647,8 @@ This is like chunk and chunkAll, but we have a function that executes when
 there would be an array push. This allows us to do stuff as we descend, if we
 wish. 
 
-    function (...args) {
-
-    }
+This is just the descend function. Here might be a good place to record stuff
+on using it. 
 
 ## Immediates
 
@@ -1154,18 +1062,17 @@ chaining probably reduces the need for this.
 
 [has.js](# "save: | utiltest")
     
-### Test IndexOf
+### Test Descend
 
-IndexOf takes a search string and tries to find the search value not inside a
-parenthetical, etc. 
+This is a test to make sure the basic descend works. 
 
-    tap.test('simple indexOf', async (t) => {
+    tap.test('f=descend', async (t) => {
         const s = myutils.makeScanners();
         console.log('hello');
         let subs = [];
         s.descend({
             str : 'This',
-            top : (a) => {subs.push(a); return 2;}
+            last : (a) => {subs.push(a); return 2;}
         });
         t.equal(subs.join(''),'Thisis', 'skipping by 2');
 
@@ -1174,7 +1081,7 @@ parenthetical, etc.
         let ret = s.descend({
             str : 'This(5)',
             terminator : 's',
-            top : (c) => {a.push(c[0]); return null;}
+            last : (c) => {a.push(c[0]); return null;}
         });
         t.equals(ret.join(','), '3,true', 'return value');
         t.equal(a.join(''), 'Thi', 'checking terminating');
@@ -1184,7 +1091,7 @@ parenthetical, etc.
         let a = [];
         s.descend({
             str : 'This(5)ab',
-            top : (c) => {a.push(c[0]); return null;}
+            last : (c) => {a.push(c[0]); return null;}
         });
         t.equal(a.join(''), 'Thisab', 'skipping over delimiter');
         }
@@ -1215,10 +1122,367 @@ parenthetical, etc.
         });
         t.equal(a.join(','), 'i,5+2*,new,+3,+9', 'segments');
         }
-
         
     });
 
 [descent.js](# "save: | utiltest")
+
+
+### Index Of Test
+
+IndexOf takes a search string and tries to find the search value not inside a
+parenthetical, etc. 
+
+    tap.test('f=indexOf', async (t) => {
+        const s = myutils.makeScanners();
+        console.log('hello');
+        let subs = [];
+
+        { a = s.indexOf('c(ob)ool', 'o');
+        t.equals(a, 5, 'str'); }
+
+        { a = s.indexOf('c(ob)ool', /^[aeiou][^aeiou]/);
+        t.equals(a, 6, 'reg'); }
+
+        { a = s.indexOf('c(ob)ool', /[aeiou][^aeiou]/);
+        t.equals(a, 6, 'reg not start'); }
+
+        {a = s.indexOf('c(ob)oolioo', (str, i) => {
+            if ( (str.slice(0,2) === 'oo') && (i> 7) ) {
+                return ['oo'];
+            } else {
+                return null;
+            }
+        });
+        t.equals(a, 9, 'function index trial'); }
+
+        { a = s.indexOf('c(ob)ool', 'a');
+        t.equals(a, -1, 'no match'); }
+
+        { a = s.indexOf('c(ob)oolioo', 'i', {terminator:'l'});
+        t.equals(a, -1, 'no match terminated'); }
+
+        { a = s.indexOf('c(ob)oolioo', 'i', {terminator:'i'});
+        t.equals(a, 8, 'match checked before terminator'); }
+
+        { a = s.indexOf('c(ob)oolioo', 'i', {terminator:'i', last:true});
+        t.equals(a, -1, 'match checked after terminator so no match'); }
+
+        { a = s.indexOf('c(o[b{0}](o)o)ool', 'o');
+        t.equals(a, 14, 'many nested brackets'); }
+
+        { a = s.indexOf('ooo', 'oo' );
+        t.equals(a, 0, 'simple match'); }
+
+        { a = s.indexOf('ooo', 'oo', {start:1} );
+        t.equals(a, 1, 'starting later'); }
+
+        { a = s.indexOf('ooo', 'oo', {start:2} );
+        t.equals(a,-1, 'no match due to starting to far in'); }
+    });
+
+[indexof.js](# "save: | utiltest") 
+
+
+### Last Index Of Test
+
+Index of 
+
+    tap.test('f=lastIndexOf', async (t) => {
+        const s = myutils.makeScanners();
+        console.log('hello');
+        let subs = [];
+
+        { a = s.lastIndexOf('c(ob)oo(o)l', 'o');
+        t.equals(a, 6, 'last index'); }
+
+        { a = s.lastIndexOf('c(ob)oo(o)l', 'o', {lastIndex: 5} );
+        t.equals(a, 5, 'last index with cutoff'); }
+
+    });
+
+[lastindexof.js](# "save: | utiltest") 
+
+
+### Match Test
+
+Index of 
+
+    tap.test('f=match', async (t) => {
+        const s = myutils.makeScanners();
+        console.log('hello');
+        let subs = [];
+
+        { a = s.match('c(ob)oo(o)lio', /(i)o/);
+        t.equals(a[0], 'io', 'match substring');
+        t.equals(a[1], 'i', 'match group');
+        t.equals(a.index, 11, 'index');
+        t.equals(a.input, 'c(ob)oo(o)lio', 'input');
+        }
+
+
+    });
+
+[match.js](# "save: | utiltest") 
+
+
+### Common 
+
+This is the basic function that the others use. It is like the standard index
+of, except it skips over delimited stuff. To do so, one has to worry about
+nested stuff so it recurses. 
+
+It can be passed in a regular expression. The regex should start searches at the beginning of the regex. Delimiters can be multi-character strings. 
+
+
+    function (str, ARGS { start = 0, delimiters = null, terminator = null } ) {
+
+        console.log('hi');
+
+        PREP
+
+        let ttype, tlength;
+        if (terminator) {
+            ttype = typeof terminator;
+            tlength = (ttype === 'string') ? terminator.length : 0;
+        }
+
+        delimiters = delimiters || delimiterCatalog.common; 
+
+We create an array to go through and check for delimiters. We filter out any
+keys that have false (we want to keep them in delimiters to pass them in
+recursing) and we sort by length of the key so that longer ones get seen
+first. 
+
+        let delArr = Object.keys(delimiters).
+            sort ( (a,b) => b.length - a.length );
+
+         
+Now we do the searching. This code is shared with chunk, but they have
+different purposes. For chunk, search is not present at the top level. Here it
+is to see if the search matches 
+
+        const n = str.length;
+        
+        console.log('made it here', n, str, searchValue);
+
+        let descent = []; // pop/push of ending delimiters
+        for (let i = start; i < n; i += 1) {
+            let end, delimited;
+            
+            MATCH
+
+            _":check for terminator"
+
+            _":check for delimiter"
+
+            let delimObj = delimiters[leftDelim];
+            
+            _":check for escaping"
+            
+            { //delimiter has been found, not escape
+            
+                _":descend into delimiters"
+                
+                if ( descent.length ) {
+                    throw `ending delimiters [${descent.join(',')}] not found in:\n  ${str.slice(i)}`;
+                } else {
+                    i = end;
+                }
+            }
+
+        }
+
+        return -1; //not found 
+    }
+
+  
+
+[check for delimiter]()
+
+The keys are in delArr. Just check if any of them match. 
+
+    let leftDelim = delArr.find( left => left === str.slice(i, left) );
+    if (!leftDelim) {
+        continue;
+    }
+
+[check for escaping]()
+
+There is a leftDelim. Now we check for escaping. The escape could be an empty
+string, meaning there is no escaping.  
+
+    let lead = delimObj.lead;
+    if (lead) {
+        if (str[i-1] === lead) {
+            let esci = 1;
+            while (str[i - esci - 1] === lead) {
+                esci += 1;
+            }
+            if (esci % 2 === 1) {
+                continue; //odd number of escapes leave an escape so no delim
+            }
+        }
+    }
+
+[descend into delimiters]()
+
+This is where the interesting stuff is. We have a left delimiter which tells
+us to look for the right delimiter. We are no longer caring about matching the
+search value (that's the point of this custom index of). So we just go through
+matching delimiters. 
+
+    descent.push(leftDelim);
+    let end = i+1; 
+    let curDel = leftDelim;
+    let cdl = curDel.length;
+    while (descent.length && (end < n) ) {
+        if (str.slice(end, end+cdl) === curDel) { //end delimiter found
+            end = end + cdl;
+            let finishedDelim = descent.pop();
+            CHUNK
+            continue;
+        }
+        let i = end;
+        end += 1;
+        _":check for delimiter"
+        _":check for escaping"
+        curDel = leftDelim;
+        cdl = curDel.length;
+        descent.push(curDel);
+        end = i + cdl;
+    }
+    
+[check for terminator]()
+
+This is just like the match length; just different names and break condition.
+Terminators are looked for only on the top level. 
+
+    if (ttype === 'string') {
+        if (str.slice(i, tlength) === terminator ) {
+            break;
+        }
+    } else {
+        let substr = slice(i); 
+        if (ttype === 'function') {
+            if (terminator(substr)) {
+                break;
+            }
+        } else { //should be a regex
+            if (terminator.test(substr)) {
+                break;
+            }
+        }
+    }
+
+
+### junk
+
+[crap]()
+
+    _"common | sub
+        ARGS, echo('searchValue,'),
+        PREP, _':searchValue setup', 
+        MATCH, _':check for match', 
+        CHUNK, echo(' ') "
+        
+
+[check for match]()
+
+This checks the string for a match. The search value could be a string, regex,
+or function. If it is a regex, it should be a global regex that starts at the
+beginning. The function should determine the match based on the beginning of
+the string and return null if not found (allows same function for match if
+desired). 
+
+    
+    if (t === 'string') {
+        if (str.slice(i, svlength) === searchValue ) {
+            return i;
+        }
+    } else {
+        let substr = slice(i); 
+        if (t === 'function') {
+            svlength = searchValue(substr);
+            if (svlength !== null) {
+                return i;
+            }
+        } else { //definitely a regex
+            let regmatch = searchValue.test(substr);
+            if (regmatch) {
+                return i;
+            }
+        }
+    }
+
+[searchValue setup]()
+
+The searchValue will typically be a string, but it can be a matching function
+or regex. We will throw if it is not one of those types. 
+
+    const tsv = typeof searchValue;
+    if (tsv === 'function') {
+        terminator 
+    if (tsv === 'string') {
+        
+    } else if (tsv === 'object') {
+        if (searchValue.constructor !== conreg) {
+            _":bad search value"
+        }
+        let regstr = searchValue.toString();
+        if (regstr[1] !== '^') {
+            throw `regex ${regstr} must check from the beginning of the string`; 
+        }
+
+    } 
+    if ( (tsv !== 'string') && (tsv !== 'function') ) {
+    }
+    let svlength = (tsv === 'string') ? searchValue.length : 0;
+        
+[bad search value]()
+
+    throw "indexOf requires a matching string, a matching function, explicit null, or a regex as the second argument";
+
+[crap]()
+
+    "common | sub 
+        ARGS, echo('searchValue,'),
+        PREP, _"index of:searchvalue setup",
+        MATCH, _':check for match',
+        CHUNK, echo(' ') "
+
+[check for match]()
+
+This checks the string for a match. The search value could be a string, regex,
+or function. If it is a regex, it should be a global regex that starts at the
+beginning. The function should determine the match based on the beginning of
+the string and return the endpoint. It returns as if it was a regex match
+(which it could be). 
+
+    
+    if (t === 'string') {
+        let substr = str.slice(i, svlength);  
+        if (substr === searchValue ) {
+            let ret = [searchValue];
+            ret.input = subst;
+            ret.index = i; 
+            return ret;
+        }
+    } else {
+        let substr = slice(i); 
+        if (t === 'function') {
+            let match = searchValue(substr);
+            if (match) {
+                match.index = i;
+                return match; 
+            }
+        } else { //definitely a regex
+            let regmatch = searchValue.exec(substr);
+            if (regmatch) {
+                regmatch.index = i; 
+                return regmatch;
+            }
+        }
+    }
 
 

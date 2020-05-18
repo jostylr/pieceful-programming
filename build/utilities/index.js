@@ -135,9 +135,11 @@ const makeScanners = function (moreDelimiters ={}) {
         str = '', 
         start = 0, 
         delimiters = 'common', 
+        first = () => null,
         terminator = () => null,
-        top = () => null, 
-        inner = () => null,
+        last = () => null, 
+        innerFirst = () => null,
+        innerLast = () => null,
         push = () => null, 
         pop = () => null, 
         end = () => null
@@ -180,7 +182,19 @@ const makeScanners = function (moreDelimiters ={}) {
             let substr = str.slice(i);
             
             {
-                const t = terminator(substr);
+            const control = first(substr, i, str);
+            if (typeof control === 'number') {
+                if (control < 1) {
+                    return;
+                } else {
+                    i += control-1; // the loop is going to add 1
+                    continue;
+                }
+            } 
+            }
+    
+            {
+                const t = terminator(substr, i);
                 if (t) {
                     return [i, t];
                 }
@@ -188,9 +202,25 @@ const makeScanners = function (moreDelimiters ={}) {
             let delim = delimiters.find( arr => {
                 const left = arr[0];
                 return ( left === substr.slice(0, left.length) );
-            });
+            }); 
+            
+            if (delim) {
+                let lead = delim[1].lead;
+                if (lead) {
+                    if (str[i-1] === lead) {
+                        let esci = 1;
+                        while (str[i - esci - 1] === lead) {
+                            esci += 1;
+                        }
+                        if (esci % 2 === 1) {
+                            delim = false; //odd number of escapes leave an escape so no delim
+                        }
+                    }
+                }  
+            }
+    
             if (!delim) {
-                let control = top(substr);
+                const control = last(substr, i, str);
                 if (typeof control === 'number') {
                     if (control < 1) {
                         return;
@@ -200,19 +230,6 @@ const makeScanners = function (moreDelimiters ={}) {
                     }
                 }
                 continue;
-            }
-    
-            let lead = delim[1].lead;
-            if (lead) {
-                if (str[i-1] === lead) {
-                    let esci = 1;
-                    while (str[i - esci - 1] === lead) {
-                        esci += 1;
-                    }
-                    if (esci % 2 === 1) {
-                        continue; //odd number of escapes leave an escape so no delim
-                    }
-                }
             }
             
             { //delimiter has been found, not escape
@@ -229,77 +246,87 @@ const makeScanners = function (moreDelimiters ={}) {
                 while (insides.length && (i < n) ) {
                     let substr = str.slice(i);
                     
-                    let control = inner(substr, current, insides, i); 
+                    {
+                    const control = innerFirst(substr, current, insides, i, str); 
                     if (typeof control === 'number') {
                         if (control < 1) {
                             return;
                         } else {
-                            i += control-1; // the loop is going to add 1
+                            i += control; // the loop is going to add 1
                             continue;
                         }
+                    }  //not a for loop here so need +1
                     }
                 
-                    if (str.slice(i, i+cdl) === right.end) { //end delimiter found
-                        let escape = right.escape;
-                        if (escape) {
-                            if (str[i-1] === escape) {
-                                let esci = 1;
-                                while (str[i - esci - 1] === escape) {
-                                    esci += 1;
-                                }
-                                if (esci % 2 === 1) {
-                                    i+=1; continue; //odd number of escapes leave an escape so no delim
+                        if (substr.slice(0, cdl) === right.end) { //end delimiter found
+                            let rightFound = true;
+                            let escape = right.escape;
+                            if (escape) {
+                                if (str[i-1] === escape) {
+                                    let esci = 1;
+                                    while (str[i - esci - 1] === escape) {
+                                        esci += 1;
+                                    }
+                                    if (esci % 2 === 1) {
+                                        rightFound = false; //odd number of escapes leave an escape so no rightFound
+                                    }
                                 }
                             }
-                        }
-                
-                        insides.pop();
-                        let leftPos = current[2];
-                        let positions = [leftPos, leftPos+left.length, i, i +cdl]
-                
-                        let control = pop(str, positions, current, insides);
-                        if (insides.length !== 0) {
-                            current = last(insides);
-                            [left, right] = current; 
-                            if (right.delimiters) {
-                                delimiters = delimiterCatalog[right.delimiters];
-                            }
-                        } else {
-                            delimiters = originalDelimiters;  
-                        }
-                
-                        if (typeof control === 'number') {
-                            if (control < 1) {
-                                return;
-                            } else {
-                                i += control-1; // the loop is going to add 1
+                           
+                            if (rightFound) {
+                                insides.pop();
+                                let leftPos = current[2];
+                                let positions = [leftPos, leftPos+left.length, i, i +cdl]
+                    
+                                pop(str, positions, current, insides);
+                                if (insides.length !== 0) {
+                                    current = insides[insides.length-1];
+                                    [left, right] = current; 
+                                    if (right.delimiters) {
+                                        delimiters = delimiterCatalog[right.delimiters];
+                                    }
+                                } else {
+                                    delimiters = originalDelimiters;  
+                                }
+                    
+                                i += cdl;
+                                if (insides.length === 0) { i -= 1;} // for loop increments
                                 continue;
                             }
                         }
                 
-                        i += cdl;
-                        if (insides.length === 0) { i -= 1;} // for loop increments
-                        continue;
-                    }
-                    
                     let delim = delimiters.find( arr => {
                         const left = arr[0];
                         return ( left === substr.slice(0, left.length) );
                     });
-                    if (!delim) {
-                        //TOP
-                        i+=1; continue;
-                    }
-                    if (lead) {
-                        if (str[i-1] === lead) {
-                            let esci = 1;
-                            while (str[i - esci - 1] === lead) {
-                                esci += 1;
-                            }
-                            if (esci % 2 === 1) {
-                                i+=1; continue; //odd number of escapes leave an escape so no delim
+                    
+                    if (delim) {
+                        let lead = delim[1].lead;
+                        if (lead) {
+                            if (str[i-1] === lead) {
+                                let esci = 1;
+                                while (str[i - esci - 1] === lead) {
+                                    esci += 1;
+                                }
+                                if (esci % 2 === 1) {
+                                    delim = false; //odd number of escapes leave an escape so no delim
+                                }
                             }
                         }
+                    }
+                
+                    if (!delim) {
+                        let control = innerLast(substr, current, insides, i, str); 
+                        if (typeof control === 'number') {
+                            if (control < 1) {
+                                return;
+                            } else {
+                                i += control; // the loop is going to add 1
+                                continue;
+                            }
+                        }
+                        i+=1; 
+                        continue;
                     }
                     [left, right] = delim;
                     current = [left, right, i]; 
@@ -307,6 +334,9 @@ const makeScanners = function (moreDelimiters ={}) {
                     push(str, i, left, right);
                     i += left.length;
                     cdl = right.end.length;
+                    if (right.delimiters) {
+                        delimiters = delimiterCatalog[right.delimiters];
+                    }
                 
                 }
                 if ( insides.length ) {
@@ -319,293 +349,101 @@ const makeScanners = function (moreDelimiters ={}) {
         end(); 
         return -1; //not found 
     };
-    const indexOf = function (str, searchValue, { start = 0, delimiters = null, terminator = null } ) {
-    
-        console.log('hi');
-    
-        const tsv = typeof searchValue;
-        if ( (tsv !== 'string') && (tsv !== 'function') ) {
-            if (searchValue.constructor !== conreg) {
-                throw "indexOf requires a matching string, a matching function, explicit null, or a regex as the second argument";
-            }
-            let regstr = searchValue.toString();
-            if (regstr[1] !== '^') {
-                throw `regex ${regstr} must check from the beginning of the string`; 
-            }
+    const getMatch = function (value ) {
+        let vtype = typeof value;
+        if (vtype === 'function') {
+            return value;
         }
-        let svlength = (tsv === 'string') ? searchValue.length : 0;
-    
-        let ttype, tlength;
-        if (terminator) {
-            ttype = typeof terminator;
-            tlength = (ttype === 'string') ? terminator.length : 0;
-        }
-    
-        delimiters = delimiters || delimiterCatalog.common; 
-        let delArr = Object.keys(delimiters).
-            sort ( (a,b) => b.length - a.length );
-        const n = str.length;
-        
-        console.log('made it here', n, str, searchValue);
-    
-        let descent = []; // pop/push of ending delimiters
-        for (let i = start; i < n; i += 1) {
-            let end, delimited;
-            
-            if (t === 'string') {
-                if (str.slice(i, svlength) === searchValue ) {
-                    return i;
-                }
-            } else {
-                let substr = slice(i); 
-                if (t === 'function') {
-                    svlength = searchValue(substr);
-                    if (svlength !== null) {
-                        return i;
-                    }
-                } else { //definitely a regex
-                    let regmatch = searchValue.test(substr);
-                    if (regmatch) {
-                        return i;
-                    }
-                }
-            }
-    
-            if (ttype === 'string') {
-                if (str.slice(i, tlength) === terminator ) {
-                    break;
-                }
-            } else {
-                let substr = slice(i); 
-                if (ttype === 'function') {
-                    if (terminator(substr)) {
-                        break;
-                    }
-                } else { //should be a regex
-                    if (terminator.test(substr)) {
-                        break;
-                    }
-                }
-            }
-    
-            let leftDelim = delArr.find( left => left === str.slice(i, left) );
-            if (!leftDelim) {
-                continue;
-            }
-    
-            let delimObj = delimiters[leftDelim];
-            
-            let lead = delimObj.lead;
-            if (lead) {
-                if (str[i-1] === lead) {
-                    let esci = 1;
-                    while (str[i - esci - 1] === lead) {
-                        esci += 1;
-                    }
-                    if (esci % 2 === 1) {
-                        continue; //odd number of escapes leave an escape so no delim
-                    }
-                }
-            }
-            
-            { //delimiter has been found, not escape
-            
-                descent.push(leftDelim);
-                let end = i+1; 
-                let curDel = leftDelim;
-                let cdl = curDel.length;
-                while (descent.length && (end < n) ) {
-                    if (str.slice(end, end+cdl) === curDel) { //end delimiter found
-                        end = end + cdl;
-                        let finishedDelim = descent.pop();
-                         
-                        continue;
-                    }
-                    let i = end;
-                    end += 1;
-                    let leftDelim = delArr.find( left => left === str.slice(i, left) );
-                    if (!leftDelim) {
-                        continue;
-                    }
-                    let lead = delimObj.lead;
-                    if (lead) {
-                        if (str[i-1] === lead) {
-                            let esci = 1;
-                            while (str[i - esci - 1] === lead) {
-                                esci += 1;
-                            }
-                            if (esci % 2 === 1) {
-                                continue; //odd number of escapes leave an escape so no delim
-                            }
-                        }
-                    }
-                    curDel = leftDelim;
-                    cdl = curDel.length;
-                    descent.push(curDel);
-                    end = i + cdl;
-                }
-                
-                if ( descent.length ) {
-                    throw `ending delimiters [${descent.join(',')}] not found in:\n  ${str.slice(i)}`;
+        if (vtype === 'string') {
+            let vl = value.length;
+            return (str) => {
+                if (str.slice(0,vl) === value) {
+                    return [value];
                 } else {
-                    i = end;
+                    return null;
                 }
-            }
-    
-        }
-    
-        return -1; //not found 
-    };
-    const lastIndexOf = function (...args) {
-        let arr = allIndexOf(...args);
-        if (arr.length) {
-            return arr[arr.length-1];
+            };
+        } else if ( (vtype === 'object') && (value.constructor === conreg) ) {
+            let regstr = value.toString();
+            if (regstr[1] !== '^') {
+                const lastInd = regstr.lastIndexOf('/');
+                const flags = regstr.slice(lastInd+1); 
+                value = RegExp('^' + regstr.slice(1, lastInd), flags);
+            } 
+            return (str) => {
+                if (value.lastIndex) { value.lastIndex = 0;} // make sure starts at 0
+                let match = value.exec(str);
+                return (match ? match : null);
+            };
         } else {
-            return -1;
+            throw `Value must be string, function, or regex: ${value}`;
         }
     };
-    const match = function (str, searchValue, { start = 0, delimiters = null, terminator = null } ) {
-    
-        console.log('hi');
-    
-        const tsv = typeof searchValue;
-        if ( (tsv !== 'string') && (tsv !== 'function') ) {
-            if (searchValue.constructor !== conreg) {
-                throw "indexOf requires a matching string, a matching function, explicit null, or a regex as the second argument";
-            }
-            let regstr = searchValue.toString();
-            if (regstr[1] !== '^') {
-                throw `regex ${regstr} must check from the beginning of the string`; 
-            }
-        }
-        let svlength = (tsv === 'string') ? searchValue.length : 0;
-    
-        let ttype, tlength;
-        if (terminator) {
-            ttype = typeof terminator;
-            tlength = (ttype === 'string') ? terminator.length : 0;
-        }
-    
-        delimiters = delimiters || delimiterCatalog.common; 
-        let delArr = Object.keys(delimiters).
-            sort ( (a,b) => b.length - a.length );
-        const n = str.length;
-        
-        console.log('made it here', n, str, searchValue);
-    
-        let descent = []; // pop/push of ending delimiters
-        for (let i = start; i < n; i += 1) {
-            let end, delimited;
-            
-            if (t === 'string') {
-                let substr = str.slice(i, svlength);  
-                if (substr === searchValue ) {
-                    let ret = [searchValue];
-                    ret.input = subst;
-                    ret.index = i; 
-                    return ret;
-                }
+    const indexOf = function (str, searchValue, args = {} ) {
+        searchValue = getMatch(searchValue);
+        let ret = -1;
+        const flow = function (substr, i, str) {
+            const match = searchValue(substr, i, str);
+            if (match) {
+                ret = i;
+                return -1; //breaks further search
             } else {
-                let substr = slice(i); 
-                if (t === 'function') {
-                    let match = searchValue(substr);
-                    if (match) {
-                        match.index = i;
-                        return match; 
-                    }
-                } else { //definitely a regex
-                    let regmatch = searchValue.exec(substr);
-                    if (regmatch) {
-                        regmatch.index = i; 
-                        return regmatch;
-                    }
-                }
+                return null;
             }
-    
-            if (ttype === 'string') {
-                if (str.slice(i, tlength) === terminator ) {
-                    break;
-                }
-            } else {
-                let substr = slice(i); 
-                if (ttype === 'function') {
-                    if (terminator(substr)) {
-                        break;
-                    }
-                } else { //should be a regex
-                    if (terminator.test(substr)) {
-                        break;
-                    }
-                }
-            }
-    
-            let leftDelim = delArr.find( left => left === str.slice(i, left) );
-            if (!leftDelim) {
-                continue;
-            }
-    
-            let delimObj = delimiters[leftDelim];
-            
-            let lead = delimObj.lead;
-            if (lead) {
-                if (str[i-1] === lead) {
-                    let esci = 1;
-                    while (str[i - esci - 1] === lead) {
-                        esci += 1;
-                    }
-                    if (esci % 2 === 1) {
-                        continue; //odd number of escapes leave an escape so no delim
-                    }
-                }
-            }
-            
-            { //delimiter has been found, not escape
-            
-                descent.push(leftDelim);
-                let end = i+1; 
-                let curDel = leftDelim;
-                let cdl = curDel.length;
-                while (descent.length && (end < n) ) {
-                    if (str.slice(end, end+cdl) === curDel) { //end delimiter found
-                        end = end + cdl;
-                        let finishedDelim = descent.pop();
-                         
-                        continue;
-                    }
-                    let i = end;
-                    end += 1;
-                    let leftDelim = delArr.find( left => left === str.slice(i, left) );
-                    if (!leftDelim) {
-                        continue;
-                    }
-                    let lead = delimObj.lead;
-                    if (lead) {
-                        if (str[i-1] === lead) {
-                            let esci = 1;
-                            while (str[i - esci - 1] === lead) {
-                                esci += 1;
-                            }
-                            if (esci % 2 === 1) {
-                                continue; //odd number of escapes leave an escape so no delim
-                            }
-                        }
-                    }
-                    curDel = leftDelim;
-                    cdl = curDel.length;
-                    descent.push(curDel);
-                    end = i + cdl;
-                }
-                
-                if ( descent.length ) {
-                    throw `ending delimiters [${descent.join(',')}] not found in:\n  ${str.slice(i)}`;
-                } else {
-                    i = end;
-                }
-            }
-    
         }
-    
-        return -1; //not found 
+        if (args.last === true) {
+            args.last = flow;
+        } else {
+            args.first = args.first || flow;
+        } 
+        descend({ str, ...args });
+        return ret;
+    };
+    const lastIndexOf = function (str, searchValue, args = {}) {
+        searchValue = getMatch(searchValue);
+        let lastIndex = args.lastIndex ?? +Infinity;
+        let ret = -1;
+        const flow = function (substr, i, str) {
+            if (i > lastIndex) {
+                return -1; //matches that start after endInd not allowed
+            }
+            const match = searchValue(substr, i, str);
+            if ( match ) {
+                ret = i;
+                return 1; //goes to the next character, may match within match
+            } else {
+                return null;
+            }
+        }
+        if (args.last === true) {
+            args.last = flow;
+        } else {
+            args.first = args.first || flow;
+        } 
+        descend({ str, ...args });
+        return ret;
+    };
+    const match = function (str, searchValue, args = {} ) {
+        searchValue = getMatch(searchValue);
+        let ret = null;
+        const flow = function (substr, i, str) {
+            const match = searchValue(substr, i, str);
+            if (match) {
+                ret = match;
+                match.index = i;
+                match.input = str;
+                return -1; //breaks further search
+            } else {
+                return null;
+            }
+        }
+        if (args.last === true) {
+            args.last = flow;
+        } else {
+            args.first = args.first || flow;
+        } 
+        descend({ str, ...args });
+        return ret;
     };
     const replace = function (str, searchValue, replaceValue, { start = 0, delimiters = null, terminator = null } ) {
     
@@ -783,14 +621,11 @@ const makeScanners = function (moreDelimiters ={}) {
     const chunkAll = function (...args) {
     
     };
-    const walker = function (...args) {
-    
-    };
 
 
     return {indexOf, lastIndexOf, match, replace, descend, 
         allIndexOf, matchAll, replaceAll,
-        split, chunk, chunkAll, walker, delimiterCatalog};
+        split, chunk, chunkAll, walker:descend, delimiterCatalog};
 };
 
 const immediates = {

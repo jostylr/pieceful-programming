@@ -2,13 +2,13 @@ const tap = require('tap');
 const myutils = require('../index.js'); 
 
 const main =  async function () {
-    tap.test('simple indexOf', async (t) => {
+    tap.test('f=descend', async (t) => {
     const s = myutils.makeScanners();
     console.log('hello');
     let subs = [];
     s.descend({
         str : 'This',
-        top : (a) => {subs.push(a); return 2;}
+        last : (a) => {subs.push(a); return 2;}
     });
     t.equal(subs.join(''),'Thisis', 'skipping by 2');
 
@@ -17,7 +17,7 @@ const main =  async function () {
     let ret = s.descend({
         str : 'This(5)',
         terminator : 's',
-        top : (c) => {a.push(c[0]); return null;}
+        last : (c) => {a.push(c[0]); return null;}
     });
     t.equals(ret.join(','), '3,true', 'return value');
     t.equal(a.join(''), 'Thi', 'checking terminating');
@@ -27,7 +27,7 @@ const main =  async function () {
     let a = [];
     s.descend({
         str : 'This(5)ab',
-        top : (c) => {a.push(c[0]); return null;}
+        last : (c) => {a.push(c[0]); return null;}
     });
     t.equal(a.join(''), 'Thisab', 'skipping over delimiter');
     }
@@ -58,7 +58,6 @@ const main =  async function () {
     });
     t.equal(a.join(','), 'i,5+2*,new,+3,+9', 'segments');
     }
-
     
 });
 };
